@@ -170,7 +170,7 @@ export function useSimulationActions() {
   const invalidate = useInvalidateAll();
   return {
     load: useMutation({
-      mutationFn: (input: { scenarioId: string; until: 'start' | 'end' }) =>
+      mutationFn: (input: { scenarioId: string; until: string }) =>
         api.loadScenario({ body: input }),
       onSuccess: () => invalidate(),
     }),

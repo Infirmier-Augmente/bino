@@ -28,6 +28,15 @@ describe('simulateur', () => {
     expect(board.totals.total).toBeGreaterThanOrEqual(5);
   });
 
+  it('rejoue jusqu’à une heure donnée (préparer la démo)', async () => {
+    const { client } = createTestApp();
+    const st = await client.loadScenario({
+      body: { scenarioId: 'rea-box12', until: '2026-11-14T16:25:00+01:00' },
+    });
+    expect(st.now).toBe('2026-11-14T16:25:00+01:00');
+    expect(st.nextEvent?.label).toMatch(/exemple A/);
+  });
+
   it('horloge réelle / simulée', async () => {
     const { client } = createTestApp();
     const st = await client.setClock({

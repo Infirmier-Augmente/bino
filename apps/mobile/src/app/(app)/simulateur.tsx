@@ -146,6 +146,22 @@ export default function SimulateurScreen() {
                   )
                 }
               />
+              {s.id === 'rea-box12' ? (
+                <Button
+                  label="Préparer la démo (16h25)"
+                  kind="secondary"
+                  disabled={busy}
+                  onPress={() =>
+                    sim.load.mutate(
+                      { scenarioId: s.id, until: `${s.startsAt.slice(0, 10)}T16:25:00+01:00` },
+                      {
+                        onSuccess: () => toast.show('Prêt : dicte l’exemple A (Box 12)', 'success'),
+                        onError,
+                      },
+                    )
+                  }
+                />
+              ) : null}
               <Button
                 label="Partir du début"
                 kind="secondary"

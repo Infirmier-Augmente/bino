@@ -65,14 +65,27 @@ export class SimulationService {
     };
   }
 
-  async load(scenarioId: string, until: 'start' | 'end'): Promise<SimulationStatus> {
+  /**
+   * Réinitialise l'hôpital sur un scénario. `until` : 'start', 'end', ou une heure
+   * (ex. 16h25 pour dicter l'exemple A en direct pendant la démo).
+   */
+  async load(scenarioId: string, until: string): Promise<SimulationStatus> {
     const scenario = this.scenarios.find((s) => s.id === scenarioId);
     if (!scenario) throw notFound('Scénario', scenarioId);
     const state = initialState(scenario);
     state.clock = anchorClock(scenario.startsAt, this.realNow());
     this.store.replace(state);
     this.log = [];
-    if (until === 'end') await this.step(scenario.events.length);
+    if (until === 'end') {
+      await this.step(scenario.events.length);
+    } else if (until !== 'start') {
+      const limit = Date.parse(until);
+      const before = scenario.events.filter((e) => Date.parse(e.at) < limit).length;
+      await this.step(before);
+      this.store.update((s) => {
+        s.clock = anchorClock(until, this.realNow());
+      });
+    }
     return this.status();
   }
 

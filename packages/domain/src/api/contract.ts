@@ -275,7 +275,11 @@ export const api = {
     method: 'POST',
     path: '/simulation/load',
     summary: 'Réinitialise l’hôpital sur un scénario (au début ou rejoué jusqu’à la fin).',
-    body: z.object({ scenarioId: z.string(), until: z.enum(['start', 'end']).default('start') }),
+    body: z.object({
+      scenarioId: z.string(),
+      /** 'start', 'end', ou une heure : rejoue les événements antérieurs puis cale l'horloge dessus. */
+      until: z.union([z.enum(['start', 'end']), IsoDateTime]).default('start'),
+    }),
     response: SimulationStatus,
   }),
   stepScenario: endpoint({
