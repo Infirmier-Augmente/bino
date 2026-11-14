@@ -1,0 +1,26 @@
+{
+  "name": "@infirmier/simulation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hôpital simulé : services, soignants, patients FICTIFS et scénarios rejouables (démo, tests, évaluation IA).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "cli": "pnpm --filter @infirmier/api sim"
+  },
+  "dependencies": {
+    "@infirmier/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0",
+    "zod": "^4.6.7"
+  }
+}
