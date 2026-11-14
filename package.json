@@ -20,7 +20,7 @@
     "test:integration": "turbo run test:integration",
     "test:e2e": "pnpm --filter @infirmier/e2e test",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
-    "sim": "pnpm --filter @infirmier/simulation cli",
+    "sim": "pnpm --silent --filter @infirmier/api sim",
     "prepare": "lefthook install || true"
   },
   "devDependencies": {

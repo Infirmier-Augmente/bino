@@ -106,7 +106,7 @@ export function joinFragments(texts: readonly string[]): string {
     .map((t, i) => {
       const s = t.trim().replace(/\.$/, '');
       // On ne baisse pas la casse d'un sigle ("SNG", "KT").
-      return i === 0 || /^[A-ZÀ-Ý]{2}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1);
+      return i === 0 || /^[A-ZÀ-Ý][A-ZÀ-Ý0-9]/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1);
     })
     .join(', ');
 }

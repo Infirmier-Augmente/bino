@@ -12,8 +12,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "test:unit": "vitest run",
-    "cli": "pnpm --filter @infirmier/api sim"
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@infirmier/domain": "workspace:*"

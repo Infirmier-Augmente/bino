@@ -16,7 +16,6 @@ const RESULT_HINTS: Partial<Record<Appareil, string>> = {
   digestif: 'tolérance, reprise alimentaire',
   renal: 'diurèse',
   cutane: 'aspect à la réfection',
-  general: 'réévaluation',
   psy: 'état après l’échange',
 };
 

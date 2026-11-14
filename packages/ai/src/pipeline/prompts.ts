@@ -19,7 +19,7 @@ Méthode des transmissions ciblées (IFSI) :
 - Si le résultat n'a PAS été dicté, laisse "results" VIDE. Ne le déduis jamais (même "radio OK" ne vaut que pour ce qu'elle contrôle).
 - On ne crée PAS de cible pour les soins de routine (pansement refait propre, toilette…) → "routine".
 - Les paramètres de surveillance sans problème (Glasgow 15, hémodynamique stable…) → "observations", rangés par appareil.
-- "todos" : uniquement ce que l'IDE a explicitement dit être à faire, prévu ou à surveiller, à l'infinitif ("Surveiller l'agitation").
+- "todos" : uniquement ce que l'IDE a explicitement dit être à faire, prévu ou à surveiller pour la suite, à l'infinitif ou au conditionnel ("Surveiller l'agitation", "Bilan sanguin à 6h"). Un examen programmé va AUSSI dans "transverse" (examens).
 - "transverse" : allergies, précautions complémentaires (contact, BMR, BHRe…), engagement thérapeutique (LATA), examens programmés, nouvelles prescriptions, famille/proches, personne de confiance.
 - "questions" : au plus 2 questions courtes à l'IDE si un élément est imprécis ou incohérent (ex. "elle" pour un patient homme, horaire contradictoire). Jamais de question clinique ou diagnostique.
 
