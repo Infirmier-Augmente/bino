@@ -2,19 +2,22 @@ import type { SampleDictation } from '@infirmier/domain';
 import { Play } from 'lucide-react-native';
 import { type ComponentRef, type Ref, useState } from 'react';
 import { Text as RNText, StyleSheet, TextInput, View } from 'react-native';
+import { liveDisplayText } from '@/lib/live-segments';
+import { appendDictation } from '@/lib/report';
 import { TextButton } from '@/ui/primitives';
 import { Chip } from '@/ui/surfaces';
 import { colors, space, type } from '@/ui/theme';
 import { DictationStatusLine } from './DictationStatusLine';
 import { EMPTY_DRAFT, useDrafts } from './drafts';
+import { LiveTranscript } from './LiveTranscript';
 import { MicButton } from './MicButton';
 import type { ReportDictation } from './useReportDictation';
 
 /**
  * Zone du compte rendu : grande zone de texte, micro 72 px et exemple de dictée. Pendant la
- * dictée, le texte n'est pas modifiable : le brouillon s'affiche, suivi du texte PROVISOIRE
- * (gris, italique) mot à mot ; à l'arrêt, le texte définitif le remplace et redevient
- * modifiable. Le texte vit dans le brouillon du patient (gardé à la fermeture).
+ * dictée, le texte n'est pas modifiable : le brouillon s'affiche, suivi de la dictée segment
+ * par segment (`LiveTranscript` : provisoire gris italique, puis définitif) ; à l'arrêt, le
+ * texte définitif est ajouté au brouillon et redevient modifiable. Le texte vit dans le brouillon du patient (gardé à la fermeture).
  */
 export function ReportComposer({
   patientId,
@@ -32,27 +35,20 @@ export function ReportComposer({
   const draft = useDrafts((s) => s.drafts[patientId]) ?? EMPTY_DRAFT;
   const update = useDrafts((s) => s.update);
   const [focused, setFocused] = useState(false);
-  const { status, provisional } = dictation;
+  const { status, segments } = dictation;
   const dictating = status === 'recording' || status === 'finalizing';
-  const pending = provisional.trim();
+  const spoken = liveDisplayText(segments);
 
   return (
     <View style={styles.zone}>
       {dictating ? (
-        <View
-          style={[styles.input, styles.preview, { minHeight }]}
-          accessibilityLabel="Compte rendu en cours de dictée"
-          testID="cr-apercu"
-        >
-          {draft.text || pending ? (
-            <RNText style={[type.composer, styles.text]}>
-              {draft.text}
-              {pending ? (
-                <RNText style={styles.provisional} testID="cr-provisoire">
-                  {draft.text ? ` ${pending}` : pending}
-                </RNText>
-              ) : null}
-            </RNText>
+        <View style={[styles.input, styles.preview, { minHeight }]} testID="cr-apercu">
+          {draft.text || spoken ? (
+            <LiveTranscript
+              draft={draft.text}
+              segments={segments}
+              label={`Compte rendu en cours de dictée : ${appendDictation(draft.text, spoken)}`}
+            />
           ) : status === 'recording' ? (
             <RNText style={[type.composer, styles.hint]}>
               {dictation.textWhileSpeaking
@@ -113,8 +109,6 @@ const styles = StyleSheet.create({
   },
   // Même boîte que la zone de texte, bordure magenta : on voit que la dictée est en cours.
   preview: { borderColor: colors.magenta },
-  text: { color: colors.navy },
-  provisional: { color: colors.sec, fontStyle: 'italic' },
   hint: { color: colors.sec },
   focused: {
     outlineWidth: 3,

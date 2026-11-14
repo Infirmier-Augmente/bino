@@ -7,6 +7,7 @@ import { useLiveDictation } from '@/features/dictation/useLiveDictation';
 import { type SttOutcome, useServerDictation } from '@/features/dictation/useServerDictation';
 import { useWebSpeech, webSpeechSupported } from '@/features/dictation/useWebSpeech';
 import { chooseDictationEngine } from '@/lib/dictation-engine';
+import type { LiveSegments } from '@/lib/live-segments';
 import { appendDictation } from '@/lib/report';
 import { useToast } from '@/ui/toast';
 import { useDrafts } from './drafts';
@@ -16,6 +17,7 @@ export type DictationStatus = 'idle' | 'recording' | 'finalizing' | 'transcribin
 
 const NATIVE_DRIVER = Platform.OS !== 'web';
 const LEVEL_EVERY_MS = 80;
+const NO_SEGMENTS: LiveSegments = [];
 
 /**
  * Micro de la fiche « Nouveau compte rendu ». Moteur choisi par `chooseDictationEngine` :
@@ -79,6 +81,14 @@ export function useReportDictation(patientId: string, focusInput: () => void) {
         ? 'transcribing'
         : 'idle';
 
+  // Dictée du navigateur : sa transcription partielle = un seul segment provisoire.
+  const segments: LiveSegments =
+    live.phase !== 'idle'
+      ? live.segments
+      : web.interim
+        ? [{ index: 0, provisional: web.interim, final: null }]
+        : NO_SEGMENTS;
+
   const startServer = async () => {
     const error = await server.start();
     if (error) toast.show(error);
@@ -130,8 +140,8 @@ export function useReportDictation(patientId: string, focusInput: () => void) {
     recording,
     /** Arrêté, le texte est en route : micro et « Valider » en attente. */
     busy: status === 'finalizing' || status === 'transcribing',
-    /** Texte provisoire (dictée en direct ou navigateur), affiché après le brouillon. */
-    provisional: live.provisional || web.interim,
+    /** Texte en cours de dictée, par segment (direct, ou navigateur), affiché après le brouillon. */
+    segments,
     /** Le texte s'affiche pendant la dictée (sinon : à l'arrêt). */
     textWhileSpeaking: live.phase !== 'idle' || web.listening,
     startedAt,

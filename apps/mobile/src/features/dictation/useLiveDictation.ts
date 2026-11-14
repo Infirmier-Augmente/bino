@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { currentApiUrl } from '@/features/api/client';
+import type { LiveSegments } from '@/lib/live-segments';
 import {
   createLiveClient,
   type LiveClient,
@@ -27,7 +28,7 @@ export const CONNECT_TIMEOUT_MS = 4_000;
 const WS_CONNECTING = 0;
 
 export interface LiveCallbacks {
-  /** Texte à AJOUTER au brouillon : le définitif, ou le provisoire en secours. */
+  /** Texte à AJOUTER au brouillon : le définitif, ou le texte affiché en secours. */
   onText(text: string): void;
   onError(message: string): void;
   /** La dictée en direct n'a pas pu démarrer : passer à l'enregistrement transcrit à la fin. */
@@ -45,15 +46,15 @@ interface Session {
 }
 
 /**
- * DICTÉE EN DIRECT : le son du micro part en continu vers l'API (WebSocket), le texte
- * provisoire s'affiche mot à mot, puis à l'arrêt le texte définitif de toute la dictée le
- * remplace. Le micro et la connexion démarrent EN MÊME TEMPS ; le son capté avant
+ * DICTÉE EN DIRECT : le son du micro part en continu vers l'API (WebSocket). Segment par
+ * segment (pauses de la voix), le texte provisoire s'affiche mot à mot puis le définitif le
+ * remplace ; à l'arrêt, le texte définitif de toute la dictée est ajouté au brouillon. Le micro et la connexion démarrent EN MÊME TEMPS ; le son capté avant
  * l'ouverture est gardé en file (`createLiveClient`) : rien n'est perdu.
  */
 export function useLiveDictation(onLevel: (level: number) => void) {
   const capture = usePcmCapture();
   const [phase, setPhase] = useState<LivePhase>('idle');
-  const [provisional, setProvisional] = useState('');
+  const [segments, setSegments] = useState<LiveSegments>([]);
   const current = useRef<Session | null>(null);
 
   const settle = (s: Session, text: string, error: string | null, fallback = false) => {
@@ -69,7 +70,7 @@ export function useLiveDictation(onLevel: (level: number) => void) {
     if (current.current === s) {
       current.current = null;
       setPhase('idle');
-      setProvisional('');
+      setSegments([]);
       onLevel(0);
     }
     if (text) s.callbacks.onText(text);
@@ -84,7 +85,7 @@ export function useLiveDictation(onLevel: (level: number) => void) {
       settle(s, '', null, true);
       return;
     }
-    const kept = client.provisional.trim();
+    const kept = client.text;
     settle(s, kept, kept ? LIVE_KEPT : (message ?? LIVE_FAILED));
   };
 
@@ -98,14 +99,14 @@ export function useLiveDictation(onLevel: (level: number) => void) {
     const client = createLiveClient(
       { send: (data) => s.socket?.send(data) },
       {
-        onProvisional: (text) => {
-          if (current.current === s) setProvisional(text);
+        onSegments: (next) => {
+          if (current.current === s) setSegments(next);
         },
         // Final sans arrêt demandé : durée maximale atteinte, l'API a arrêté et transcrit.
         onFinal: (text) =>
           settle(
             s,
-            liveResultText(s.client.provisional, text),
+            liveResultText(s.client.text, text),
             s.client.stopped ? null : LIVE_MAX_REACHED,
           ),
         onFailure: (message) => onFailure(s, message),
@@ -122,7 +123,7 @@ export function useLiveDictation(onLevel: (level: number) => void) {
     };
     current.current = s;
     setPhase('recording');
-    setProvisional('');
+    setSegments([]);
 
     try {
       const socket = new WebSocket(liveTranscriptionUrl(currentApiUrl()));
@@ -158,7 +159,7 @@ export function useLiveDictation(onLevel: (level: number) => void) {
       onLevel(0);
       s.timers.push(
         setTimeout(() => {
-          const kept = s.client.provisional.trim();
+          const kept = s.client.text;
           settle(s, kept, kept ? LIVE_KEPT : LIVE_FAILED);
         }, FINAL_TIMEOUT_MS),
       );
@@ -174,5 +175,5 @@ export function useLiveDictation(onLevel: (level: number) => void) {
   });
   useEffect(() => () => void stopRef.current(), []);
 
-  return { phase, provisional, start, stop };
+  return { phase, segments, start, stop };
 }

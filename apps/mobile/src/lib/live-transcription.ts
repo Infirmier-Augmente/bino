@@ -1,9 +1,11 @@
 import { LIVE_TRANSCRIPTION_PATH, LiveServerMessage } from '@infirmier/domain';
+import { type LiveSegments, liveDisplayText, reduceSegments } from './live-segments';
 
 /**
  * DICTÉE EN DIRECT, côté app (logique pure). Le son part vers NOTRE API par WebSocket
- * (jamais vers un fournisseur d'IA) ; l'API renvoie un texte provisoire mot à mot, puis le
- * texte définitif de toute la dictée, qui REMPLACE le provisoire.
+ * (jamais vers un fournisseur d'IA) ; l'API renvoie, segment par segment (pauses de la voix),
+ * un texte provisoire mot à mot puis le texte définitif qui le remplace ; à l'arrêt, `final`
+ * = tous les segments définitifs bout à bout.
  */
 
 /** `http://hote:8787` → `ws://hote:8787/transcriptions/live` (`https` → `wss`). */
@@ -29,9 +31,9 @@ export interface LiveSink {
 }
 
 export interface LiveClientHandlers {
-  /** Texte provisoire COMPLET depuis le début de la dictée. */
-  onProvisional(text: string): void;
-  /** Texte définitif de toute la dictée. */
+  /** Segments à afficher (définitif s'il est arrivé, sinon provisoire). */
+  onSegments(segments: LiveSegments): void;
+  /** Texte définitif de toute la dictée (fin de la session). */
   onFinal(text: string): void;
   /** Erreur annoncée par l'API, ou connexion fermée sans texte définitif. */
   onFailure(message: string | null): void;
@@ -48,7 +50,7 @@ export function createLiveClient(sink: LiveSink, handlers: LiveClientHandlers) {
   let stopped = false;
   let settled = false;
   let ready = false;
-  let provisional = '';
+  let segments: LiveSegments = [];
 
   const emit = (data: ArrayBuffer | string) => {
     if (open) sink.send(data);
@@ -65,7 +67,7 @@ export function createLiveClient(sink: LiveSink, handlers: LiveClientHandlers) {
     sendAudio(chunk: ArrayBuffer) {
       if (!stopped && !settled) emit(chunk);
     },
-    /** Fin de la dictée : l'API retranscrit tout et renvoie le texte définitif. */
+    /** Fin de la dictée : l'API termine le dernier segment et renvoie le texte définitif. */
     stop() {
       if (stopped || settled) return;
       stopped = true;
@@ -79,10 +81,13 @@ export function createLiveClient(sink: LiveSink, handlers: LiveClientHandlers) {
       const msg = parseLiveMessage(data);
       if (!msg || settled) return;
       if (msg.type === 'ready') ready = true;
-      else if (msg.type === 'delta') {
+      else if (msg.type === 'delta' || msg.type === 'segment') {
         ready = true;
-        provisional += msg.text;
-        handlers.onProvisional(provisional);
+        const next = reduceSegments(segments, msg);
+        if (next !== segments) {
+          segments = next;
+          handlers.onSegments(segments);
+        }
       } else if (msg.type === 'final') {
         settled = true;
         handlers.onFinal(msg.text);
@@ -98,8 +103,12 @@ export function createLiveClient(sink: LiveSink, handlers: LiveClientHandlers) {
     get stopped() {
       return stopped;
     },
-    get provisional() {
-      return provisional;
+    get segments() {
+      return segments;
+    },
+    /** Texte affiché : définitif là où il est arrivé, provisoire ailleurs. */
+    get text() {
+      return liveDisplayText(segments);
     },
   };
 }
@@ -107,25 +116,25 @@ export function createLiveClient(sink: LiveSink, handlers: LiveClientHandlers) {
 export type LiveClient = ReturnType<typeof createLiveClient>;
 
 /**
- * Texte ajouté au compte rendu en fin de dictée : le définitif (meilleur modèle, contexte
- * complet, nombres en chiffres) ; le provisoire seulement s'il n'y a pas de définitif.
+ * Texte ajouté au compte rendu en fin de dictée : le définitif (tous les segments définitifs) ;
+ * sinon ce qui est affiché (définitif là où il est arrivé, provisoire ailleurs).
  */
-export function liveResultText(provisional: string, final: string | null): string {
+export function liveResultText(displayed: string, final: string | null): string {
   const best = final?.trim() ?? '';
-  return best || provisional.trim();
+  return best || displayed.trim();
 }
 
 /**
  * Que faire quand la dictée en direct échoue : si la session n'a jamais démarré et que l'IDE
  * parle encore, on bascule sans rien dire sur l'enregistrement transcrit à la fin ; sinon on
- * garde le texte provisoire (elle le relit).
+ * garde le texte affiché (elle le relit).
  */
 export function liveFailureAction(s: {
   ready: boolean;
   stopped: boolean;
-  provisional: string;
+  text: string;
 }): 'fallback' | 'keep-provisional' {
-  return !s.ready && !s.stopped && !s.provisional.trim() ? 'fallback' : 'keep-provisional';
+  return !s.ready && !s.stopped && !s.text.trim() ? 'fallback' : 'keep-provisional';
 }
 
 /** Durée d'enregistrement affichée : « 0:07 », « 1:23 », « 12:05 ». */

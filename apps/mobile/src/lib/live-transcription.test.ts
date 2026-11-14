@@ -16,7 +16,10 @@ function setup() {
   const client = createLiveClient(
     { send: (d) => sent.push(d) },
     {
-      onProvisional: (t) => events.push(`provisoire:${t}`),
+      onSegments: (segs) =>
+        events.push(
+          `affiché:${segs.map((x) => `${x.index}=${x.final ?? `~${x.provisional}`}`).join('|')}`,
+        ),
       onFinal: (t) => events.push(`final:${t}`),
       onFailure: (m) => events.push(`échec:${m ?? '-'}`),
     },
@@ -37,10 +40,12 @@ describe('liveTranscriptionUrl', () => {
 
 describe('parseLiveMessage', () => {
   it('valide les messages avec le schéma partagé', () => {
-    expect(parseLiveMessage('{"type":"delta","text":" sat"}')).toEqual({
+    expect(parseLiveMessage('{"type":"delta","segment":0,"text":" sat"}')).toEqual({
       type: 'delta',
+      segment: 0,
       text: ' sat',
     });
+    expect(parseLiveMessage('{"type":"delta","text":" sat"}')).toBeNull();
     expect(parseLiveMessage('{"type":"inconnu"}')).toBeNull();
     expect(parseLiveMessage('pas du json')).toBeNull();
     expect(parseLiveMessage(new ArrayBuffer(2))).toBeNull();
@@ -69,20 +74,25 @@ describe('createLiveClient', () => {
     expect(sent).toEqual([a]);
   });
 
-  it('concatène le provisoire, puis le définitif le remplace', () => {
+  it('segments : provisoire mot à mot, puis définitif qui le remplace, puis final', () => {
     const { client, events } = setup();
     client.received('{"type":"ready","engine":"openai"}');
     expect(client.ready).toBe(true);
-    client.received('{"type":"delta","text":"Sat"}');
-    client.received('{"type":"delta","text":" quatre-vingt-quatorze"}');
-    client.received('{"type":"final","text":"Sat 94 %.","durationSec":3,"engine":"openai"}');
+    client.received('{"type":"delta","segment":0,"text":"Sat"}');
+    client.received('{"type":"delta","segment":0,"text":" quatre-vingt-quatorze."}');
+    client.received('{"type":"delta","segment":1,"text":" Pouls"}');
+    client.received('{"type":"segment","segment":0,"text":"Sat 94.","engine":"openai"}');
+    client.received('{"type":"delta","segment":0,"text":" tard"}'); // segment déjà définitif
+    expect(client.text).toBe('Sat 94. Pouls');
+    client.received('{"type":"final","text":"Sat 94. Pouls 108.","durationSec":3,"engine":"o"}');
     client.closed();
     expect(events).toEqual([
-      'provisoire:Sat',
-      'provisoire:Sat quatre-vingt-quatorze',
-      'final:Sat 94 %.',
+      'affiché:0=~Sat',
+      'affiché:0=~Sat quatre-vingt-quatorze.',
+      'affiché:0=~Sat quatre-vingt-quatorze.|1=~ Pouls',
+      'affiché:0=Sat 94.|1=~ Pouls',
+      'final:Sat 94. Pouls 108.',
     ]);
-    expect(client.provisional).toBe('Sat quatre-vingt-quatorze');
   });
 
   it('erreur ou fermeture sans définitif : un seul échec signalé', () => {
@@ -97,17 +107,17 @@ describe('createLiveClient', () => {
 });
 
 describe('fin de la dictée en direct', () => {
-  it('le définitif remplace le provisoire ; le provisoire ne sert qu’en secours', () => {
+  it('le définitif remplace l’affiché ; l’affiché ne sert qu’en secours', () => {
     expect(liveResultText('sat quatre-vingt-quatorze', ' Sat 94 %. ')).toBe('Sat 94 %.');
     expect(liveResultText(' sat quatre-vingt ', null)).toBe('sat quatre-vingt');
     expect(liveResultText('sat', '   ')).toBe('sat');
   });
   it('bascule sur l’enregistrement seulement si rien n’a démarré', () => {
-    const base = { ready: false, stopped: false, provisional: '' };
+    const base = { ready: false, stopped: false, text: '' };
     expect(liveFailureAction(base)).toBe('fallback');
     expect(liveFailureAction({ ...base, ready: true })).toBe('keep-provisional');
     expect(liveFailureAction({ ...base, stopped: true })).toBe('keep-provisional');
-    expect(liveFailureAction({ ...base, provisional: 'Box 12' })).toBe('keep-provisional');
+    expect(liveFailureAction({ ...base, text: 'Box 12' })).toBe('keep-provisional');
   });
   it('durée affichée', () => {
     expect(formatElapsed(0)).toBe('0:00');
