@@ -109,7 +109,7 @@ sur Postgres hébergé HDS, sans toucher aux routes.
 - **Expo SDK 58**, Expo Router (fichiers dans `src/app`), React Native Web pour le PC.
 - Données serveur : **TanStack Query** (rafraîchissement 5 s des vues relève). Préférences : **Zustand** persistant.
 - Pas de bibliothèque de style : **tokens** (`src/ui/theme.ts`) + primitives maison, fiables sur toutes les plateformes.
-- Dictée : Web Speech API (texte en direct) → sinon enregistrement `expo-audio` + `/transcriptions` → sinon clavier.
+- Dictée : enregistrement `expo-audio` + `/transcriptions` si un STT serveur est configuré → sinon Web Speech API (texte en direct) → sinon clavier (`src/lib/dictation-engine.ts`).
 - Grand écran (≥ 900 px) : barre latérale et vue relève maître-détail ; téléphone : onglets en bas.
 
 ## Sécurité (prototype)

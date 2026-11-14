@@ -2,9 +2,11 @@
 
 ## Préparation (avant de monter sur scène)
 
-1. `.env` : `LLM_PROVIDER=deepseek` + clé, `CLASSIFIER_PROVIDER=jev` + clé (sinon moteur local).
+1. `.env` : `LLM_PROVIDER=deepseek` + clé, `CLASSIFIER_PROVIDER=jev` + clé (sinon moteur local),
+   `STT_PROVIDER=openai` + clé pour la transcription (sinon reconnaissance du navigateur).
 2. `pnpm dev:api` puis `pnpm dev:web` (PC). Sur le téléphone (même Wi-Fi) : ouvrir
-   `http://<IP-du-PC>:8081` dans Chrome/Safari (dictée vocale du navigateur), ou Expo Go via `pnpm dev:app`.
+   `http://<IP-du-PC>:8081` dans Chrome/Safari, ou Expo Go via `pnpm dev:app`. Dans un navigateur
+   de téléphone, le micro n'est autorisé qu'en **HTTPS** (tunnel, ex. `cloudflared tunnel --url`).
    Réglages → Serveur si l'adresse de l'API n'est pas trouvée.
 3. Simulateur → **« Préparer la démo (16h25) »** sur *Réa — journée de Martine* : la journée est rejouée
    jusqu'à 16h25, l'exemple A reste à dicter en direct.

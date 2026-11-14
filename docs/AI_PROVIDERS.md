@@ -45,7 +45,10 @@ Sans STT serveur (`STT_PROVIDER=none`), l'app utilise :
 - sur navigateur (PC, Chrome Android, Safari iOS) : la reconnaissance vocale du navigateur, texte en direct ;
 - sur l'app native : le micro du clavier du téléphone.
 
-Avec un STT serveur, l'app native enregistre (`expo-audio`) et envoie à `POST /transcriptions` :
+Avec un STT serveur, il est **prioritaire partout** (app native et navigateur) : l'app enregistre
+(`expo-audio`) et envoie à `POST /transcriptions`, le texte s'affiche à la fin de l'enregistrement.
+La reconnaissance du navigateur n'est plus utilisée (Chrome Android répète des mots en mode continu).
+Choix du moteur : `apps/mobile/src/lib/dictation-engine.ts`.
 
 ```bash
 STT_PROVIDER=groq            # ou openai

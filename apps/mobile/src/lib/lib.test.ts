@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveApiUrl } from './api-url';
+import { chooseDictationEngine } from './dictation-engine';
 import { duration, plural, relative } from './format';
 import { highlightSegments } from './highlight';
 
@@ -19,6 +20,25 @@ describe('resolveApiUrl', () => {
       'http://192.168.1.30:8787',
     );
     expect(resolveApiUrl(none)).toBe('http://localhost:8787');
+  });
+});
+
+describe('chooseDictationEngine', () => {
+  it('la transcription serveur prime sur celle du navigateur dès qu’elle est configurée', () => {
+    expect(chooseDictationEngine({ serverSttReady: true, webSpeechAvailable: true })).toBe(
+      'server',
+    );
+    expect(chooseDictationEngine({ serverSttReady: true, webSpeechAvailable: false })).toBe(
+      'server',
+    );
+  });
+  it('sans transcription serveur : navigateur, sinon clavier', () => {
+    expect(chooseDictationEngine({ serverSttReady: false, webSpeechAvailable: true })).toBe(
+      'web-speech',
+    );
+    expect(chooseDictationEngine({ serverSttReady: false, webSpeechAvailable: false })).toBe(
+      'keyboard',
+    );
   });
 });
 

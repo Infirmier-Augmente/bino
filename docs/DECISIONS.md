@@ -31,7 +31,7 @@ choix structurant (une PR qui change une décision met à jour ce fichier).
 | T8 | **Jev (TypeSafe)** pour les jugements typés (patient ambigu, gravité), derrière `ClassifierPort` | Probabilités calibrées, rapide (~200 ms), pas de génération | LLM seul (probabilités auto-déclarées) |
 | T9 | Store **JSON validé zod** (pas de SQL) | Zéro migration à 7 devs en 48 h ; un fichier incompatible est mis de côté | Drizzle + SQLite/Postgres : à faire pour la prod (HDS) |
 | T10 | Rafraîchissement **polling 5 s** (TanStack Query) | Robuste sur toutes les plateformes | SSE/WebSocket (polyfill RN) |
-| T11 | Dictée : Web Speech (navigateur) → STT serveur → clavier | Fonctionne partout sans module natif ; Expo Go suffit | `expo-speech-recognition` (dev build) : V2 |
+| T11 | Dictée : **STT serveur** (si configuré) → Web Speech (navigateur) → clavier | Même moteur sur tous les appareils, vocabulaire soignant transmis ; Web Speech répète des mots sur Chrome Android. Fonctionne sans module natif, Expo Go suffit | Web Speech en premier (texte en direct, mais qualité variable) ; `expo-speech-recognition` (dev build) : V2 |
 | T12 | Styles : **tokens + primitives maison** | Fiable iOS/Android/web, pas de chaîne de build CSS | NativeWind, Tamagui, Unistyles (dev build) |
 | T13 | **Biome** (lint + format), lefthook, commitlint, CI GitHub | Un outil rapide, mêmes règles pour tous, humains et agents | ESLint + Prettier |
 | T14 | Tests : Vitest (unitaire, intégration via `app.request` + client réel), Playwright (E2E sur export web) | Pyramide rapide ; E2E = build de prod | Jest partout, Detox/Maestro (natif) : V2 |

@@ -10,13 +10,12 @@ import { useBoard, useConfig, useCreateTransmission, useSamples } from '@/featur
 import { useServerDictation } from '@/features/dictation/useServerDictation';
 import { useWebSpeech, webSpeechSupported } from '@/features/dictation/useWebSpeech';
 import { useRequiredSession, useSession } from '@/features/session/store';
+import { chooseDictationEngine } from '@/lib/dictation-engine';
 import { duration } from '@/lib/format';
 import { Segmented } from '@/ui/controls';
 import { Banner, Button, IconButton, Stack, Text } from '@/ui/primitives';
 import { useTheme } from '@/ui/ThemeProvider';
 import { CONTENT_MAX_WIDTH, radius, space, type } from '@/ui/theme';
-
-type Engine = 'web-speech' | 'server' | 'keyboard';
 
 const haptic = () => {
   if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -24,8 +23,8 @@ const haptic = () => {
 
 /**
  * DICTÉE — un bouton, on parle, le texte s'affiche, on envoie.
- * Trois moteurs selon l'appareil : reconnaissance du navigateur (texte en direct),
- * enregistrement + transcription serveur, ou clavier (et son micro intégré).
+ * Trois moteurs (choix : `chooseDictationEngine`) : enregistrement + transcription serveur
+ * en priorité, sinon reconnaissance du navigateur (texte en direct), sinon clavier.
  */
 export default function DicteeScreen() {
   const { colors } = useTheme();
@@ -51,11 +50,10 @@ export default function DicteeScreen() {
   const [typingSample, setTypingSample] = useState(false);
   const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
-  const engine: Engine = webSpeechSupported()
-    ? 'web-speech'
-    : config.data?.stt.ready
-      ? 'server'
-      : 'keyboard';
+  const engine = chooseDictationEngine({
+    serverSttReady: config.data?.stt.ready === true,
+    webSpeechAvailable: webSpeechSupported(),
+  });
   const listening = web.listening || server.recording;
   const patient = board.data?.rows.find((r) => r.patient.id === patientId)?.patient;
 
@@ -145,7 +143,7 @@ export default function DicteeScreen() {
     engine === 'web-speech'
       ? 'Reconnaissance vocale du navigateur : le texte s’affiche pendant que tu parles.'
       : engine === 'server'
-        ? `Transcription par le serveur (${config.data?.stt.provider}).`
+        ? `Transcription par le serveur (${config.data?.stt.provider}) : le texte s’affiche quand tu termines.`
         : 'Pas de transcription automatique ici : utilise le micro de ton clavier ou écris.';
 
   return (
