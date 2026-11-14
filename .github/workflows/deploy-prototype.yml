@@ -1,0 +1,25 @@
+name: Deploy prototype
+
+# Un push sur feat/bino-prototype publie prototypes/bino sur le Worker Cloudflare.
+on:
+  push:
+    branches: [feat/bino-prototype]
+
+concurrency:
+  group: deploy-prototype
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Cloudflare Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Déployer le prototype
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: prototypes/bino
+          packageManager: npm
