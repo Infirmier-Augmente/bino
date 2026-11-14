@@ -1438,3 +1438,46 @@ textarea.cr-box {
 .cr-list {
   padding: 0 18px;
 }
+
+/* ---------- v6 : en-tête blanc et sobre, micro centré ---------- */
+header.top {
+  align-items: center;
+  background: var(--white);
+  border-radius: 0;
+  box-shadow: none;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0;
+  padding: calc(20px + env(safe-area-inset-top)) 20px 18px;
+}
+.hello-d {
+  color: var(--sec);
+}
+.avatar {
+  margin-top: 0;
+  background: var(--white);
+  color: var(--navy);
+  border: 1.5px solid var(--navy);
+  box-shadow: none;
+}
+.avatar:hover {
+  background: #f5f7f9;
+}
+.avatar.sm {
+  border-width: 1px;
+}
+.pp-kicker {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sec);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.pp-mic {
+  justify-content: center;
+  margin: 14px 0 16px;
+}
+.pp-mic .mic {
+  width: 68px;
+  height: 68px;
+}

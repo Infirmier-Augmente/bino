@@ -63,7 +63,6 @@ export function vHeader() {
     year: 'numeric',
   });
   return `<div class="hello">
-    <div class="eyebrow"><img src="assets/logo.png" width="22" height="22" alt="">Bino · Chirurgie, poste de jour</div>
     <div class="hello-t">Bonjour ${esc(firstName(name))}</div>
     <div class="hello-d">${ic('cal', 16)} Date : ${date}</div>
   </div>
@@ -73,7 +72,7 @@ export function vHeader() {
 /* ---------- onglet 1 : patients ---------- */
 export function vPatients(S, U) {
   const ps = sorted(S.patients);
-  return `<div class="between list-head"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2><button type="button" class="btn sec sm" data-act="syncAll" ${U.syncing ? 'disabled' : ''}>${U.syncing ? '<span class="spin dark"></span>' : ic('sync', 16)} DPI</button></div>
+  return `<div class="list-head"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2></div>
   ${Store.isStale() ? '<p class="note">Les comptes rendus de l\'équipe ne sont pas encore joignables.</p>' : ''}
   ${ps
     .map((p) => {
@@ -112,7 +111,7 @@ export function vPatientPopup(S, U, Voice, EXAMPLES) {
     (e) => e.pid === p.id && !Store.crFor(p.id).some((c) => c.text === e.text),
   );
   return `<div class="pp">
-  <div class="pp-head"><div><h1 class="pp-name">${esc(p.nom)}</h1><div class="pp-sub">Chambre ${esc(p.ch)} · ${p.age} ans</div></div></div>
+  <div class="pp-head"><div><div class="pp-kicker">Nouveau compte rendu</div><h1 class="pp-name">${esc(p.nom)}</h1><div class="pp-sub">Chambre ${esc(p.ch)} · ${p.age} ans</div></div></div>
 
   <div class="pp-actions">
     <button type="button" class="pill ${U.foldOpen ? 'on' : ''}" data-act="toggleDossier" aria-expanded="${U.foldOpen}">${ic('folder', 18)} Dossier médical ${ic('chev', 16)}</button>
@@ -136,7 +135,7 @@ export function vPatientPopup(S, U, Voice, EXAMPLES) {
   <label class="sr" for="draft">Compte rendu</label>
   <textarea id="draft" class="draft cr-box" data-model="draft" placeholder="Compte rendu : ce que tu as vu et fait, comme à la relève.">${esc(U.draft)}</textarea>
   <div class="live" id="live" aria-live="polite"></div>
-  <div class="pp-mic">${micBtn(U, Voice, 'draft')}<span class="small muted">${Voice.canDictate() ? 'Touche le micro et parle.' : 'Le micro du clavier marche aussi.'}</span></div>
+  ${Voice.canDictate() ? `<div class="pp-mic">${micBtn(U, Voice, 'draft')}</div>` : ''}
   ${ex ? `<button type="button" class="chip ex" data-act="useEx" data-arg="${EXAMPLES.indexOf(ex)}">${ic('play', 14)} Exemple : ${esc(ex.label)}</button>` : ''}
   <button type="button" class="btn valider" data-act="saveCr" ${U.saving ? 'disabled' : ''}>${U.saving ? '<span class="spin"></span>' : ''} Valider</button>
 
