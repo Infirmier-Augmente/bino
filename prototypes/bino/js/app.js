@@ -6,18 +6,17 @@ import { EXAMPLES, seed } from './data.js';
 import { buildModel, DOC_CSS, docFile, docHtml, docText } from './document.js';
 import { news2 } from './news2.js';
 import * as AI from './services/ai.js';
-import * as FHIR from './services/fhir.js';
 import * as Voice from './services/voice.js';
 import { saveSettings, settings } from './settings.js';
 import * as Store from './store.js';
 import { localSynth, normalizeSynth, remapIds, synthPrompt } from './synthesis.js';
 import { localTriage, normalizeTriage, triagePrompt } from './triage.js';
-import { esc, fmtVital, hhmm, VITAL_KEYS, VITAL_LABELS } from './util.js';
+import { esc, hhmm } from './util.js';
 import {
+  byPriority,
   ic,
   levelOf,
   PRIO,
-  sorted,
   V,
   vDone,
   vHeader,
@@ -33,7 +32,7 @@ const S = seed(); // patients fictifs ; comptes rendus et constantes dans Store
 const U = {
   tab: 'patients',
   pid: null, // patient ouvert dans la popup
-  sub: null, // feuille secondaire ouverte depuis la popup (constantes, DPI, profil)
+  sub: null, // feuille secondaire ouverte depuis la popup (constantes, profil)
   draft: '',
   foldOpen: false,
   listening: null,
@@ -43,7 +42,7 @@ const U = {
   docBusy: '',
   sumBusy: '',
   triBusy: false,
-  sortBy: ['prio', 'chambre', 'nom'].includes(settings.sortBy) ? settings.sortBy : 'prio',
+  sortBy: ['chambre', 'nom'].includes(settings.sortBy) ? settings.sortBy : 'chambre',
   loginError: '',
   loginId: '',
   justIn: false,
@@ -179,39 +178,6 @@ function vprev() {
   el.innerHTML = `<div class="between"><span class="small muted">Nouveau score NEWS2</span><span class="row" style="gap:8px"><b style="font-size:22px">${n.total}</b></span></div>`;
 }
 
-let dpi = null;
-async function dpiImport(id) {
-  U.sub = 'dpi';
-  const p = P(id);
-  const cur = V(p);
-  const where = FHIR.isMock(settings.fhirBase)
-    ? 'DPI simulé (FHIR R4, données fictives)'
-    : esc(settings.fhirBase);
-  sheet(
-    `<h1 style="margin-top:0">Import depuis le DPI</h1><p class="sub">${esc(p.nom)} · ${p.ch}</p><div class="card row"><span class="spin dark"></span><div><b>Lecture du dossier patient…</b><div class="small muted">${where}</div></div></div>`,
-  );
-  try {
-    const res = await FHIR.fetchVitals(p, settings.fhirBase);
-    dpi = { pid: id, res };
-    const n0 = news2(cur);
-    const n1 = news2({ ...cur, ...res.v });
-    sheet(`<h1 style="margin-top:0">Import depuis le DPI</h1><p class="sub">${esc(p.nom)} · valeurs du dossier à ${res.at || '—'}</p>
-    <div class="card"><table class="vtable cmp"><tbody><tr><td class="small muted">Paramètre</td><td class="small muted" style="text-align:right">Actuel (${cur.at})</td><td class="small muted" style="text-align:right">DPI</td></tr>
-      ${VITAL_KEYS.map((k) => {
-        const has = k in res.v;
-        const chg = has && res.v[k] !== cur[k];
-        return `<tr><td>${VITAL_LABELS[k]}</td><td style="text-align:right">${fmtVital(k, cur[k])}</td><td style="text-align:right" class="${chg ? 'new chg' : ''}">${has ? fmtVital(k, res.v[k]) : '<span class="muted">non trouvé</span>'}</td></tr>`;
-      }).join('')}
-    </tbody></table></div>
-    <div class="card between"><span class="small muted">NEWS2</span><span class="row" style="gap:8px"><b>${n0.total} → ${n1.total}</b></span></div>
-    <p class="small muted">Source : ${Object.keys(res.v).length} Observations FHIR · ${where}. Le DPI reste la source de vérité.</p>
-    <div class="btns"><button type="button" class="btn sec" data-act="closeSheet">Annuler</button><button type="button" class="btn" data-act="applyDpi">${ic('dl', 18)} Importer</button></div>`);
-  } catch (e) {
-    sheet(`<h1 style="margin-top:0">Import depuis le DPI</h1><div class="card"><b>Le DPI n'a pas répondu</b><div class="small muted">${esc(e.message)}</div></div>
-    <div class="btns"><button type="button" class="btn sec" data-act="editVitals" data-arg="${id}">Saisie manuelle</button><button type="button" class="btn" data-act="dpiImport" data-arg="${id}">Réessayer</button></div>`);
-  }
-}
-
 /* ---------- document de transmission global ---------- */
 async function synthFor(p, crs) {
   const saved = Store.synthFor(p.id);
@@ -249,7 +215,7 @@ async function synthFor(p, crs) {
 }
 
 async function genDoc() {
-  const ps = sorted(S.patients, 'prio');
+  const ps = byPriority(S.patients);
   const todo = ps.filter((p) => Store.crFor(p.id).length);
   let done = 0;
   U.docBusy = `Synthèse 0/${todo.length}`;
@@ -576,15 +542,7 @@ const A = {
   },
   mic: (a) => startMic(a),
   saveCr: () => saveCr(),
-  delCr: async (a) => {
-    try {
-      await Store.deleteCr(a);
-      toast('Compte rendu supprimé.');
-      if (U.pid && !U.sub) showPatient();
-    } catch {
-      toast('Suppression impossible.');
-    }
-  },
+
   trScope: (a) => {
     U.trScope = a;
     render();
@@ -608,19 +566,7 @@ const A = {
     toast(lv ? `Priorité ${PRIO[lv]} enregistrée.` : 'Priorité proposée rétablie.');
   },
   editVitals: (a) => vitalsForm(a),
-  dpiImport: (a) => dpiImport(a),
-  applyDpi: async () => {
-    if (!dpi) return;
-    const p = P(dpi.pid);
-    const next = { ...V(p), ...dpi.res.v, at: dpi.res.at || hhmm(), src: 'DPI' };
-    await Store.saveVitals(p.id, next);
-    const n = news2(next);
-    U.foldOpen = true;
-    showPatient();
-    render();
-    toast(`Constantes importées du DPI · NEWS2 ${n.total}.`);
-    autoTriage();
-  },
+
   saveVitals: async (a) => {
     const v = readVitals();
     if ([v.fr, v.spo2, v.pas, v.pad, v.fc, v.temp].some((x) => !Number.isFinite(x) || x <= 0)) {
@@ -636,7 +582,7 @@ const A = {
     autoTriage();
   },
   closeSheet: () => {
-    // Une feuille ouverte depuis la popup patient (constantes, DPI, profil) ramène à la popup.
+    // Une feuille ouverte depuis la popup patient (constantes, profil) ramène à la popup.
     if (U.pid && U.sub) showPatient();
     else if (U.pid) closePatient();
     else sheet('');

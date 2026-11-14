@@ -1,11 +1,12 @@
 // Score NEWS2 (Royal College of Physicians, 2017), échelle SpO2 n°1.
 // Démo hackathon : l'infirmier garde toujours le dernier mot.
 
+// Couleurs harmonisées avec le logo Bino (rose, bleu ciel, bleu nuit). Priorité 1 = critique … 4 = faible.
 export const LV = {
-  faible: { l: 'Faible', bg: '#22B573', fg: '#fff', bar: '#22B573' },
-  moyen: { l: 'Moyen', bg: '#F5B700', fg: '#002244', bar: '#F5B700' },
-  eleve: { l: 'Élevé', bg: '#F57C00', fg: '#fff', bar: '#F57C00' },
-  critique: { l: 'Critique', bg: '#DC0000', fg: '#fff', bar: '#DC0000' },
+  critique: { l: 'Critique', bg: '#D6005A', fg: '#fff', bar: '#FF0066' },
+  eleve: { l: 'Élevé', bg: '#FFD6E6', fg: '#A3003F', bar: '#FF7AAE' },
+  moyen: { l: 'Moyen', bg: '#DCEFFC', fg: '#0B4F7A', bar: '#5BB8F0' },
+  faible: { l: 'Faible', bg: '#EDF0F3', fg: '#3D4A57', bar: '#C9D3DD' },
 };
 
 export function news2(v) {

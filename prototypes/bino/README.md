@@ -2,7 +2,7 @@
 
 Démo du hackathon IA santé ARS × AdoptAI (novembre 2026), défi Hôpital Foch « infirmier augmenté ».
 
-Bino suit les maquettes papier de l'équipe. **Patients** : logo Bino et « Bonjour Martine », la date, 11 patients triables par **priorité**, **chambre** ou **nom**. La priorité (1 = la plus urgente, à 4) est proposée par l'IA avec une raison (repli NEWS2) et se change d'un toucher. Un patient ouvre **Nouveau compte rendu** : **Dossier médical**, **Import DPI**, grande zone de texte, **micro**, **Valider** en bas, puis « ✓ Compte rendu fait ». **Transmissions** : **Mes CR** dans l'ordre de la journée ; **Tous** résumé en puces par l'IA, dans l'ordre de la journée, priorité modifiable ; **document complet** à copier ou télécharger.
+Bino suit les maquettes papier de l'équipe, aux couleurs du logo (rose Bino, bleu ciel). Connexion par matricule de démo. **Patients** : logo Bino, prénom du soignant, la date, 11 patients triables par **chambre** ou **nom** (pas de priorité sur le dashboard). Un patient ouvre **Nouveau compte rendu** : **Dossier médical**, grande zone de texte, **micro**, **Valider** en bas, puis « ✓ Compte rendu fait ». **Transmissions** : **Mes CR** du plus récent au plus ancien ; **Tous** : résumé en puces par patient, du plus récent au plus ancien, rangé par priorité 1 à 4 (proposée par l'IA, modifiable) ; **document complet** à copier ou télécharger.
 
 > **Données entièrement fictives.** Ne jamais saisir de données réelles de patients : la démo n'est ni hébergée HDS ni conforme RGPD pour des données de santé.
 
@@ -16,10 +16,10 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 
 **Parcours de démo conseillé (2 minutes)**
 
-1. **Patients** : « Bonjour Martine », patients par priorité avec la raison sous chaque nom. **Trier** : par chambre ou par nom. Touchez « Priorité 3 » de M. Garnier et passez-le en Priorité 1.
-2. Touchez M. Jean Dupond (ch12) : **Nouveau compte rendu**. **Import DPI** : le NEWS2 passe à 9.
+1. Connectez-vous (matricule 10401, mot de passe `bino`). **Patients** : rangés par chambre ; **Trier** : par chambre ou par nom.
+2. Touchez M. Jean Dupond (12) : **Nouveau compte rendu**. Ouvrez **Dossier médical** pour voir constantes et NEWS2.
 3. Dictez au **micro** (ou écrivez, ou touchez l'exemple), puis **Valider** : « Compte rendu fait ».
-4. **Transmissions › Mes CR** : vos comptes rendus dans l'ordre de la journée. **Tous** : le résumé en puces de toute l'équipe ; la priorité se change aussi ici ; **Document complet** pour la relève.
+4. **Transmissions › Mes CR** : vos comptes rendus, le plus récent en haut. **Tous** : le résumé en puces de toute l'équipe, le plus récent en haut ; touchez « Priorité 3 » de M. Garnier et passez-le en Priorité 1 ; **Document complet** pour la relève.
 
 ---
 
@@ -27,9 +27,9 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 
 | Écran | Ce qu'on peut faire |
 | --- | --- |
-| Patients | Logo + « Bonjour Martine » + date ; tri par **priorité**, **chambre** ou **nom** ; **Priorité 1 à 4** proposée par l'IA (raison factuelle, jamais sous le NEWS2, repli NEWS2, mise à jour à chaque compte rendu), modifiable d'un toucher |
-| Nouveau compte rendu | **Dossier médical** (constantes, NEWS2 détaillé, infos, saisie manuelle) et **Import DPI** ; compte rendu au **micro** ou au clavier ; **Valider** puis « Compte rendu fait » |
-| Transmissions | **Mes CR** dans l'ordre de la journée ; **Tous** : résumé en puces par patient (IA), dans l'ordre de la journée, auteur et heure sous chaque puce, priorité modifiable ; **Document complet** (copier, télécharger) |
+| Patients | Logo + prénom + date ; tri par **chambre** ou **nom** ; pas de priorité affichée |
+| Nouveau compte rendu | **Dossier médical** (constantes, NEWS2 détaillé, infos, saisie manuelle) ; compte rendu au **micro** ou au clavier ; **Valider** puis « Compte rendu fait » |
+| Transmissions | **Mes CR** du plus récent au plus ancien (pas de suppression) ; **Tous** : résumé en puces par patient, du plus récent au plus ancien, auteur et heure sous chaque puce ; patients rangés par **Priorité 1 à 4** proposée par l'IA (raison factuelle, jamais sous le NEWS2, repli NEWS2), modifiable d'un toucher ; **Document complet** (copier, télécharger) |
 
 ### Ce qui marche où
 
@@ -39,7 +39,6 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 | Document global | Synthèse par l'IA de Claude | Règles locales (ou clé API Anthropic) |
 | « Bonjour … » | Martine par défaut, ou le soignant choisi | Idem |
 | Dictée vocale | Chrome ordinateur | Chrome (Android, ordinateur), Safari iOS ; sinon micro du clavier |
-| Import DPI | DPI simulé | DPI simulé ou vrai serveur FHIR (profil) |
 
 Dans Claude, pour que l'équipe puisse écrire, partagez le lien en **Contributeur** (les Lecteurs voient sans écrire).
 
@@ -81,7 +80,7 @@ Aucune étape de build : HTML, CSS et modules JavaScript natifs.
 ```
 index.html               page unique, barre d'onglets
 css/styles.css           identité visuelle Bino (Plus Jakarta Sans, Nunito, magenta, bleu ciel, bleu nuit)
-js/app.js                état, actions, feuilles (constantes, DPI, réglages)
+js/app.js                état, actions, feuilles (constantes, réglages)
 js/views.js              rendu : en-tête, Patients, popup patient, Transmissions
 js/store.js              comptes rendus, synthèses, constantes : base partagée (Claude) ou localStorage
 js/synthesis.js          synthèse DAR multi-soignants : prompt IA, règles locales, vérification des sources
@@ -98,9 +97,9 @@ scripts/                 générateur du DPI simulé
 tests/                   tests Node (node --test)
 ```
 
-### Brancher un vrai DPI
+### Brancher un vrai DPI (pour plus tard)
 
-Dans ⚙, remplacez `./mock-fhir` par l'URL de base d'un serveur FHIR R4. L'app appelle :
+Le bouton « Import DPI » a été retiré de la fiche patient à la demande de l'équipe ; le module FHIR (`js/services/fhir.js`, testé) et le DPI simulé restent prêts. Pour le rebrancher, dans ⚙, remplacez `./mock-fhir` par l'URL de base d'un serveur FHIR R4. L'app appelle :
 
 ```
 GET {base}/Observation?patient={id}&category=vital-signs&_sort=-date&_count=50
@@ -119,7 +118,7 @@ La clé saisie dans ⚙ reste dans le navigateur du testeur et sert à appeler d
 - **Rien n'est inventé.** Un champ non dit reste vide et devient une relance. Le R (résultat) est le plus oublié : Bino le signale au lieu de le deviner.
 - **L'humain valide tout.** Les propositions se corrigent d'un appui ; rien n'est versé au dossier sans validation.
 - **Aucun geste en plus.** On parle comme à la relève ; l'outil range.
-- **Le DPI reste la source de vérité.** L'import montre l'écart avant d'écraser.
+- **Le DPI reste la source de vérité.** Un futur import montrera l'écart avant d'écraser.
 - **Une seule vérité pour la relève.** Chacun écrit ses comptes rendus ; la transmission finale les fusionne et garde la trace de qui a dit quoi.
 
 ## Pistes suivantes

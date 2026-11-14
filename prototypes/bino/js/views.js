@@ -1,6 +1,6 @@
 // Rendu des écrans (HTML en chaînes), d'après les maquettes papier de l'équipe :
 // 1. Patients (Bonjour + date, liste organisée par sévérité, auto par l'IA ou manuelle) ;
-// 2. Fiche « Nouveau compte rendu » (dossier médical, import DPI, micro, Valider) ;
+// 2. Fiche « Nouveau compte rendu » (dossier médical, micro, Valider) ;
 // 3. Transmissions (Mes CR / Tous en puces résumées). Aucune écriture ici : les actions sont dans app.js.
 import { LV, news2 } from './news2.js';
 import * as Store from './store.js';
@@ -62,12 +62,15 @@ const lastName = (p) =>
     .replace(/^(M\.|Mme|Mlle)\s+/, '')
     .split(/\s+/)
     .slice(-1)[0];
+// Tri du dashboard : par chambre ou par nom (la priorité ne s'affiche plus sur le dashboard).
 export const SORTS = {
-  prio: { l: 'Priorité', f: byPrio },
   chambre: { l: 'Chambre', f: (a, b) => Number(a.ch) - Number(b.ch) },
   nom: { l: 'Nom', f: (a, b) => lastName(a).localeCompare(lastName(b), 'fr') },
 };
-export const sorted = (patients, by = 'prio') => [...patients].sort((SORTS[by] || SORTS.prio).f);
+// Ordre par priorité (IA ou choix manuel), utilisé dans Transmissions › Tous et le document.
+export const byPriority = (patients) => [...patients].sort(byPrio);
+export const sorted = (patients, by = 'chambre') =>
+  by === 'prio' ? byPriority(patients) : [...patients].sort((SORTS[by] || SORTS.chambre).f);
 
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 const firstName = (s) => (s || '').split(/[·,]/)[0].trim().split(/\s+/)[0] || '';
@@ -122,16 +125,10 @@ export const prioBtn = (p, sm = false) => {
   return `<button type="button" class="lvl ${sm ? 'sm' : ''}" style="--c:${LV[lv].bg};--f:${LV[lv].fg}" data-act="pickLevel" data-arg="${p.id}" aria-label="${esc(p.nom)} : ${prioTag(lv)}. Changer la priorité">${prioTag(lv)} ${ic('chev', 14)}</button>`;
 };
 
-function reasonOf(p) {
-  const ai = Store.prioAI();
-  const r = ai?.order?.find((x) => x.id === p.id)?.raison || `NEWS2 ${news2(V(p)).total}`;
-  return Store.manualLevels()[p.id] ? `${r} · priorité modifiée` : r;
-}
-
 export function vPatients(S, U) {
   const ps = sorted(S.patients, U.sortBy);
   return `<div class="list-head between"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2>
-    <details class="menu sort-menu"><summary class="btn sec sm" role="button">Trier : ${SORTS[U.sortBy]?.l || 'Priorité'} ${ic('chev', 16)}</summary>
+    <details class="menu sort-menu"><summary class="btn sec sm" role="button">Trier : ${SORTS[U.sortBy]?.l || 'Chambre'} ${ic('chev', 16)}</summary>
       <div class="menu-pop right">${Object.entries(SORTS)
         .map(
           ([k, o]) =>
@@ -141,10 +138,8 @@ export function vPatients(S, U) {
   ${Store.isStale() ? '<p class="note">Les comptes rendus de l\'équipe ne sont pas encore joignables.</p>' : ''}
   ${ps
     .map((p) => {
-      const lv = levelOf(p);
-      return `<div class="card prow" style="--bar:${LV[lv].bar}">
-        <button type="button" class="prow-open" data-act="openPatient" data-arg="${p.id}"><span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${esc(reasonOf(p))}</span></span><span class="room-chip">${esc(p.ch)}</span></button>
-        ${prioBtn(p)}
+      return `<div class="card prow">
+        <button type="button" class="prow-open" data-act="openPatient" data-arg="${p.id}"><span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${p.age} ans · ${esc(p.motif)}</span></span><span class="room-chip">${esc(p.ch)}</span></button>
       </div>`;
     })
     .join('')}`;
@@ -191,7 +186,6 @@ export function vPatientPopup(S, U, EXAMPLES) {
 
   <div class="pp-actions">
     <button type="button" class="pill ${U.foldOpen ? 'on' : ''}" data-act="toggleDossier" aria-expanded="${U.foldOpen}">${ic('folder', 18)} Dossier médical ${ic('chev', 16)}</button>
-    <button type="button" class="pill" data-act="dpiImport" data-arg="${p.id}">${ic('dl', 18)} Import DPI</button>
   </div>
   ${
     U.foldOpen
@@ -228,7 +222,6 @@ function crItem(c, S) {
   return `<div class="cr-item">
     <div class="between"><span class="cr-who">${esc(p?.nom || '')} <span class="room-chip sm">${esc(p?.ch || '')}</span></span><span class="small muted">${esc(c.t || '')}</span></div>
     <p class="cr-text">${esc(c.text)}</p>
-    ${Store.isMine(c) ? `<button type="button" class="linkbtn danger" data-act="delCr" data-arg="${esc(c.id)}">${ic('trash', 14)} Supprimer</button>` : ''}
   </div>`;
 }
 
@@ -240,18 +233,18 @@ function srcLine(field, crs) {
       field.src
         .map((s) => byId.get(s.cr))
         .filter(Boolean)
-        .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+        .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
         .map((c) => `${Store.authorOf(c).split(' ')[0]} ${c.t || ''}`.trim()),
     ),
   ];
   return who.length ? `<span class="pt-src">${esc(who.join(' · '))}</span>` : '';
 }
 
-// Une puce est datée par le plus ancien compte rendu qu'elle cite : on les affiche dans l'ordre de la journée.
+// Une puce est datée par le compte rendu le plus récent qu'elle cite : la plus récente en premier.
 function chrono(points, crs) {
   const at = new Map(crs.map((c) => [c.id, Date.parse(c.at)]));
-  const t = (pt) => Math.min(...(pt.src || []).map((x) => at.get(x.cr) ?? Infinity));
-  return [...points].sort((a, b) => t(a) - t(b));
+  const t = (pt) => Math.max(...(pt.src || []).map((x) => at.get(x.cr) ?? -Infinity));
+  return [...points].sort((a, b) => t(b) - t(a));
 }
 
 function summaryCard(p) {
@@ -283,15 +276,14 @@ export function vTransmissions(S, U) {
   if (U.trScope === 'mine') {
     const mine = Store.allCr()
       .filter((c) => Store.isMine(c))
-      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
-    return `${head}<p class="sub">${plural(mine.length, 'compte rendu écrit', 'comptes rendus écrits')} par vous · aujourd'hui, dans l'ordre de la journée</p>
+      .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+    return `${head}<p class="sub">${plural(mine.length, 'compte rendu écrit', 'comptes rendus écrits')} par vous · aujourd'hui, du plus récent au plus ancien</p>
     ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
   }
-  const ps = sorted(S.patients, 'prio');
-  const engines = new Set(ps.map((p) => Store.synthFor(p.id)?.engine).filter(Boolean));
+  const ps = byPriority(S.patients);
   return `${head}
-  <div class="sum-head between"><span class="small muted">${U.sumBusy ? `Résumé par l'IA… ${esc(U.sumBusy)}` : `Résumé de l'équipe${engines.has('ai') ? " par l'IA" : engines.size ? ' · règles locales' : ''}`}</span>
+  <div class="sum-head">${U.sumBusy ? `<span class="small muted"><span class="spin dark"></span> ${esc(U.sumBusy)}</span>` : '<span></span>'}
   <button type="button" class="linkbtn" data-act="genDoc" ${U.docBusy ? 'disabled' : ''}>${ic('file', 14)} ${U.docBusy ? esc(U.docBusy) : 'Document complet'}</button></div>
   ${ps.map((p) => summaryCard(p)).join('')}
-  <p class="foot">Puces dans l'ordre de la journée ; chacune vient d'un compte rendu (auteur et heure dessous). À relire avant la relève.</p>`;
+  <p class="foot">Puces de la plus récente à la plus ancienne ; chacune vient d'un compte rendu (auteur et heure dessous). À relire avant la relève.</p>`;
 }

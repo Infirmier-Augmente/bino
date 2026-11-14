@@ -1769,3 +1769,42 @@ textarea.cr-box {
   white-space: normal;
   overflow: visible;
 }
+
+/* ---------- v8 : couleurs harmonisées avec le logo (rose Bino + bleu ciel) ---------- */
+.seg {
+  border-color: var(--magenta);
+}
+.seg-b {
+  color: var(--magd);
+}
+.seg-b.on,
+.pill.on {
+  background: var(--magenta);
+  color: var(--white);
+}
+.mic {
+  background: var(--magenta);
+}
+.mic.on {
+  background: var(--magd);
+}
+h2 .count {
+  background: var(--magenta);
+}
+.room-chip {
+  border-color: var(--sky);
+  background: var(--sky-l);
+  color: var(--navy);
+}
+.prow {
+  box-shadow: inset 4px 0 0 var(--sky);
+}
+.sum-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.linkbtn {
+  color: var(--magd);
+}
