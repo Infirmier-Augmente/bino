@@ -139,14 +139,17 @@ export function matchPatients(
     }
 
     const last = normalize(p.lastName);
-    const nameHit = tokens.findIndex(
-      // Tolérance d'une lettre seulement pour des mots longs ("Lefebvre" / "Lefèvre"),
-      // sinon "matin" ressemble à "Martin".
-      (t) => t === last || (last.length >= 6 && t.length >= 6 && levenshtein(t, last, 1) <= 1),
-    );
-    if (nameHit >= 0) {
+    if (tokens.includes(last)) {
       score += 0.55;
       reasons.push(`nom « ${p.lastName} » cité`);
+    } else if (
+      // Tolérance d'une lettre seulement pour des mots longs ("Lefebvre" / "Lefèvre"),
+      // sinon "matin" ressemble à "Martin".
+      last.length >= 6 &&
+      tokens.some((t) => t.length >= 6 && levenshtein(t, last, 1) <= 1)
+    ) {
+      score += 0.55;
+      reasons.push(`nom proche de « ${p.lastName} »`);
     }
     const first = normalize(p.firstName);
     if (first.length >= 3 && tokens.includes(first)) {
@@ -213,7 +216,13 @@ export function resolveFromCandidates(match: MatchResult, method = 'regles'): Pa
   };
 }
 
-/** Plusieurs patients clairement cités dans une même dictée ? (on suggère de séparer) */
-export function mentionsSeveralPatients(match: MatchResult): boolean {
-  return match.candidates.filter((c) => c.score >= 0.45).length >= 2;
+/**
+ * Plusieurs patients CLAIREMENT cités dans une même dictée ? (on suggère de séparer)
+ * Seules les preuves fortes comptent : chambre citée ou nom exact (pas un nom approchant).
+ */
+export function mentionsSeveralPatients(match: Pick<MatchResult, 'candidates'>): boolean {
+  const strong = match.candidates.filter((c) =>
+    c.reasons.some((r) => r.startsWith('chambre') || r.startsWith('nom «')),
+  );
+  return strong.length >= 2;
 }

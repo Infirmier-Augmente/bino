@@ -52,6 +52,12 @@ describe('matchPatients + resolveFromCandidates', () => {
     expect(r.patientId).toBeNull();
   });
 
+  it('un nom approchant ne compte pas comme un second patient', () => {
+    const m = matchPatients('Chambre 9, madame Martins a bien mangé', patients);
+    expect(resolveFromCandidates(m).patientId).toBe('p9');
+    expect(mentionsSeveralPatients(m)).toBe(false);
+  });
+
   it('détecte une dictée qui parle de deux patients', () => {
     const m = matchPatients('Box 12 RAS. Box 14 a vomi.', patients);
     expect(mentionsSeveralPatients(m)).toBe(true);

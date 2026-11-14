@@ -16,6 +16,7 @@ import {
   type Flag,
   type HandoverSheet,
   handoverWindow,
+  mentionsSeveralPatients,
   mergeFlags,
   type NewPatientInput,
   type Nurse,
@@ -348,7 +349,7 @@ export class HospitalService {
         answer: null,
       });
     }
-    if (!body.patientId && resolution.candidates.filter((c) => c.score >= 0.45).length >= 2) {
+    if (!body.patientId && mentionsSeveralPatients(resolution)) {
       flags.push({
         id: `${id}:multiple`,
         kind: 'multiple-patients',

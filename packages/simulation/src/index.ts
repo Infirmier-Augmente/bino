@@ -1,5 +1,7 @@
 import type { SampleDictation } from '@infirmier/domain';
 import type { Scenario } from './scenario';
+import { admissionNuit } from './scenarios/admission-nuit';
+import { medecineJournee } from './scenarios/medecine-journee';
 import { reaBox12 } from './scenarios/rea-box12';
 
 export * from './helpers';
@@ -10,7 +12,7 @@ export * from './scenario';
  * REGISTRE DES SCÉNARIOS. Ajouter un scénario : créer `scenarios/<id>.ts`
  * avec `defineScenario(...)`, puis l'ajouter ici. Les tests vérifient sa cohérence.
  */
-export const SCENARIOS: readonly Scenario[] = [reaBox12];
+export const SCENARIOS: readonly Scenario[] = [reaBox12, medecineJournee, admissionNuit];
 
 export const DEFAULT_SCENARIO_ID = reaBox12.id;
 
