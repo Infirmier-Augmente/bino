@@ -7,6 +7,7 @@ import {
 import type { ClassifierPort } from '../classifier/port';
 
 const MIN_CONFIDENCE = 0.6;
+const CLASSIFIER_TIMEOUT_MS = 8_000;
 
 /**
  * Rattachement patient : règles déterministes d'abord ; si doute et qu'un
@@ -53,8 +54,10 @@ export async function resolvePatient(
           options,
         },
       },
+      AbortSignal.timeout(CLASSIFIER_TIMEOUT_MS),
     );
-    if (patient.choice !== 'aucun' && patient.confidence >= MIN_CONFIDENCE) {
+    const inPool = pool.some((p) => p.id === patient.choice);
+    if (inPool && patient.confidence >= MIN_CONFIDENCE) {
       return {
         ...base,
         status: 'resolved',

@@ -51,7 +51,10 @@ export function assemble(
     }
     // Un même extrait ne doit pas apparaître deux fois au même endroit.
     const key = `${section}:${r.source.start}:${r.source.end}`;
-    if (seen.has(key)) return null;
+    if (seen.has(key)) {
+      rejected.push({ section, text: s.text, quote: s.quote, reason: 'duplicate' });
+      return null;
+    }
     seen.add(key);
     return { id: ids('it'), text: s.text.trim(), sources: [r.source], edited: false };
   };
@@ -63,7 +66,8 @@ export function assemble(
       const section = `cible:${t.label}`;
       return {
         id: ids('cible'),
-        label: t.label.trim(),
+        // Un libellé vide ne doit jamais casser l'affichage : on le nomme sans rien inventer.
+        label: t.label.trim() || 'Cible à nommer',
         appareil: t.appareil,
         data: groundAll(`${section}:D`, t.data),
         actions: groundAll(`${section}:A`, t.actions),
@@ -109,7 +113,7 @@ export function assemble(
   };
 
   const flags: Flag[] = completenessFlags(transmissionId, content);
-  for (const q of raw.questions.slice(0, 3)) {
+  for (const q of raw.questions.filter((x) => x.text.trim().length > 0).slice(0, 3)) {
     const r = groundStatement(transmissionId, transcript, { text: q.quote, quote: q.quote });
     flags.push({
       id: `${transmissionId}:question:${ids('q')}`,

@@ -159,3 +159,84 @@ describe('relecture : corriger, compléter, valider', () => {
     expect(sheet.counts.unreviewed).toBe(1);
   });
 });
+
+describe('robustesse (relecture de code)', () => {
+  it('une question ne peut plus modifier une transmission validée', async () => {
+    const { client } = createTestApp();
+    const t = await client.createTransmission({ body: { ...base, transcript: EXAMPLE_A } });
+    const flag = t.flags.find((f) => f.kind === 'missing-result');
+    if (!flag) throw new Error('flag attendu');
+    await client.reviewTransmission({
+      params: { transmissionId: t.id },
+      body: { nurseId: 'martine', decision: 'validate' },
+    });
+    await expect(
+      client.answerFlag({
+        params: { transmissionId: t.id, flagId: flag.id },
+        body: { nurseId: 'martine', answer: 'ajout tardif' },
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('une sortie IA invalide n’est jamais enregistrée et ne casse pas la fiche', async () => {
+    const badLlm = {
+      id: 'fake:vide',
+      generateStructured: async () => ({
+        targets: [
+          {
+            label: ' ',
+            appareil: 'neuro',
+            data: [{ text: 'Agité.', quote: 'il était agité' }],
+            actions: [],
+            results: [],
+          },
+        ],
+        observations: [],
+        routine: [],
+        todos: [],
+        transverse: [],
+        admission: null,
+        questions: [{ text: '   ', quote: 'il était agité' }],
+      }),
+    };
+    const { client } = createTestApp({ ai: { llm: badLlm as never } });
+    const t = await client.createTransmission({ body: { ...base, transcript: EXAMPLE_A } });
+    expect(t.content.targets[0]?.label).toBe('Cible à nommer');
+    expect(t.flags.some((f) => f.kind === 'imprecision')).toBe(false);
+    await expect(
+      client.patientHandover({ params: { patientId: 'rea-12' } }),
+    ).resolves.toBeDefined();
+  });
+
+  it('une dictée en cours pendant un rechargement du simulateur n’atterrit pas dans le nouvel état', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const slowLlm = {
+      id: 'fake:lent',
+      generateStructured: async () => {
+        await gate;
+        return {
+          targets: [],
+          observations: [],
+          routine: [],
+          todos: [],
+          transverse: [],
+          admission: null,
+          questions: [],
+        };
+      },
+    };
+    const { client } = createTestApp({ ai: { llm: slowLlm as never } });
+    const pending = client
+      .createTransmission({ body: { ...base, transcript: 'Box 12, RAS.' } })
+      .catch((e: unknown) => e);
+    await new Promise((r) => setTimeout(r, 10));
+    await client.loadScenario({ body: { scenarioId: 'rea-box12', until: 'start' } });
+    release();
+    expect(await pending).toMatchObject({ status: 409, code: 'state-reset' });
+    const board = await client.unitBoard({ params: { unitId: 'rea' } });
+    expect(board.totals.total).toBe(0);
+  });
+});

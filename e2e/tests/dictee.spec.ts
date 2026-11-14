@@ -47,6 +47,17 @@ test.describe('Parcours infirmière : dicter → relire → valider', () => {
     await expect(page.getByTestId('valider')).toBeEnabled();
   });
 
+  test('l’infirmière peut corriger le patient choisi par l’outil', async ({ page }) => {
+    await signIn(page);
+    await page.getByTestId('dicter').click();
+    await page.getByTestId('dictee-texte').fill('Box 12, il a bien dormi.');
+    await page.getByTestId('envoyer').click();
+    await expect(page.getByText('Box 12 · M. Durand').first()).toBeVisible();
+    await page.getByTestId('changer-patient').click();
+    await page.getByRole('button', { name: 'Box 11 · M. Nguyen' }).click();
+    await expect(page.getByText('Box 11 · M. Nguyen').first()).toBeVisible();
+  });
+
   test('« Plus tard » garde la transmission comme non relue', async ({ page }) => {
     await signIn(page);
     await page.getByTestId('dicter').click();

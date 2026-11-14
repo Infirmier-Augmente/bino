@@ -26,8 +26,13 @@ export function locateQuote(transcript: string, quote: string): QuoteLocation | 
   const q = normalize(quote);
   if (q.length === 0 || t.value.length === 0) return null;
 
-  const exact = t.value.indexOf(q);
-  if (exact >= 0) return toLocation(transcript, t.map, exact, exact + q.length, 1);
+  // Correspondance exacte, mais uniquement sur des frontières de mots :
+  // « tension à 12 » ne doit pas valider un extrait coupé de « tension à 125 ».
+  for (let i = t.value.indexOf(q); i >= 0; i = t.value.indexOf(q, i + 1)) {
+    const before = i === 0 || t.value.charAt(i - 1) === ' ';
+    const after = i + q.length === t.value.length || t.value.charAt(i + q.length) === ' ';
+    if (before && after) return toLocation(transcript, t.map, i, i + q.length, 1);
+  }
 
   // Correspondance approchée : fenêtre glissante de tokens.
   const tTokens = tokenize(t.value);
@@ -90,7 +95,10 @@ function similarity(a: string[], b: string[]): number {
  */
 export function numbersAreGrounded(text: string, quote: string): boolean {
   const inQuote = new Set(extractNumbers(quote));
-  return extractNumbers(text, { includeArticles: false }).every((n) => inQuote.has(n));
+  // « Une ampoule » face à « deux ampoules » doit être refusé ; mais « Une séance de kiné »
+  // face à « la kiné est passée » (aucun nombre) reste acceptable.
+  const quoteHasNumber = extractNumbers(quote, { includeArticles: false }).length > 0;
+  return extractNumbers(text, { includeArticles: quoteHasNumber }).every((n) => inQuote.has(n));
 }
 
 export type GroundingResult =

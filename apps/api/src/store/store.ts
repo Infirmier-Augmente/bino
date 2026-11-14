@@ -15,6 +15,8 @@ export class HospitalStore {
   private state: HospitalState;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private writing: Promise<void> = Promise.resolve();
+  /** Incrémenté à chaque remplacement complet (chargement de scénario). */
+  private gen = 0;
 
   private constructor(
     initial: HospitalState,
@@ -59,6 +61,11 @@ export class HospitalStore {
     return this.state;
   }
 
+  /** Permet de détecter qu'un scénario a été rechargé pendant une opération asynchrone. */
+  get generation(): number {
+    return this.gen;
+  }
+
   /** Applique une mutation. La mutation travaille sur une copie : en cas d'erreur, rien ne change. */
   update<T>(mutate: (draft: HospitalState) => T): T {
     const draft = structuredClone(this.state);
@@ -70,6 +77,7 @@ export class HospitalStore {
 
   replace(next: HospitalState): void {
     this.state = HospitalState.parse(next);
+    this.gen++;
     this.schedulePersist();
   }
 

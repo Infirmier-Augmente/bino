@@ -48,6 +48,7 @@ export default function DicteeScreen() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [showSamples, setShowSamples] = useState(false);
   const typing = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [typingSample, setTypingSample] = useState(false);
   const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   const engine: Engine = webSpeechSupported()
@@ -108,18 +109,24 @@ export default function DicteeScreen() {
     if (typing.current) clearInterval(typing.current);
     setShowSamples(false);
     setInputMethod('simulation');
+    setTypingSample(true);
     const words = sample.split(' ');
     let i = 0;
     setText('');
     typing.current = setInterval(() => {
       i += 2;
       setText(words.slice(0, i).join(' '));
-      if (i >= words.length && typing.current) clearInterval(typing.current);
+      if (i >= words.length && typing.current) {
+        clearInterval(typing.current);
+        typing.current = null;
+        setTypingSample(false);
+      }
     }, 90);
   };
 
   const send = () => {
-    if (listening) return;
+    // Pas d'envoi pendant l'écoute, pendant la saisie d'un exemple, ni en double.
+    if (listening || typingSample || create.isPending) return;
     create.mutate(
       {
         unitId,
@@ -221,7 +228,24 @@ export default function DicteeScreen() {
           </Text>
 
           {web.error || server.error ? (
-            <Banner tone="error" title="Micro">
+            <Banner
+              tone="error"
+              title="Micro"
+              action={
+                server.canRetry ? (
+                  <Button
+                    label="Réessayer l’envoi"
+                    kind="secondary"
+                    loading={server.transcribing}
+                    onPress={() =>
+                      void server.retry().then((r) => {
+                        if (r) setText((t) => `${t ? `${t} ` : ''}${r.text}`.trim());
+                      })
+                    }
+                  />
+                ) : undefined
+              }
+            >
               <Text tone="record">{web.error ?? server.error}</Text>
             </Banner>
           ) : null}
@@ -306,7 +330,7 @@ export default function DicteeScreen() {
                   icon={Send}
                   size="lg"
                   style={{ flex: 1 }}
-                  disabled={text.trim().length < 3}
+                  disabled={text.trim().length < 3 || typingSample}
                   onPress={send}
                   testID="envoyer"
                 />

@@ -24,6 +24,8 @@ describe('findRoomMentions', () => {
     expect(findRoomMentions('vers le 16 h il était agité')).toEqual([]);
     expect(findRoomMentions('sous la 3 litres')).toEqual([]);
     expect(findRoomMentions('vu le 12 novembre')).toEqual([]);
+    expect(findRoomMentions('vers le 16h il a vomi')).toEqual([]);
+    expect(findRoomMentions('la 3e fois, du 1g de paracétamol')).toEqual([]);
   });
 });
 

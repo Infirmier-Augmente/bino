@@ -113,11 +113,13 @@ function headingOf(clause: Clause): { appareil: Appareil; rest: string } | null 
 }
 
 function isPatientDesignation(clause: Clause): boolean {
-  const n = normalize(clause.text);
-  const mentionsPatient =
-    findRoomMentions(clause.text).length > 0 || /\b(monsieur|madame|patient|patiente)\b/.test(n);
+  // "Box 12", "monsieur du box 12", "Madame Petit" : une chambre citée, ou un titre + nom.
+  // Pas "patiente très fatiguée", qui est une information clinique.
+  const n = normalize(stripFillers(clause.text));
+  const hasRoom = findRoomMentions(clause.text).length > 0;
+  const titleAndName = /^(monsieur|madame|mme|mr|m)( |$)/.test(n) && n.split(' ').length <= 3;
   return (
-    mentionsPatient &&
+    (hasRoom || titleAndName) &&
     detectAppareil(clause.text) === null &&
     detectTargetRule(clause.text) === null
   );
@@ -160,8 +162,17 @@ export function structureHeuristically(ctx: StructuringContext): RawStructuring 
     last = { list, index: list.length - 1, start: clause.start, sentence: clause.sentence };
   };
 
-  for (const clause of segment(transcript)) {
-    if (isPatientDesignation(clause)) continue;
+  const clauses = segment(transcript);
+  for (const [index, clause] of clauses.entries()) {
+    // Seule une courte proposition de TÊTE peut être la désignation du patient ("Box 12, …").
+    if (
+      index < 2 &&
+      clause.sentence === 0 &&
+      wordCount(clause.text) <= 6 &&
+      isPatientDesignation(clause)
+    ) {
+      continue;
+    }
 
     const heading = headingOf(clause);
     if (heading) {
@@ -210,6 +221,7 @@ export function structureHeuristically(ctx: StructuringContext): RawStructuring 
     const transverse = detectTransverse(n);
     if (transverse) {
       out.transverse.push({ ...stmt, field: transverse });
+      remember(out.transverse, clause);
       continue;
     }
 

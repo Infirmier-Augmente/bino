@@ -81,7 +81,8 @@ export function findRoomMentions(transcript: string): RoomMention[] {
     const next = tokens[j];
     if (!next) continue;
     let room: string | undefined;
-    if (/^\d{1,3}[a-z]?$/.test(next.value)) room = next.value;
+    // "12", "12b" sont des chambres ; "16h", "3e", "1g", "2l" non (heures, ordinaux, unités).
+    if (/^\d{1,3}[a-d]?$/.test(next.value)) room = next.value;
     else if (NUMBER_WORDS[next.value]) room = NUMBER_WORDS[next.value];
     if (!room) continue;
     // "le 8" n'est une chambre que si le mot précédent n'est pas une heure ("vers le 8" est rare) :

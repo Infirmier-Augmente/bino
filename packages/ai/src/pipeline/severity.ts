@@ -56,7 +56,7 @@ export async function rateSeverity(
         ]),
       ),
     };
-    const answers = await classifier.ask(state, questions);
+    const answers = await classifier.ask(state, questions, AbortSignal.timeout(8_000));
     return {
       ...content,
       targets: content.targets.map((t) => {

@@ -87,3 +87,23 @@ describe('groundStatement', () => {
     ).toEqual({ ok: false, reason: 'number-mismatch' });
   });
 });
+
+describe('ancrage : cas limites (relecture de code)', () => {
+  it('refuse un extrait coupé au milieu d’un nombre ou d’un mot', () => {
+    expect(locateQuote('tension à 125', 'tension à 12')?.quote).not.toBe('tension à 12');
+    expect(
+      groundStatement('t', 'tension à 125', { text: 'Tension à 12.', quote: 'tension à 12' }).ok,
+    ).toBe(false);
+    expect(locateQuote('Patient à 10 mg', 'à 1')).toBeNull();
+  });
+  it('ne découpe pas les décimales', () => {
+    expect(numbersAreGrounded('Diurèse 5 L.', 'diurèse 1,5 L')).toBe(false);
+    expect(numbersAreGrounded('Diurèse 1,5 L.', 'diurèse 1,5 L')).toBe(true);
+  });
+  it('« une » compte quand l’extrait est chiffré', () => {
+    expect(numbersAreGrounded('Une ampoule de morphine.', 'deux ampoules de morphine')).toBe(false);
+    expect(
+      numbersAreGrounded('Une ampoule de morphine.', 'on lui a fait une ampoule de morphine'),
+    ).toBe(true);
+  });
+});

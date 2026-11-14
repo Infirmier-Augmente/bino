@@ -32,7 +32,7 @@ import {
   type SourcedItem,
   searchTransmissions,
   suggestPriority,
-  type Transmission,
+  Transmission,
   type TransmissionContent,
   toLocalIso,
   transmissionsInShift,
@@ -242,14 +242,19 @@ export class HospitalService {
       unit,
       patient,
       nurses: this.state.nurses,
-      transmissions: transmissionsInShift(
-        this.state.transmissions,
-        patientId,
-        handoverWindow(now, unit),
-      ),
+      transmissions: this.validatedInShift(patientId, unit, now),
       now,
       bundleId,
     });
+  }
+
+  /** Rien n'est versé au DPI sans validation de l'IDE. */
+  private validatedInShift(patientId: string, unit: CareUnit, now: Date): Transmission[] {
+    return transmissionsInShift(
+      this.state.transmissions,
+      patientId,
+      handoverWindow(now, unit),
+    ).filter((t) => t.review.status === 'validated');
   }
 
   exportToDpi(patientId: string, nurseId: string): DpiExport {
@@ -258,16 +263,12 @@ export class HospitalService {
     const unit = this.unit(patient.unitId);
     const id = this.deps.ids('dpi');
     const bundle = this.buildBundle(patientId, id);
-    const transmissionIds = transmissionsInShift(
-      this.state.transmissions,
-      patientId,
-      handoverWindow(this.now(), unit),
-    ).map((t) => t.id);
+    const transmissionIds = this.validatedInShift(patientId, unit, this.now()).map((t) => t.id);
     if (transmissionIds.length === 0) {
       throw new AppError(
         422,
         'nothing-to-export',
-        'Aucune transmission sur ce poste pour ce patient.',
+        'Aucune transmission validée sur ce poste : valide d’abord tes transmissions.',
       );
     }
     const record: DpiExport = {
@@ -297,6 +298,7 @@ export class HospitalService {
     this.nurse(body.nurseId);
     const now = this.now();
     const id = this.deps.ids('tr');
+    const generation = this.deps.store.generation;
     const patients = this.state.patients.filter(
       (p) => p.unitId === unit.id && p.status === 'present',
     );
@@ -362,7 +364,7 @@ export class HospitalService {
       });
     }
 
-    const transmission: Transmission = {
+    const draft: Transmission = {
       id,
       unitId: unit.id,
       nurseId: body.nurseId,
@@ -385,6 +387,28 @@ export class HospitalService {
         rejected: outcome.rejected,
       },
     };
+    // L'hôpital a été réinitialisé (simulateur) pendant la structuration : on n'écrit rien.
+    if (this.deps.store.generation !== generation) {
+      throw new AppError(
+        409,
+        'state-reset',
+        'Le service a été réinitialisé pendant l’envoi : redicte ta note.',
+      );
+    }
+    // Validation AVANT écriture : une sortie IA inattendue ne doit jamais corrompre l'état.
+    const checked = Transmission.safeParse(draft);
+    if (!checked.success) {
+      console.error(
+        '[api] transmission invalide, non enregistrée',
+        checked.error.issues.slice(0, 5),
+      );
+      throw new AppError(
+        500,
+        'invalid-transmission',
+        'La structuration a produit un résultat invalide. Réessaie.',
+      );
+    }
+    const transmission = checked.data;
     this.deps.store.update((s) => {
       s.transmissions.push(transmission);
     });
@@ -499,6 +523,13 @@ export class HospitalService {
       throw new AppError(400, 'answer-required', 'Donne une réponse ou écarte la question.');
     }
     return this.mutateTransmission(transmissionId, (t) => {
+      if (t.review.status === 'validated') {
+        throw new AppError(
+          409,
+          'already-validated',
+          'Transmission validée : dicte une nouvelle note pour compléter.',
+        );
+      }
       const flag = t.flags.find((f) => f.id === flagId);
       if (!flag) throw notFound('Question', flagId);
       if (input.dismiss) {

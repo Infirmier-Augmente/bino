@@ -121,7 +121,7 @@ export const RejectedStatement = z.object({
   section: z.string(),
   text: z.string(),
   quote: z.string(),
-  reason: z.enum(['quote-not-found', 'number-mismatch', 'empty']),
+  reason: z.enum(['quote-not-found', 'number-mismatch', 'empty', 'duplicate']),
 });
 export type RejectedStatement = z.infer<typeof RejectedStatement>;
 

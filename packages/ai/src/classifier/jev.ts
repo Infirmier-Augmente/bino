@@ -76,8 +76,12 @@ export class JevClassifier implements ClassifierPort {
       if (res.status === 429 || res.status === 529) {
         lastError = new Error(`Jev surchargé (${res.status})`);
         const retryAfter = Number(res.headers.get('retry-after'));
+        // On ne fait jamais attendre l'infirmière : attente plafonnée à 2 s.
         await sleep(
-          Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 400 * 2 ** attempt,
+          Math.min(
+            2_000,
+            Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 400 * 2 ** attempt,
+          ),
         );
         continue;
       }

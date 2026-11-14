@@ -163,12 +163,12 @@ export function isWithin(iso: string, startIso: string, endIso: string): boolean
   return t >= Date.parse(startIso) && t <= Date.parse(endIso);
 }
 
-export function ageAt(birthDate: string, now: Date): number {
+export function ageAt(birthDate: string, now: Date, timeZone = 'Europe/Paris'): number {
   const [y, m, d] = birthDate.split('-').map(Number);
   if (y === undefined || m === undefined || d === undefined) return 0;
-  let age = now.getUTCFullYear() - y;
-  const beforeBirthday =
-    now.getUTCMonth() + 1 < m || (now.getUTCMonth() + 1 === m && now.getUTCDate() < d);
+  const today = localParts(now, timeZone);
+  let age = today.year - y;
+  const beforeBirthday = today.month < m || (today.month === m && today.day < d);
   if (beforeBirthday) age--;
   return Math.max(0, age);
 }

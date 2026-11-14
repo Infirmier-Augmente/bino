@@ -92,7 +92,7 @@ describe('lecture : session, vue service, fiche, recherche', () => {
     await expect(
       client.exportToDpi({ params: { patientId: 'rea-12' }, body: { nurseId: 'martine' } }),
     ).rejects.toMatchObject({ status: 422 });
-    await client.createTransmission({
+    const t = await client.createTransmission({
       body: {
         unitId: 'rea',
         nurseId: 'martine',
@@ -100,6 +100,14 @@ describe('lecture : session, vue service, fiche, recherche', () => {
         inputMethod: 'keyboard',
         transcript: EXAMPLE_A,
       },
+    });
+    // Ligne rouge : un brouillon n'est jamais versé au DPI.
+    await expect(
+      client.exportToDpi({ params: { patientId: 'rea-12' }, body: { nurseId: 'martine' } }),
+    ).rejects.toMatchObject({ status: 422 });
+    await client.reviewTransmission({
+      params: { transmissionId: t.id },
+      body: { nurseId: 'martine', decision: 'validate' },
     });
     const preview = await client.patientFhir({ params: { patientId: 'rea-12' } });
     expect(preview.resourceType).toBe('Bundle');

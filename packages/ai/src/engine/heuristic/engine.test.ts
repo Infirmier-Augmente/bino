@@ -93,3 +93,36 @@ describe('moteur heuristique — autres situations', () => {
     expect(raw.admission?.autonomie.length).toBe(1);
   });
 });
+
+describe('moteur heuristique : rien de clinique ne disparaît (relecture de code)', () => {
+  const all = (raw: ReturnType<typeof structureHeuristically>) =>
+    [
+      ...raw.observations,
+      ...raw.routine,
+      ...raw.todos,
+      ...raw.transverse,
+      ...raw.targets.flatMap((t) => [...t.data, ...t.actions, ...t.results]),
+    ].map((s) => s.quote);
+
+  it('garde « patiente très fatiguée » et les phrases avec « madame » hors tête', () => {
+    const raw = structureHeuristically({
+      transcript:
+        'Box 12, patiente très fatiguée, elle a peu mangé. Madame Durand ne veut plus parler, patiente prostrée.',
+      mode: 'transmission',
+      patient: null,
+    });
+    const quotes = all(raw).join(' | ');
+    expect(quotes).toContain('patiente très fatiguée');
+    expect(quotes).toContain('patiente prostrée');
+  });
+
+  it('une proposition courte après une info transverse la complète (pas d’élément orphelin)', () => {
+    const raw = structureHeuristically({
+      transcript: 'Allergie pénicilline, OK.',
+      mode: 'transmission',
+      patient: null,
+    });
+    expect(raw.transverse.map((t) => t.quote)).toEqual(['Allergie pénicilline, OK']);
+    expect(raw.observations).toEqual([]);
+  });
+});

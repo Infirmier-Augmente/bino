@@ -132,12 +132,7 @@ export function extractNumbers(
   const norm = normalize(cleaned);
   const out: number[] = [];
   const decimal = cleaned.match(/\d+(?:\.\d+)?/g) ?? [];
-  for (const d of decimal) {
-    out.push(Number(d));
-    if (d.includes('.')) {
-      for (const part of d.split('.')) out.push(Number(part));
-    }
-  }
+  for (const d of decimal) out.push(Number(d));
   const tokens = tokenize(norm).map((t) => t.value);
   for (let i = 0; i < tokens.length; i++) {
     const tok = tokens[i] ?? '';

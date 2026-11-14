@@ -40,6 +40,8 @@ export default function TransmissionScreen() {
   const actions = useTransmissionActions(transmissionId);
   const toast = useToast();
   const [selected, setSelected] = useState<SourcedItem | null>(null);
+  const [pickingPatient, setPickingPatient] = useState(false);
+  const [showAllPatients, setShowAllPatients] = useState(false);
 
   const t = query.data;
   const ranges = useMemo(() => {
@@ -126,7 +128,10 @@ export default function TransmissionScreen() {
             label="Supprimer cette dictée"
             tone="subtle"
             onPress={() =>
-              actions.remove.mutate(undefined, { onSuccess: () => router.back(), onError })
+              actions.remove.mutate(undefined, {
+                onSuccess: () => (router.canGoBack() ? router.back() : router.replace('/patients')),
+                onError,
+              })
             }
           />
         ) : null
@@ -188,27 +193,56 @@ export default function TransmissionScreen() {
         </Banner>
       ) : null}
 
-      {!t.patientId ? (
-        <Section title="De qui s’agit-il ?" testID="choix-patient">
-          <Text tone="question">
-            La dictée ne permet pas de savoir avec certitude. Choisis le patient :
-          </Text>
+      {!t.patientId || (editable && pickingPatient) ? (
+        <Section
+          title={t.patientId ? 'Changer de patient' : 'De qui s’agit-il ?'}
+          testID="choix-patient"
+        >
+          {!t.patientId ? (
+            <Text tone="question">
+              La dictée ne permet pas de savoir avec certitude. Choisis le patient :
+            </Text>
+          ) : null}
           <Stack direction="row" gap={space.sm} wrap>
-            {(t.resolution.candidates.length > 0
-              ? t.resolution.candidates.flatMap(
+            {(showAllPatients || t.resolution.candidates.length === 0
+              ? (board.data?.rows ?? [])
+              : t.resolution.candidates.flatMap(
                   (cand) => board.data?.rows.filter((r) => r.patient.id === cand.patientId) ?? [],
                 )
-              : (board.data?.rows ?? [])
-            ).map((r) => (
+            )
+              .filter((r) => r.patient.id !== t.patientId)
+              .map((r) => (
+                <Button
+                  key={r.patient.id}
+                  kind="secondary"
+                  label={`${r.patient.roomLabel} · ${r.patient.displayName}`}
+                  onPress={() =>
+                    actions.assign.mutate(r.patient.id, {
+                      onSuccess: () => setPickingPatient(false),
+                      onError,
+                    })
+                  }
+                />
+              ))}
+            {!showAllPatients && t.resolution.candidates.length > 0 ? (
               <Button
-                key={r.patient.id}
-                kind="secondary"
-                label={`${r.patient.roomLabel} · ${r.patient.displayName}`}
-                onPress={() => actions.assign.mutate(r.patient.id, { onError })}
+                label="Autre patient…"
+                kind="ghost"
+                onPress={() => setShowAllPatients(true)}
               />
-            ))}
+            ) : null}
           </Stack>
         </Section>
+      ) : editable ? (
+        <Button
+          label="Ce n’est pas le bon patient ?"
+          kind="ghost"
+          onPress={() => {
+            setPickingPatient(true);
+            setShowAllPatients(true);
+          }}
+          testID="changer-patient"
+        />
       ) : null}
 
       {openFlags.filter((f) => f.kind !== 'patient-ambiguous').length > 0 ? (
