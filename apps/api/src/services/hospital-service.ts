@@ -442,7 +442,7 @@ export class HospitalService {
       }
       const lists = itemLists(t.content);
       for (const edit of input.edits) {
-        const found = lists.flatMap((l) => l).find((i) => i.id === edit.itemId);
+        const found = lists.flat().find((i) => i.id === edit.itemId);
         if (!found) throw notFound('Élément', edit.itemId);
         if (found.text !== edit.text) {
           found.text = edit.text;

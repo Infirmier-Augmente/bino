@@ -73,7 +73,14 @@
   },
   "overrides": [
     {
-      "includes": ["**/scripts/**", "**/cli.ts", "**/*.test.ts", "**/*.spec.ts", "e2e/**"],
+      "includes": [
+        "**/scripts/**",
+        "**/cli.ts",
+        "**/cli/**",
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "e2e/**"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
