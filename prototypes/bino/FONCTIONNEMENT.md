@@ -79,8 +79,8 @@ La transmission finale de **toute l'équipe**, une carte par patient.
   - sous chaque puce, **qui l'a dit et à quelle heure** (ex. `Karim 14h05 · Sophie 8h10`),
     du plus récent au plus ancien ;
   - « Aucun compte rendu aujourd'hui » si rien n'a été écrit.
-- **Changer la priorité** : toucher **Priorité n** déplie, **dans la carte**, une rangée
-  horizontale **1 2 3 4** (pas de nouvelle fenêtre).
+- **Changer la priorité** : toucher **Priorité n** déplie juste en dessous, **dans la carte**,
+  une petite rangée de cercles **1 2 3 4** (pas de nouvelle fenêtre).
   - Le niveau actuel est surligné.
   - Sous la rangée : la proposition et sa raison (« Proposée par l'IA : 2 · … »).
   - Toucher un chiffre enregistre le choix, replie la rangée et réordonne la liste.
