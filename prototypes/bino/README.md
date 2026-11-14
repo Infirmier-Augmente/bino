@@ -2,7 +2,7 @@
 
 Démo du hackathon IA santé ARS × AdoptAI (novembre 2026), défi Hôpital Foch « infirmier augmenté ».
 
-Bino, en deux onglets. **Patients** : la liste triée par NEWS2 ; une fiche par patient avec ses données en déroulant, un micro et une zone de saisie pour les **comptes rendus**. **Transmission finale** : pour chaque patient, la synthèse DAR de ce que **toute l'équipe** a écrit dans la journée, chaque phrase reliée au compte rendu d'origine. Rien n'est inventé ; ce qui n'a pas été dit reste une question.
+Bino suit les maquettes papier de l'équipe. **Patients** : « Bonjour Martine », la date, la liste des patients (chambre à droite). Un toucher ouvre la **popup patient** : bouton **Dossier médical** (constantes, NEWS2, infos, import DPI), zone de **compte rendu**, **micro**, **Valider**, puis « ✓ Compte rendu fait » et retour à la liste. **Transmissions** : les comptes rendus de la journée, **Mes CR** ou **Tous**, avec un filtre par soignant.
 
 > **Données entièrement fictives.** Ne jamais saisir de données réelles de patients : la démo n'est ni hébergée HDS ni conforme RGPD pour des données de santé.
 
@@ -14,16 +14,15 @@ Bino, en deux onglets. **Patients** : la liste triée par NEWS2 ; une fiche par 
 
 Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir comme une app.
 
-**Parcours de démo conseillé (2 minutes)**
+**Parcours de démo conseillé (1 minute)**
 
-1. **Patients** : la chambre 12 est en tête, NEWS2 7 (critique). Touchez-la.
-2. **Données du patient ▾** : constantes et détail du NEWS2, allergies, dispositifs. **Constantes ▾** › **Récupérer depuis le DPI** : le score passe à 9.
-3. **Compte rendu** : dictez au micro (ou au clavier), ou touchez l'exemple « Hélène Durand se dégrade », puis **Enregistrer**.
-4. **Transmission finale** › **Tout synthétiser** : une synthèse DAR par patient, fusionnant les comptes rendus de Sophie, Karim et le vôtre. **Sources ›** montre qui a dit quoi.
-5. **Valider** la synthèse. Si quelqu'un ajoute ou supprime un compte rendu ensuite, Bino propose **Mettre à jour**.
-6. **Écouter** ou **Copier** la transmission finale pour la relève.
+1. Au premier lancement hors Claude, indiquez votre prénom : l'accueil affiche « Bonjour … ».
+2. **Patients** : touchez Mme Hélène Durand (ch12).
+3. **Dossier médical** : constantes et NEWS2. **Constantes ▾** › **Récupérer depuis le DPI** : le score passe à 9.
+4. Dictez au **micro** (ou écrivez, ou touchez l'exemple), puis **Valider** : « Compte rendu fait », retour à la liste.
+5. **Transmissions** : **Mes CR** montre le vôtre ; **Tous** montre ceux de Sophie et Karim, filtrables par soignant.
 
-Le bouton ⚙ (en haut à droite) donne accès aux réglages et à la réinitialisation de la démo.
+L'avatar (en haut à droite) ouvre le profil : prénom, serveur DPI, réinitialisation de la démo.
 
 ---
 
@@ -31,19 +30,18 @@ Le bouton ⚙ (en haut à droite) donne accès aux réglages et à la réinitial
 
 | Écran | Ce qu'on peut faire |
 | --- | --- |
-| Patients | Liste triée par NEWS2, nombre de comptes rendus du jour, synchronisation de tout le service avec le DPI |
-| Fiche patient | **Données du patient** en déroulant (constantes, NEWS2 détaillé, motif, ATCD, allergies, dispositifs, prescription), menu **Constantes ▾** (DPI ou saisie manuelle), **compte rendu** au micro ou au clavier, comptes rendus du jour signés |
-| Transmission finale | Synthèse DAR par patient à partir des comptes rendus de toute l'équipe, sources par phrase, « à faire », soins faits, validation signée, alerte si des comptes rendus ont changé, écoute et copie |
+| Patients | Bonjour + date, liste triée par NEWS2 (couleur à gauche), chambre à droite, synchronisation du service avec le DPI |
+| Popup patient | **Dossier médical** en déroulant (constantes, NEWS2 détaillé, motif, ATCD, allergies, dispositifs, prescription, menu **Constantes ▾** avec import DPI ou saisie manuelle), compte rendu au **micro** ou au clavier, **Valider**, confirmation « Compte rendu fait » |
+| Transmissions | Comptes rendus du jour, **Mes CR / Tous**, filtre par soignant, suppression de ses propres comptes rendus |
 
 ### Ce qui marche où
 
 | | Dans Claude (lien artifact) | Cloudflare / local |
 | --- | --- | --- |
-| Comptes rendus | **Partagés en temps réel** entre tous ceux qui ouvrent le lien (signés avec leur compte) | Sur cet appareil seulement (prénom saisi dans ⚙) |
-| Synthèse par IA | Oui, fournie par Claude | Avec une clé API Anthropic saisie dans ⚙ ; sinon règles locales |
+| Comptes rendus | **Partagés en temps réel** entre tous ceux qui ouvrent le lien, signés avec leur compte | Sur cet appareil seulement, signés avec le prénom saisi |
+| « Bonjour … » | Prénom du compte Claude | Prénom saisi au premier lancement |
 | Dictée vocale | Chrome ordinateur | Chrome (Android, ordinateur), Safari iOS ; sinon micro du clavier |
-| Lecture à voix haute | Chrome ordinateur | La plupart des navigateurs |
-| Import DPI | DPI simulé | DPI simulé ou vrai serveur FHIR (⚙) |
+| Import DPI | DPI simulé | DPI simulé ou vrai serveur FHIR (profil) |
 
 Dans Claude, pour que l'équipe puisse écrire, partagez le lien en **Contributeur** (les Lecteurs voient sans écrire).
 
@@ -86,9 +84,9 @@ Aucune étape de build : HTML, CSS et modules JavaScript natifs.
 index.html               page unique, barre d'onglets
 css/styles.css           identité visuelle Bino (Plus Jakarta Sans, Nunito, magenta, bleu ciel, bleu nuit)
 js/app.js                état, actions, feuilles (constantes, DPI, réglages)
-js/views.js              rendu : Patients, fiche patient, Transmission finale
+js/views.js              rendu : en-tête, Patients, popup patient, Transmissions
 js/store.js              comptes rendus, synthèses, constantes : base partagée (Claude) ou localStorage
-js/synthesis.js          transmission finale : prompt IA, règles locales, vérification des sources
+js/synthesis.js          synthèse DAR multi-soignants (non branchée sur l'écran actuel, gardée et testée)
 js/news2.js              calcul NEWS2 (échelle SpO2 n°1)
 js/structure.js          dictée → DAR : prompt IA, règles locales de secours, extraction des constantes
 js/data.js               patients et dictées d'exemple (fictifs)

@@ -12,6 +12,7 @@ const listeners = [];
 let db = null;
 let user = null;
 let me = null;
+let meName = '';
 let mode = 'local';
 let loading = false;
 let stale = false;
@@ -51,6 +52,14 @@ export async function init() {
   db = d;
   user = u;
   me = u ? await u.id().catch(() => null) : null;
+  if (u) {
+    try {
+      const prof = await u.me();
+      meName = prof?.name || '';
+    } catch {
+      meName = '';
+    }
+  }
   mode = 'shared';
   loading = true;
   cache.cr = [];
@@ -135,6 +144,10 @@ export function needsSynth(s, crs) {
 }
 export const isMine = (c) => (mode === 'shared' ? !!me && c.by === me : c.byName === myName());
 export const myName = () => settings.name.trim();
+// Prénom affiché dans « Bonjour … » : le compte Claude en mode partagé, sinon le réglage local.
+export const displayName = () =>
+  mode === 'shared' ? meName || settings.name.trim() : settings.name.trim();
+export const canWrite = () => mode !== 'shared' || !!me;
 export function authorOf(c) {
   if (c.by && names.get(c.by)) return names.get(c.by);
   if (c.by && c.by === me) return 'Vous';

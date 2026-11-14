@@ -1,39 +1,38 @@
 // Bino — le binôme des infirmiers. Démo hackathon IA santé (Hôpital Foch), données fictives.
-// Deux onglets : le dashboard (patients → fiche → comptes rendus) et la transmission finale.
+// Parcours des maquettes papier : Patients → popup patient → Valider → « Compte rendu fait » → Patients.
+// Onglet Transmissions : les comptes rendus de l'équipe, « Mes CR » ou « Tous », filtre par soignant.
 import { EXAMPLES, seed } from './data.js';
 import { LV, news2 } from './news2.js';
-import * as AI from './services/ai.js';
 import * as FHIR from './services/fhir.js';
 import * as Voice from './services/voice.js';
-import { DEFAULT_FHIR, DEFAULT_MODEL, saveSettings, settings } from './settings.js';
+import { DEFAULT_FHIR, saveSettings, settings } from './settings.js';
 import * as Store from './store.js';
-import { localSynth, normalizeSynth, remapIds, synthPrompt } from './synthesis.js';
 import { esc, fmtVital, hhmm, VITAL_KEYS, VITAL_LABELS } from './util.js';
-import { ic, sorted, V, vDashboard, vFinale, vPatient } from './views.js';
+import { ic, V, vDone, vHeader, vPatientPopup, vPatients, vTransmissions } from './views.js';
 
-const S = seed(); // patients (fictifs) ; les comptes rendus, synthèses et constantes sont dans Store
+const S = seed(); // patients fictifs ; comptes rendus et constantes dans Store
 const U = {
-  tab: 'dashboard',
-  pid: null,
+  tab: 'patients',
+  pid: null, // patient ouvert dans la popup
+  sub: null, // feuille secondaire ouverte depuis la popup (constantes, DPI, profil)
   draft: '',
   foldOpen: false,
   listening: null,
   saving: false,
-  synthBusy: false,
   syncing: false,
-  speaking: false,
+  trScope: 'mine',
+  trWho: '',
 };
 const P = (id) => S.patients.find((p) => p.id === id);
 
 /* ---------- rendu ---------- */
 function render() {
-  const app = document.getElementById('app');
-  if (U.tab === 'finale') app.innerHTML = vFinale(S, U, Voice);
-  else if (U.pid) app.innerHTML = vPatient(S, U, Voice, EXAMPLES);
-  else app.innerHTML = vDashboard(S, U);
+  document.getElementById('top').innerHTML = vHeader();
+  document.getElementById('app').innerHTML =
+    U.tab === 'transmissions' ? vTransmissions(S, U) : vPatients(S, U);
   const tabs = [
-    ['dashboard', 'Patients', 'list'],
-    ['finale', 'Transmission finale', 'doc'],
+    ['patients', 'Patients', 'users'],
+    ['transmissions', 'Transmissions', 'doc'],
   ];
   document.getElementById('tabs').innerHTML = tabs
     .map(
@@ -43,17 +42,17 @@ function render() {
     .join('');
 }
 
-// Re-rendu sans perdre la saisie en cours ni le focus (mises à jour venues des autres soignants).
+// Les mises à jour venues des autres soignants ne coupent ni une saisie ni la popup ouverte.
 function softRender() {
   const a = document.activeElement;
-  if (a && (a.id === 'draft' || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
   if (document.querySelector('details.menu[open]')) return;
   render();
 }
 
-/* ---------- feuilles ---------- */
+/* ---------- feuilles et popups ---------- */
 let lastFocus = null;
-function sheet(html) {
+function sheet(html, full = false) {
   const el = document.getElementById('sheet');
   if (!html) {
     el.innerHTML = '';
@@ -61,7 +60,7 @@ function sheet(html) {
     return;
   }
   if (!el.innerHTML) lastFocus = document.activeElement;
-  el.innerHTML = `<div class="sheet-wrap" data-act="closeSheetBg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="between"><span></span><button type="button" class="icon-btn" data-act="closeSheet" aria-label="Fermer">${ic('x', 22)}</button></div>${html}</div></div>`;
+  el.innerHTML = `<div class="sheet-wrap ${full ? 'full' : ''}" data-act="closeSheetBg"><div class="sheet" role="dialog" aria-modal="true"><div class="between sheet-top"><span></span><button type="button" class="icon-btn" data-act="closeSheet" aria-label="Fermer">${ic('x', 24)}</button></div>${html}</div></div>`;
   const h = el.querySelector('h1');
   if (h) {
     h.setAttribute('tabindex', '-1');
@@ -69,15 +68,40 @@ function sheet(html) {
   }
 }
 
+function showPatient() {
+  U.sub = null;
+  sheet(vPatientPopup(S, U, Voice, EXAMPLES), true);
+}
+
+function closePatient() {
+  if (U.listening) Voice.stop();
+  U.listening = null;
+  U.pid = null;
+  U.sub = null;
+  sheet('');
+  render();
+}
+
+let doneTimer;
+function showDone() {
+  const el = document.getElementById('done');
+  el.innerHTML = vDone();
+  clearTimeout(doneTimer);
+  doneTimer = setTimeout(() => {
+    el.innerHTML = '';
+  }, 1800);
+}
+
 const badgeHtml = (lv) =>
   `<span class="badge" style="background:${LV[lv].bg};color:${LV[lv].fg}">${LV[lv].l}</span>`;
 
 function vitalsForm(id) {
+  U.sub = 'vitals';
   const p = P(id);
   const v = V(p);
   const inp = (k, l, step) =>
     `<div><label class="l" for="v-${k}">${l}</label><input class="f" type="number" inputmode="decimal" step="${step || 1}" id="v-${k}" data-vit="${k}" value="${v[k]}"></div>`;
-  sheet(`<h1 style="margin-top:0">Constantes</h1><p class="sub">Ch. ${p.ch} · ${esc(p.nom)} · le score se recalcule en direct</p>
+  sheet(`<h1 style="margin-top:0">Constantes</h1><p class="sub">${esc(p.nom)} · ch${p.ch} · le score se recalcule en direct</p>
   <div class="card"><div class="grid2">${inp('fr', 'FR (/min)')}${inp('spo2', 'SpO2 (%)')}${inp('pas', 'TA systolique')}${inp('pad', 'TA diastolique')}${inp('fc', 'FC (/min)')}${inp('temp', 'Température (°C)', '0.1')}
     <div><label class="l" for="v-o2">Oxygène</label><select class="f" id="v-o2" data-vit="o2"><option value="0" ${!v.o2 ? 'selected' : ''}>Air ambiant</option><option value="1" ${v.o2 ? 'selected' : ''}>Sous O2</option></select></div>
     <div><label class="l" for="v-cons">Conscience</label><select class="f" id="v-cons" data-vit="cons"><option value="A" ${v.cons === 'A' ? 'selected' : ''}>Alerte</option><option value="C" ${v.cons !== 'A' ? 'selected' : ''}>Confusion / altérée</option></select></div></div></div>
@@ -107,20 +131,21 @@ function vprev() {
 
 let dpi = null;
 async function dpiImport(id) {
+  U.sub = 'dpi';
   const p = P(id);
   const cur = V(p);
   const where = FHIR.isMock(settings.fhirBase)
     ? 'DPI simulé (FHIR R4, données fictives)'
     : esc(settings.fhirBase);
   sheet(
-    `<h1 style="margin-top:0">Import depuis le DPI</h1><p class="sub">Ch. ${p.ch} · ${esc(p.nom)}</p><div class="card bino-card"><span class="spin dark"></span><div><div class="t">Lecture du dossier patient…</div><div class="small muted">${where}</div></div></div>`,
+    `<h1 style="margin-top:0">Import depuis le DPI</h1><p class="sub">${esc(p.nom)} · ch${p.ch}</p><div class="card row"><span class="spin dark"></span><div><b>Lecture du dossier patient…</b><div class="small muted">${where}</div></div></div>`,
   );
   try {
     const res = await FHIR.fetchVitals(p, settings.fhirBase);
     dpi = { pid: id, res };
     const n0 = news2(cur);
     const n1 = news2({ ...cur, ...res.v });
-    sheet(`<h1 style="margin-top:0">Import depuis le DPI</h1><p class="sub">Ch. ${p.ch} · ${esc(p.nom)} · valeurs du dossier à ${res.at || '—'}</p>
+    sheet(`<h1 style="margin-top:0">Import depuis le DPI</h1><p class="sub">${esc(p.nom)} · valeurs du dossier à ${res.at || '—'}</p>
     <div class="card"><table class="vtable cmp"><tbody><tr><td class="small muted">Paramètre</td><td class="small muted" style="text-align:right">Actuel (${cur.at})</td><td class="small muted" style="text-align:right">DPI</td></tr>
       ${VITAL_KEYS.map((k) => {
         const has = k in res.v;
@@ -129,39 +154,34 @@ async function dpiImport(id) {
       }).join('')}
     </tbody></table></div>
     <div class="card between"><span class="small muted">NEWS2</span><span class="row" style="gap:8px"><b>${n0.total} → ${n1.total}</b>${badgeHtml(n1.level)}</span></div>
-    <p class="small muted">Source : ${Object.keys(res.v).length} Observations FHIR · ${where}. Le DPI reste la source de vérité ; les valeurs non trouvées sont conservées.</p>
+    <p class="small muted">Source : ${Object.keys(res.v).length} Observations FHIR · ${where}. Le DPI reste la source de vérité.</p>
     <div class="btns"><button type="button" class="btn sec" data-act="closeSheet">Annuler</button><button type="button" class="btn" data-act="applyDpi">${ic('dl', 18)} Importer</button></div>`);
-  } catch {
-    sheet(`<h1 style="margin-top:0">Import depuis le DPI</h1><div class="card"><div class="t">Le DPI n'a pas répondu</div><div class="small muted">${esc(e.message)}</div></div>
-    <p class="small muted">Vérifie l'adresse du serveur FHIR dans Réglages, ou saisis les constantes à la main.</p>
+  } catch (e) {
+    sheet(`<h1 style="margin-top:0">Import depuis le DPI</h1><div class="card"><b>Le DPI n'a pas répondu</b><div class="small muted">${esc(e.message)}</div></div>
     <div class="btns"><button type="button" class="btn sec" data-act="editVitals" data-arg="${id}">Saisie manuelle</button><button type="button" class="btn" data-act="dpiImport" data-arg="${id}">Réessayer</button></div>`);
   }
 }
 
-function settingsSheet() {
+function profileSheet(welcome = false) {
+  if (U.pid) U.sub = 'profile';
   const shared = Store.storeMode() === 'shared';
-  sheet(`<h1 style="margin-top:0">Réglages</h1><p class="sub">Propres à ce navigateur.</p>
-  <h2>Qui écrit ?</h2>
-  <div class="card">${
+  sheet(`<h1 style="margin-top:0">${welcome ? 'Bienvenue sur Bino' : 'Profil'}</h1>
+  ${
     shared
-      ? '<div class="small">Les comptes rendus sont signés avec votre compte Claude et partagés avec toute l\'équipe qui ouvre ce lien.</div>'
-      : `<label class="l" for="s-name">Ton prénom et ta fonction</label><input class="f" id="s-name" placeholder="Ex. : Martine · IDE" value="${esc(settings.name)}">
-    <p class="small muted" style="margin:8px 0 0">Ici, les comptes rendus restent sur cet appareil. Pour les partager avec l'équipe, utilisez le lien Claude.</p>`
-  }</div>
-  <h2>Intelligence artificielle</h2>
-  <div class="card">${
-    AI.insideClaude()
-      ? `<div class="small">Dans Claude, l'IA est fournie par la page${AI.mode() === 'claude' ? ' : <b>active</b>.' : ' : pas disponible ici, règles locales utilisées.'}</div>`
-      : `<div class="small muted" style="margin-bottom:8px">Sans clé, Bino synthétise avec des règles simples. Avec une clé API Anthropic de test, la synthèse passe par Claude.</div>
-    <label class="l" for="s-key">Clé API Anthropic (facultatif)</label><input class="f" id="s-key" type="password" autocomplete="off" placeholder="sk-ant-…" value="${esc(settings.apiKey)}">
-    <label class="l" for="s-model" style="margin-top:10px">Modèle</label><input class="f" id="s-model" value="${esc(settings.model || DEFAULT_MODEL)}">
-    <p class="small muted" style="margin:8px 0 0">Clé de test à budget limité, gardée dans ce navigateur. Données fictives uniquement.</p>`
-  }</div>
-  <h2>Dossier patient (DPI)</h2>
+      ? `<div class="card small">Connecté avec votre compte Claude${Store.displayName() ? ` : <b>${esc(Store.displayName())}</b>` : ''}. Vos comptes rendus sont signés à votre nom et visibles par l'équipe qui ouvre ce lien.</div>`
+      : `<p class="sub">${welcome ? 'Pour signer tes comptes rendus.' : 'Ton nom signe tes comptes rendus.'}</p>
+    <div class="card"><label class="l" for="s-name">Prénom et fonction</label><input class="f" id="s-name" placeholder="Ex. : Martine · IDE" value="${esc(settings.name)}" autocomplete="given-name">
+    <p class="small muted" style="margin:8px 0 0">Sur ce lien, les comptes rendus restent sur ce téléphone. Pour les partager avec l'équipe, utilisez le lien Claude.</p></div>`
+  }
+  ${
+    welcome
+      ? ''
+      : `<h2>Dossier patient (DPI)</h2>
   <div class="card"><label class="l" for="s-fhir">Serveur FHIR R4</label><input class="f" id="s-fhir" value="${esc(settings.fhirBase)}" placeholder="${DEFAULT_FHIR}">
-    <p class="small muted" style="margin:8px 0 0"><code>${DEFAULT_FHIR}</code> = DPI simulé fourni avec l'app.</p></div>
-  <button type="button" class="btn" data-act="saveSettings" style="margin-bottom:10px">Enregistrer</button>
-  ${shared ? '' : '<button type="button" class="btn sec" data-act="askReset">Réinitialiser les données de démo</button>'}`);
+    <p class="small muted" style="margin:8px 0 0"><code>${DEFAULT_FHIR}</code> = DPI simulé fourni avec l'app.</p></div>`
+  }
+  <button type="button" class="btn" data-act="saveProfile" style="margin-bottom:10px">${welcome ? 'Commencer' : 'Enregistrer'}</button>
+  ${!welcome && !shared ? '<button type="button" class="btn sec" data-act="askReset">Réinitialiser les données de démo</button>' : ''}`);
 }
 
 /* ---------- comptes rendus ---------- */
@@ -169,13 +189,12 @@ async function saveCr() {
   const el = document.getElementById('draft');
   const text = (el ? el.value : U.draft).trim();
   if (!text) {
-    toast("Dicte ou écris d'abord quelques mots.");
+    toast("Dicte ou écris d'abord le compte rendu.");
     return;
   }
   if (Store.storeMode() === 'local' && !Store.myName()) {
     U.draft = text;
-    settingsSheet();
-    toast('Indique ton prénom pour signer tes comptes rendus.');
+    profileSheet(true);
     return;
   }
   if (U.listening) {
@@ -183,12 +202,14 @@ async function saveCr() {
     U.listening = null;
   }
   U.saving = true;
-  render();
   try {
     await Store.addCr(U.pid, text);
     U.draft = '';
-    toast('Compte rendu enregistré. Il apparaîtra dans la transmission finale.');
-  } catch {
+    U.saving = false;
+    closePatient();
+    showDone();
+  } catch (e) {
+    U.saving = false;
     U.draft = text;
     toast(
       e?.code === 'invalid_argument'
@@ -196,73 +217,6 @@ async function saveCr() {
         : "L'enregistrement a échoué. Réessaie dans un instant.",
     );
   }
-  U.saving = false;
-  render();
-}
-
-/* ---------- synthèses ---------- */
-async function synthOne(pid) {
-  const p = P(pid);
-  const crs = Store.crFor(pid);
-  if (!crs.length) return;
-  let syn = null;
-  let engine = 'local';
-  if (AI.mode() !== 'off') {
-    try {
-      const raw = await AI.askJSON(synthPrompt(p, crs, Store.authorOf));
-      syn = normalizeSynth(remapIds(raw, crs), crs);
-      engine = 'ai';
-      if (!syn.cibles.length) syn = null;
-    } catch {
-      syn = null;
-    }
-  }
-  if (!syn) {
-    syn = localSynth(crs);
-    engine = 'local';
-  }
-  await Store.saveSynth(pid, {
-    ...syn,
-    engine,
-    crIds: crs.map((c) => c.id),
-    at: new Date().toISOString(),
-    t: hhmm(),
-  });
-}
-
-async function synth(pids) {
-  U.synthBusy = true;
-  render();
-  let fail = 0;
-  for (const pid of pids) {
-    try {
-      await synthOne(pid);
-    } catch {
-      fail++;
-    }
-  }
-  U.synthBusy = false;
-  render();
-  toast(fail ? `${fail} synthèse(s) n'ont pas pu être enregistrées.` : 'Synthèses à jour.');
-}
-
-function finaleText() {
-  return sorted(S.patients)
-    .map((p) => {
-      const s = Store.synthFor(p.id);
-      const n = news2(V(p));
-      const head = `Chambre ${p.ch}, ${p.nom}, ${p.age} ans, ${p.motif}. NEWS2 ${n.total} (${LV[n.level].l}). Allergie : ${p.allergies}.`;
-      if (!s) return `${head}\nPas de synthèse.`;
-      const cib = s.cibles
-        .map(
-          (c) =>
-            `- ${c.c} : ${c.D.t}${c.A ? ` ${c.A.t}` : ''}${c.R ? ` ${c.R.t}` : ' Résultat non renseigné.'}`,
-        )
-        .join('\n');
-      const todo = s.todo.length ? `\nÀ faire : ${s.todo.map((t) => t.t).join(' ; ')}` : '';
-      return `${head}${s.resume ? `\nÀ retenir : ${s.resume.t}` : ''}\n${cib}${todo}`;
-    })
-    .join('\n\n');
 }
 
 /* ---------- dictée ---------- */
@@ -313,7 +267,7 @@ function refreshMic() {
   for (const b of document.querySelectorAll('[data-act="mic"]')) {
     const on = b.dataset.arg === U.listening;
     b.classList.toggle('on', on);
-    b.innerHTML = ic(on ? 'stop' : 'mic', b.classList.contains('sm') ? 18 : 22);
+    b.innerHTML = ic(on ? 'stop' : 'mic', 24);
     b.setAttribute('aria-label', on ? 'Arrêter la dictée' : 'Dicter');
   }
 }
@@ -343,7 +297,7 @@ async function syncAll() {
   render();
   toast(
     fail === S.patients.length
-      ? "Le DPI n'a pas répondu. Vérifie l'adresse dans Réglages."
+      ? "Le DPI n'a pas répondu. Vérifie l'adresse dans le profil."
       : `${ok} patients synchronisés avec le DPI · ${changed} score(s) modifié(s).`,
   );
 }
@@ -362,8 +316,6 @@ function toast(m) {
 const A = {
   tab: (a) => {
     U.tab = a;
-    if (a === 'dashboard') U.pid = null;
-    sheet('');
     render();
     window.scrollTo(0, 0);
   },
@@ -371,19 +323,12 @@ const A = {
     U.pid = a;
     U.draft = '';
     U.foldOpen = false;
-    render();
-    window.scrollTo(0, 0);
-  },
-  back: () => {
-    if (U.listening) Voice.stop();
-    U.listening = null;
-    U.pid = null;
-    render();
-    window.scrollTo(0, 0);
+    showPatient();
   },
   useEx: (a) => {
     U.draft = EXAMPLES[+a].text;
-    render();
+    const el = document.getElementById('draft');
+    if (el) el.value = U.draft;
   },
   mic: (a) => startMic(a),
   saveCr: () => saveCr(),
@@ -391,41 +336,19 @@ const A = {
     try {
       await Store.deleteCr(a);
       toast('Compte rendu supprimé.');
+      if (U.pid && !U.sub) showPatient();
     } catch {
       toast('Suppression impossible.');
     }
   },
-  synth: (a) => synth([a]),
-  synthAll: () =>
-    synth(
-      S.patients
-        .filter((p) => {
-          const crs = Store.crFor(p.id);
-          const s = Store.synthFor(p.id);
-          return crs.length && Store.needsSynth(s, crs);
-        })
-        .map((p) => p.id),
-    ),
-  validateSynth: async (a) => {
-    try {
-      await Store.validateSynth(a);
-      toast('Synthèse validée.');
-    } catch {
-      toast('Validation impossible pour le moment.');
-    }
+  trScope: (a) => {
+    U.trScope = a;
+    U.trWho = '';
+    render();
   },
-  copyAll: () => {
-    const txt = finaleText();
-    if (navigator.clipboard)
-      navigator.clipboard
-        .writeText(txt)
-        .then(() => toast('Transmission finale copiée.'))
-        .catch(() => toast('Copie impossible ici.'));
-    else toast('Copie impossible ici.');
-  },
-  speak: () => {
-    if (Voice.isSpeaking()) Voice.stopSpeaking();
-    else Voice.speak(finaleText().replace(/\n- /g, '. ').replace(/\n/g, ' '));
+  trWho: (a) => {
+    U.trWho = a;
+    render();
   },
   editVitals: (a) => vitalsForm(a),
   dpiImport: (a) => dpiImport(a),
@@ -434,9 +357,10 @@ const A = {
     const p = P(dpi.pid);
     const next = { ...V(p), ...dpi.res.v, at: dpi.res.at || hhmm(), src: 'DPI' };
     await Store.saveVitals(p.id, next);
-    sheet('');
-    render();
     const n = news2(next);
+    U.foldOpen = true;
+    showPatient();
+    render();
     toast(`Constantes importées du DPI · NEWS2 ${n.total} (${LV[n.level].l}).`);
   },
   saveVitals: async (a) => {
@@ -446,41 +370,57 @@ const A = {
       return;
     }
     await Store.saveVitals(a, { ...v, at: hhmm(), src: 'saisie' });
-    sheet('');
-    render();
     const n = news2(v);
+    U.foldOpen = true;
+    showPatient();
+    render();
     toast(`Constantes enregistrées · NEWS2 ${n.total} (${LV[n.level].l}).`);
   },
   syncAll: () => syncAll(),
-  settings: () => settingsSheet(),
-  saveSettings: () => {
+  settings: () => profileSheet(false),
+  saveProfile: () => {
     const g = (id) => document.getElementById(id);
-    const patch = { fhirBase: (g('s-fhir').value || '').trim() || DEFAULT_FHIR };
+    const patch = {};
     if (g('s-name')) patch.name = g('s-name').value.trim();
-    if (g('s-key')) {
-      patch.apiKey = g('s-key').value.trim();
-      patch.model = g('s-model').value.trim() || DEFAULT_MODEL;
+    if (g('s-fhir')) patch.fhirBase = (g('s-fhir').value || '').trim() || DEFAULT_FHIR;
+    if ('name' in patch && !patch.name) {
+      toast('Indique ton prénom pour signer tes comptes rendus.');
+      return;
     }
     saveSettings(patch);
-    sheet('');
     render();
-    toast('Réglages enregistrés.');
+    if (U.pid) {
+      showPatient();
+      toast('C’est noté. Tu peux valider ton compte rendu.');
+    } else {
+      sheet('');
+      toast('Profil enregistré.');
+    }
   },
   askReset: () =>
     sheet(
-      `<h1 style="margin-top:0">Réinitialiser la démo ?</h1><p class="sub">Les comptes rendus, synthèses et constantes de cet appareil reviennent à l'état de départ.</p><div class="btns"><button type="button" class="btn sec" data-act="closeSheet">Annuler</button><button type="button" class="btn" data-act="reset">Réinitialiser</button></div>`,
+      `<h1 style="margin-top:0">Réinitialiser la démo ?</h1><p class="sub">Les comptes rendus et constantes de cet appareil reviennent à l'état de départ.</p><div class="btns"><button type="button" class="btn sec" data-act="closeSheet">Annuler</button><button type="button" class="btn" data-act="reset">Réinitialiser</button></div>`,
     ),
   reset: () => {
     Store.resetLocal();
-    U.pid = null;
-    U.tab = 'dashboard';
+    U.tab = 'patients';
     sheet('');
     render();
     toast('Démo réinitialisée.');
   },
-  closeSheet: () => sheet(''),
+  closeSheet: () => {
+    // Une feuille ouverte depuis la popup patient (constantes, DPI, profil) ramène à la popup.
+    if (U.pid && U.sub) showPatient();
+    else if (U.pid) closePatient();
+    else sheet('');
+  },
   closeSheetBg: (_a, el, e) => {
-    if (e.target === el) sheet('');
+    if (e.target === el) A.closeSheet();
+  },
+  closeDone: (_a, el, e) => {
+    if (e.target === el || el.classList.contains('done-x')) {
+      document.getElementById('done').innerHTML = '';
+    }
   },
 };
 
@@ -493,7 +433,7 @@ document.addEventListener('click', (e) => {
   }
   const menu = el.closest('details.menu');
   if (menu) menu.open = false;
-  if (el.dataset.act !== 'closeSheetBg') e.preventDefault();
+  if (!['closeSheetBg', 'closeDone'].includes(el.dataset.act)) e.preventDefault();
   A[el.dataset.act]?.(el.dataset.arg, el, e);
 });
 document.addEventListener('input', (e) => {
@@ -513,17 +453,22 @@ document.addEventListener(
 );
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (document.querySelector('details.menu[open]')) {
+  if (document.getElementById('done').innerHTML) document.getElementById('done').innerHTML = '';
+  else if (document.querySelector('details.menu[open]')) {
     for (const d of document.querySelectorAll('details.menu[open]')) d.open = false;
-  } else if (document.getElementById('sheet').innerHTML) sheet('');
+  } else if (document.getElementById('sheet').innerHTML) A.closeSheet();
 });
 
-Voice.onSpeakingChange((s) => {
-  U.speaking = s;
-  if (U.tab === 'finale') render();
-});
 Store.onChange(softRender);
 render();
-AI.init().then(softRender);
 Voice.init().then(softRender);
-Store.init().then(softRender);
+Store.init().then(() => {
+  softRender();
+  // Première ouverture hors Claude : on demande le prénom pour « Bonjour … » et la signature.
+  if (
+    Store.storeMode() === 'local' &&
+    !Store.myName() &&
+    !document.getElementById('sheet').innerHTML
+  )
+    profileSheet(true);
+});
