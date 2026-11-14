@@ -172,7 +172,9 @@ export default function TransmissionScreen() {
         />
         <Badge
           label={
-            t.engine.degraded ? 'Mode dégradé : moteur local' : `Rangé par ${t.engine.structuring}`
+            t.engine.degraded
+              ? 'Mode dégradé : moteur local'
+              : `Rangé par ${t.engine.structuring.split(':').at(-1) ?? t.engine.structuring}`
           }
           tone={t.engine.degraded ? 'question' : 'neutral'}
         />

@@ -2,6 +2,7 @@ import type { SourceRef } from '../schemas/common';
 import { type Patient, PRIORITY_RANK, type PriorityLevel } from '../schemas/hospital';
 import { SEVERITY_RANK, type SeverityLevel, type Transmission } from '../schemas/transmission';
 import type { EffectivePriority, PriorityReason, PrioritySuggestion } from '../schemas/views';
+import { isResultGivenLater } from './completeness';
 import { lexicalSeverity } from './lexicon';
 
 /**
@@ -58,7 +59,11 @@ export function suggestPriority({
         reasons.push({ label: target.label, weight: PRIORITY_WEIGHTS.severity[sev], sources });
         level = maxLevel(level, LEVEL_FROM_SEVERITY[sev]);
       }
-      if (target.results.length === 0 && SEVERITY_RANK[sev] > 0) {
+      if (
+        target.results.length === 0 &&
+        SEVERITY_RANK[sev] > 0 &&
+        !isResultGivenLater(live, t, target.id)
+      ) {
         reasons.push({
           label: `Résultat non réévalué : ${target.label}`,
           weight: PRIORITY_WEIGHTS.missingResult,

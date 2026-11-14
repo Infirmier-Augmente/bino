@@ -1,6 +1,7 @@
 import type { Appareil } from '../schemas/common';
 import type { Patient } from '../schemas/hospital';
 import type { Flag, Transmission, TransmissionContent } from '../schemas/transmission';
+import { normalize } from './text';
 
 /**
  * CONTRÔLE DE COMPLÉTUDE — la forme acceptable du "challenge" :
@@ -124,4 +125,43 @@ export function darCompletionRate(transmissions: readonly Transmission[]): numbe
   const targets = transmissions.flatMap((t) => t.content.targets);
   if (targets.length === 0) return null;
   return targets.filter((t) => t.results.length > 0).length / targets.length;
+}
+
+/**
+ * CONTINUITÉ DES CIBLES (vue, non destructif) : si une dictée ULTÉRIEURE du même poste
+ * contient une cible de même libellé AVEC un résultat, la question « R manquant » de la cible
+ * précédente est considérée comme traitée dans la fiche de relève. Les transmissions d'origine
+ * ne sont pas modifiées : la réévaluation reste sourcée dans la dictée qui l'apporte.
+ */
+export function isResultGivenLater(
+  transmissions: readonly Transmission[],
+  transmission: Transmission,
+  targetId: string,
+): boolean {
+  const target = transmission.content.targets.find((t) => t.id === targetId);
+  if (!target) return false;
+  const label = normalize(target.label);
+  const after = Date.parse(transmission.createdAt);
+  return transmissions.some(
+    (t) =>
+      t.id !== transmission.id &&
+      t.patientId === transmission.patientId &&
+      Date.parse(t.createdAt) > after &&
+      t.content.targets.some((x) => normalize(x.label) === label && x.results.length > 0),
+  );
+}
+
+/** Questions ouvertes d'un ensemble de transmissions, sans celles résolues par une dictée ultérieure. */
+export function openFlagsWithContinuity(transmissions: readonly Transmission[]): Flag[] {
+  return transmissions.flatMap((t) =>
+    t.flags.filter(
+      (f) =>
+        f.status === 'open' &&
+        !(
+          f.kind === 'missing-result' &&
+          f.targetId &&
+          isResultGivenLater(transmissions, t, f.targetId)
+        ),
+    ),
+  );
 }

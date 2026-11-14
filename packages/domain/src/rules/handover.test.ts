@@ -181,3 +181,40 @@ describe('buildUnitBoard + recap', () => {
     for (const line of recap) expect(line.text.length).toBeLessThanOrEqual(200);
   });
 });
+
+describe('continuité des cibles entre dictées', () => {
+  it('un R dicté plus tard ferme la question dans la fiche, sans modifier la dictée d’origine', () => {
+    const patient = makePatient();
+    const first = makeTransmission({
+      id: 'ta',
+      createdAt: '2026-11-14T16:30:00+01:00',
+      content: { targets: [agitation] },
+      flags: completenessFlags('ta', { ...makeTransmission().content, targets: [agitation] }),
+    });
+    const later = makeTransmission({
+      id: 'tb',
+      createdAt: '2026-11-14T18:00:00+01:00',
+      content: {
+        targets: [
+          {
+            ...agitation,
+            id: 'c2',
+            data: [],
+            actions: [],
+            results: [item('r', 'Calme depuis 17h.')],
+          },
+        ],
+      },
+    });
+    const sheet = buildHandoverSheet({
+      unit: REA,
+      patient,
+      transmissions: [first, later],
+      now: NOW,
+    });
+    expect(sheet.openFlags.some((f) => f.kind === 'missing-result')).toBe(false);
+    expect(first.flags[0]?.status).toBe('open');
+    const sug = suggestPriority({ patient, shiftTransmissions: [first, later], now: NOW });
+    expect(sug.reasons.some((r) => r.label.startsWith('Résultat non réévalué'))).toBe(false);
+  });
+});

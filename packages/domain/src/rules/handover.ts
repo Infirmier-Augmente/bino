@@ -22,7 +22,7 @@ import type {
   TransverseLine,
   UnitBoard,
 } from '../schemas/views';
-import { patientLevelFlags } from './completeness';
+import { openFlagsWithContinuity, patientLevelFlags } from './completeness';
 import { lexicalSeverity } from './lexicon';
 import { comparePriority, effectivePriority, suggestPriority } from './priority';
 import { ageAt, dayOfStay, formatClock, handoverWindow, isWithin, toLocalIso } from './time';
@@ -75,10 +75,7 @@ export function countTransmissions(transmissions: readonly Transmission[]): Tran
     draft: transmissions.filter((t) => t.review.status === 'draft').length,
     validated: transmissions.filter((t) => t.review.status === 'validated').length,
     unreviewed: transmissions.filter((t) => t.review.status === 'unreviewed').length,
-    openFlags: transmissions.reduce(
-      (n, t) => n + t.flags.filter((f) => f.status === 'open').length,
-      0,
-    ),
+    openFlags: openFlagsWithContinuity(transmissions).length,
   };
 }
 
@@ -238,10 +235,7 @@ export function buildHandoverSheet({
     sections: buildSections(unit, inShift),
     transverse: transverseLines(patient, inShift),
     todos: inShift.flatMap((t) => t.content.todos),
-    openFlags: [
-      ...inShift.flatMap((t) => t.flags.filter((f) => f.status === 'open')),
-      ...patientLevelFlags(patient),
-    ],
+    openFlags: [...openFlagsWithContinuity(inShift), ...patientLevelFlags(patient)],
     counts: countTransmissions(inShift),
     priority: effectivePriority(patient, suggestion),
     transmissionIds: inShift.map((t) => t.id),
@@ -260,7 +254,8 @@ export function buildPatientListItem({
   const alerts: string[] = [];
   const tv = patient.transverse;
   if (tv.allergies.status === 'connues') {
-    alerts.push(`Allergie : ${tv.allergies.items.map((i) => i.text).join(', ')}`);
+    const text = tv.allergies.items.map((i) => i.text.replace(/\.$/, '')).join(', ');
+    alerts.push(/^allerg/i.test(text) ? text : `Allergie : ${text}`);
   }
   if (tv.precautions.status === 'complementaires') {
     alerts.push(tv.precautions.items.map((i) => i.text).join(', '));
