@@ -13,7 +13,7 @@ transmissions après coup, et la relève repose sur sa mémoire. Notre réponse 
 
 1. **Dictée au fil de l'eau** : en sortant de la chambre, un bouton, elle dicte (« Box 12, extubé à 10h… »).
 2. **L'IA range** : transcription → bon patient → transmissions ciblées **DAR** (Données, Actions, Résultats)
-   + soins de routine + « à faire » + infos transverses, **chaque phrase liée à l'extrait de dictée d'origine**.
+   - soins de routine + « à faire » + infos transverses, **chaque phrase liée à l'extrait de dictée d'origine**.
 3. **Elle valide en 1 clic** ou marque « non relue ».
 4. **À la relève** : une fiche par patient est prête, la vue service est triée ★ puis Rouge → Vert.
    On ne supprime pas la relève orale, **on la prépare**.
@@ -22,15 +22,15 @@ Sources produit : `docs/PRODUCT.md` (synthèse Notion « Synthèse des échanges
 
 ## 2. Lignes rouges (non négociables, testées)
 
-| Règle | Où c'est garanti |
-| --- | --- |
-| **L'IA ne décide rien.** Elle structure, résume et signale. L'IDE valide et reste responsable. | `review.status`, rien n'est versé au dossier sans `validate` |
-| **Zéro information inventée.** Toute phrase affichée a ≥ 1 source (`SourcedItem.sources`). Un extrait introuvable dans la dictée ou un chiffre modifié = phrase rejetée. | `packages/domain/src/rules/grounding.ts` + tests |
-| **Des questions, pas des verdicts.** Un manque (ex. R non renseigné) devient une question à l'IDE. | `rules/completeness.ts` |
-| **La priorité est une suggestion explicable.** Chaque point a une raison ; la couleur manuelle et l'étoile ★ priment. | `rules/priority.ts` |
-| **Données 100 % fictives.** Aucune donnée réelle de patient, nulle part (code, tests, captures, logs). | `packages/simulation` |
-| **Aucune clé d'API dans le repo.** Les clés vont dans `.env` (ignoré). Un hook bloque les commits suspects. | `scripts/check-secrets.mjs` |
-| **Indépendance fournisseur IA.** Aucun code métier n'importe un SDK de fournisseur. Tout passe par les ports de `@infirmier/ai`. | `packages/ai/src/*/port.ts` |
+| Règle                                                                                                                                                                    | Où c'est garanti                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| **L'IA ne décide rien.** Elle structure, résume et signale. L'IDE valide et reste responsable.                                                                           | `review.status`, rien n'est versé au dossier sans `validate` |
+| **Zéro information inventée.** Toute phrase affichée a ≥ 1 source (`SourcedItem.sources`). Un extrait introuvable dans la dictée ou un chiffre modifié = phrase rejetée. | `packages/domain/src/rules/grounding.ts` + tests             |
+| **Des questions, pas des verdicts.** Un manque (ex. R non renseigné) devient une question à l'IDE.                                                                       | `rules/completeness.ts`                                      |
+| **La priorité est une suggestion explicable.** Chaque point a une raison ; la couleur manuelle et l'étoile ★ priment.                                                    | `rules/priority.ts`                                          |
+| **Données 100 % fictives.** Aucune donnée réelle de patient, nulle part (code, tests, captures, logs).                                                                   | `packages/simulation`                                        |
+| **Aucune clé d'API dans le repo.** Les clés vont dans `.env` (ignoré). Un hook bloque les commits suspects.                                                              | `scripts/check-secrets.mjs`                                  |
+| **Indépendance fournisseur IA.** Aucun code métier n'importe un SDK de fournisseur. Tout passe par les ports de `@infirmier/ai`.                                         | `packages/ai/src/*/port.ts`                                  |
 
 ## 3. Carte du code
 
@@ -88,26 +88,26 @@ pnpm sim eval                     # évalue la structuration IA sur tous les sc�
 
 ## 6. Recettes (où modifier quoi)
 
-| Je veux… | Fichiers |
-| --- | --- |
-| Ajouter un endpoint | `packages/domain/src/api/contract.ts` → `apps/api/src/http/routes.ts` → test d'intégration `apps/api/src/http/*.test.ts` → appel mobile `api.<nom>()` |
-| Changer un champ métier | schéma zod dans `packages/domain/src/schemas/*` → corriger les erreurs TS qui apparaissent → adapter les fixtures de `packages/simulation` |
-| Ajouter un fournisseur LLM / STT | `packages/ai/src/llm/providers.ts` ou `packages/ai/src/stt/*` + doc `docs/AI_PROVIDERS.md`. Rien d'autre ne bouge. |
-| Modifier les prompts | `packages/ai/src/pipeline/prompts.ts` puis `pnpm sim eval` pour comparer avant/après |
-| Ajuster la priorisation | `PRIORITY_WEIGHTS` dans `packages/domain/src/rules/priority.ts` + tests |
-| Enrichir le lexique soignant | `packages/domain/src/rules/lexicon.ts` (profite au prompt, au STT et au moteur de secours) |
-| Ajouter un scénario | `packages/simulation/src/scenarios/*.ts` + l'enregistrer dans `index.ts` (voir `docs/SCENARIOS.md`) |
-| Ajouter un écran | `apps/mobile/src/app/…` (Expo Router) ; composants dans `apps/mobile/src/ui` ; voir `docs/DESIGN.md` |
+| Je veux…                         | Fichiers                                                                                                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ajouter un endpoint              | `packages/domain/src/api/contract.ts` → `apps/api/src/http/routes.ts` → test d'intégration `apps/api/src/http/*.test.ts` → appel mobile `api.<nom>()` |
+| Changer un champ métier          | schéma zod dans `packages/domain/src/schemas/*` → corriger les erreurs TS qui apparaissent → adapter les fixtures de `packages/simulation`            |
+| Ajouter un fournisseur LLM / STT | `packages/ai/src/llm/providers.ts` ou `packages/ai/src/stt/*` + doc `docs/AI_PROVIDERS.md`. Rien d'autre ne bouge.                                    |
+| Modifier les prompts             | `packages/ai/src/pipeline/prompts.ts` puis `pnpm sim eval` pour comparer avant/après                                                                  |
+| Ajuster la priorisation          | `PRIORITY_WEIGHTS` dans `packages/domain/src/rules/priority.ts` + tests                                                                               |
+| Enrichir le lexique soignant     | `packages/domain/src/rules/lexicon.ts` (profite au prompt, au STT et au moteur de secours)                                                            |
+| Ajouter un scénario              | `packages/simulation/src/scenarios/*.ts` + l'enregistrer dans `index.ts` (voir `docs/SCENARIOS.md`)                                                   |
+| Ajouter un écran                 | `apps/mobile/src/app/…` (Expo Router) ; composants dans `apps/mobile/src/ui` ; voir `docs/DESIGN.md`                                                  |
 
 ## 7. Tests : quoi tester, où
 
-| Niveau | Outil | Où | Quand |
-| --- | --- | --- | --- |
-| Unitaire | Vitest | `packages/*/src/**/*.test.ts` | Toute règle métier, tout parsing, tout adaptateur IA (avec faux `fetch`) |
-| Intégration | Vitest + `app.request()` | `apps/api/src/**/*.test.ts` | Tout endpoint : vraie pile HTTP + store en mémoire + IA heuristique |
-| Scénarios | Vitest | `apps/api/src/simulation/*.test.ts` | Les scénarios de démo restent rejouables et cohérents |
-| Composants | Jest (jest-expo) + Testing Library | `apps/mobile/src/**/*.test.tsx` | Composants avec logique (dictée, relecture) |
-| E2E | Playwright | `e2e/tests/*.spec.ts` | Parcours critiques : dicter → relire → valider → relève |
+| Niveau      | Outil                              | Où                                  | Quand                                                                    |
+| ----------- | ---------------------------------- | ----------------------------------- | ------------------------------------------------------------------------ |
+| Unitaire    | Vitest                             | `packages/*/src/**/*.test.ts`       | Toute règle métier, tout parsing, tout adaptateur IA (avec faux `fetch`) |
+| Intégration | Vitest + `app.request()`           | `apps/api/src/**/*.test.ts`         | Tout endpoint : vraie pile HTTP + store en mémoire + IA heuristique      |
+| Scénarios   | Vitest                             | `apps/api/src/simulation/*.test.ts` | Les scénarios de démo restent rejouables et cohérents                    |
+| Composants  | Jest (jest-expo) + Testing Library | `apps/mobile/src/**/*.test.tsx`     | Composants avec logique (dictée, relecture)                              |
+| E2E         | Playwright                         | `e2e/tests/*.spec.ts`               | Parcours critiques : dicter → relire → valider → relève                  |
 
 Les tests ne doivent **jamais** appeler un vrai fournisseur d'IA (coût, flakiness). Ils utilisent le moteur
 `heuristic` (déterministe) ou des faux. Les vraies évaluations passent par `pnpm sim eval`.
