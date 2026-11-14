@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Infirmier augmenté",
+    "slug": "infirmier-augmente",
+    "version": "0.1.0",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "infirmier",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "supportsTablet": true,
+      "bundleIdentifier": "fr.hackathon.infirmieraugmente"
+    },
+    "android": {
+      "package": "fr.hackathon.infirmieraugmente",
+      "adaptiveIcon": {
+        "backgroundColor": "#0E5E58",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Infirmier augmenté",
+      "themeColor": "#0E5E58"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F3F5F4",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Le micro sert uniquement à dicter tes transmissions, quand tu appuies sur « Dicter »."
+        }
+      ]
+    ],
+    "experiments": {
+      "reactCompiler": true
+    }
+  }
+}
