@@ -128,7 +128,7 @@ export function vHeader() {
   const who = esc(firstName(Store.displayName()));
   return `<div class="hello">
     <img class="hello-logo" src="assets/bino/salue-bust.png" width="52" height="52" alt="">
-    <div><div class="hello-t">${who}</div><div class="hello-d">Date : ${date}</div></div>
+    <div><div class="hello-t">Bonjour ${who}</div><div class="hello-d">Date : ${date}</div></div>
     <button type="button" class="hello-out" data-act="logout">Déconnexion</button>
   </div>`;
 }

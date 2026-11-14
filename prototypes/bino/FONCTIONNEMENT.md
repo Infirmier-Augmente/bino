@@ -30,7 +30,7 @@ Ce document décrit le comportement visible écran par écran, puis ce qui se pa
 
 ## 2. Onglet Patients (dashboard)
 
-- **En-tête** : mascotte Bino, prénom du soignant, `Date : jj/mm/aaaa`.
+- **En-tête** : mascotte Bino, « Bonjour Prénom » (soignant connecté), `Date : jj/mm/aaaa`.
 - **Liste des 11 patients** du service, avec un compteur. Chaque ligne affiche :
   - le nom ;
   - l'âge et le motif d'hospitalisation ;
