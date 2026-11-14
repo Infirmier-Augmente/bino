@@ -1,6 +1,7 @@
 // Bino — le binôme des infirmiers. Démo hackathon IA santé (Hôpital Foch), données fictives.
 // Parcours des maquettes papier : Patients → popup patient → Valider → « Compte rendu fait » → Patients.
 // Onglet Transmissions : les comptes rendus de l'équipe, « Mes CR » ou « Tous », filtre par soignant.
+import { findStaff } from './auth.js';
 import { EXAMPLES, seed } from './data.js';
 import { buildModel, DOC_CSS, docFile, docHtml, docText } from './document.js';
 import { news2 } from './news2.js';
@@ -21,6 +22,8 @@ import {
   vDone,
   vHeader,
   vLevelPicker,
+  vLogged,
+  vLogin,
   vPatientPopup,
   vPatients,
   vTransmissions,
@@ -41,12 +44,40 @@ const U = {
   sumBusy: '',
   triBusy: false,
   sortBy: ['prio', 'chambre', 'nom'].includes(settings.sortBy) ? settings.sortBy : 'prio',
+  loginError: '',
+  loginId: '',
+  justIn: false,
 };
 let docModel = null;
 const P = (id) => S.patients.find((p) => p.id === id);
+const signedIn = () => !!settings.matricule;
+
+function loginError(msg) {
+  U.loginError = msg;
+  let el = document.querySelector('.login-err');
+  if (!el) {
+    el = document.createElement('p');
+    el.className = 'login-err';
+    el.setAttribute('role', 'alert');
+    document.querySelector('.login-card .btn')?.before(el);
+  }
+  el.textContent = msg;
+}
 
 /* ---------- rendu ---------- */
 function render() {
+  const gate = !signedIn() || U.justIn;
+  document.body.classList.toggle('locked', gate);
+  if (gate) {
+    const top = document.getElementById('top');
+    top.hidden = true;
+    top.innerHTML = '';
+    document.getElementById('tabs').innerHTML = '';
+    document.getElementById('app').innerHTML = signedIn()
+      ? vLogged(settings.name)
+      : vLogin(U.loginError, U.loginId);
+    return;
+  }
   const top = document.getElementById('top');
   top.hidden = U.tab !== 'patients';
   top.innerHTML = U.tab === 'patients' ? vHeader() : '';
@@ -120,7 +151,7 @@ function vitalsForm(id) {
   const v = V(p);
   const inp = (k, l, step) =>
     `<div><label class="l" for="v-${k}">${l}</label><input class="f" type="number" inputmode="decimal" step="${step || 1}" id="v-${k}" data-vit="${k}" value="${v[k]}"></div>`;
-  sheet(`<h1 style="margin-top:0">Constantes</h1><p class="sub">${esc(p.nom)} · ch${p.ch} · le score se recalcule en direct</p>
+  sheet(`<h1 style="margin-top:0">Constantes</h1><p class="sub">${esc(p.nom)} · ${p.ch} · le score se recalcule en direct</p>
   <div class="card"><div class="grid2">${inp('fr', 'FR (/min)')}${inp('spo2', 'SpO2 (%)')}${inp('pas', 'TA systolique')}${inp('pad', 'TA diastolique')}${inp('fc', 'FC (/min)')}${inp('temp', 'Température (°C)', '0.1')}
     <div><label class="l" for="v-o2">Oxygène</label><select class="f" id="v-o2" data-vit="o2"><option value="0" ${!v.o2 ? 'selected' : ''}>Air ambiant</option><option value="1" ${v.o2 ? 'selected' : ''}>Sous O2</option></select></div>
     <div><label class="l" for="v-cons">Conscience</label><select class="f" id="v-cons" data-vit="cons"><option value="A" ${v.cons === 'A' ? 'selected' : ''}>Alerte</option><option value="C" ${v.cons !== 'A' ? 'selected' : ''}>Confusion / altérée</option></select></div></div></div>
@@ -157,7 +188,7 @@ async function dpiImport(id) {
     ? 'DPI simulé (FHIR R4, données fictives)'
     : esc(settings.fhirBase);
   sheet(
-    `<h1 style="margin-top:0">Import depuis le DPI</h1><p class="sub">${esc(p.nom)} · ch${p.ch}</p><div class="card row"><span class="spin dark"></span><div><b>Lecture du dossier patient…</b><div class="small muted">${where}</div></div></div>`,
+    `<h1 style="margin-top:0">Import depuis le DPI</h1><p class="sub">${esc(p.nom)} · ${p.ch}</p><div class="card row"><span class="spin dark"></span><div><b>Lecture du dossier patient…</b><div class="small muted">${where}</div></div></div>`,
   );
   try {
     const res = await FHIR.fetchVitals(p, settings.fhirBase);
@@ -466,6 +497,45 @@ function toast(m) {
 }
 
 const A = {
+  login: () => {
+    const idEl = document.getElementById('login-id');
+    const pwEl = document.getElementById('login-pw');
+    const id = idEl?.value || '';
+    const pw = pwEl?.value || '';
+    if (!id.trim() || !pw.trim()) {
+      loginError('Indique le matricule et le mot de passe.');
+      (id.trim() ? pwEl : idEl)?.focus();
+      return;
+    }
+    const staff = findStaff(id, pw);
+    if (!staff) {
+      loginError('Matricule ou mot de passe incorrect.');
+      pwEl?.focus();
+      return;
+    }
+    saveSettings({ matricule: staff.matricule, name: staff.name });
+    U.loginError = '';
+    U.loginId = '';
+    U.justIn = true;
+    render();
+  },
+  enter: () => {
+    U.justIn = false;
+    render();
+  },
+  logout: () => {
+    if (U.listening) Voice.stop();
+    U.listening = null;
+    U.pid = null;
+    U.sub = null;
+    U.justIn = false;
+    U.loginError = '';
+    U.loginId = '';
+    saveSettings({ matricule: '', name: '' });
+    sheet('');
+    document.getElementById('done').innerHTML = '';
+    render();
+  },
   tab: (a) => {
     U.tab = a;
     render();
@@ -602,6 +672,15 @@ document.addEventListener('change', (e) => {
   if (e.target.dataset.vit !== undefined) vprev();
 });
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.getElementById('login-id')) {
+    e.preventDefault();
+    if (document.activeElement?.id === 'login-id') {
+      document.getElementById('login-pw')?.focus();
+      return;
+    }
+    A.login();
+    return;
+  }
   if (e.key !== 'Escape') return;
   if (document.getElementById('done').innerHTML) document.getElementById('done').innerHTML = '';
   else if (document.querySelector('details.menu[open]')) {

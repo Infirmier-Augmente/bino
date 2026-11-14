@@ -72,6 +72,32 @@ export const sorted = (patients, by = 'prio') => [...patients].sort((SORTS[by] |
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 const firstName = (s) => (s || '').split(/[·,]/)[0].trim().split(/\s+/)[0] || '';
 
+export function vLogin(error, matricule) {
+  return `<div class="login">
+    <img class="login-mark" src="assets/bino/presente-bust.png" width="104" height="126" alt="">
+    <h1>Connexion</h1>
+    <p class="sub">Entre ton matricule et ton mot de passe.</p>
+    <div class="card login-card">
+      <label class="l" for="login-id">Matricule</label>
+      <input class="f" id="login-id" inputmode="numeric" autocomplete="username" value="${esc(matricule || '')}">
+      <label class="l" for="login-pw">Mot de passe</label>
+      <input class="f" id="login-pw" type="password" autocomplete="current-password">
+      ${error ? `<p class="login-err" role="alert">${esc(error)}</p>` : ''}
+      <button type="button" class="btn" data-act="login">Se connecter</button>
+    </div>
+    <p class="small muted login-hint">Démo · matricule 10482 · mot de passe bino</p>
+  </div>`;
+}
+
+export function vLogged(name) {
+  return `<div class="login logged">
+    <img class="login-mark" src="assets/bino/pouce-bust.png" width="200" height="220" alt="">
+    <h1>${esc(name)}</h1>
+    <p class="sub">Connexion réussie</p>
+    <button type="button" class="btn" data-act="enter">Continuer</button>
+  </div>`;
+}
+
 export const micBtn = (U, target) =>
   `<button type="button" class="mic ${U.listening === target ? 'on' : ''}" data-act="mic" data-arg="${target}" aria-label="${U.listening === target ? 'Arrêter la dictée' : 'Dicter le compte rendu'}">${ic(U.listening === target ? 'stop' : 'mic', 28)}</button>`;
 
@@ -82,7 +108,12 @@ export function vHeader() {
     month: '2-digit',
     year: 'numeric',
   });
-  return `<div class="hello"><img class="hello-logo" src="assets/logo.png" width="52" height="52" alt="Bino"><div><div class="hello-t">Bonjour ${esc(firstName(Store.displayName()))}</div><div class="hello-d">Date : ${date}</div></div></div>`;
+  const who = esc(firstName(Store.displayName()));
+  return `<div class="hello">
+    <img class="hello-logo" src="assets/bino/salue-bust.png" width="52" height="52" alt="">
+    <div><div class="hello-t">${who}</div><div class="hello-d">Date : ${date}</div></div>
+    <button type="button" class="hello-out" data-act="logout">Déconnexion</button>
+  </div>`;
 }
 
 /* ---------- onglet 1 : patients ---------- */
@@ -112,7 +143,7 @@ export function vPatients(S, U) {
     .map((p) => {
       const lv = levelOf(p);
       return `<div class="card prow" style="--bar:${LV[lv].bar}">
-        <button type="button" class="prow-open" data-act="openPatient" data-arg="${p.id}"><span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${esc(reasonOf(p))}</span></span><span class="room-chip">ch${esc(p.ch)}</span></button>
+        <button type="button" class="prow-open" data-act="openPatient" data-arg="${p.id}"><span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${esc(reasonOf(p))}</span></span><span class="room-chip">${esc(p.ch)}</span></button>
         ${prioBtn(p)}
       </div>`;
     })
@@ -124,7 +155,7 @@ export function vLevelPicker(p) {
   const manual = Store.manualLevels()[p.id];
   const ai = Store.prioAI()?.order?.find((x) => x.id === p.id);
   const hint = ['la plus urgente', 'à voir rapidement', 'à surveiller', 'stable'];
-  return `<h1 style="margin-top:0">Priorité</h1><p class="sub">${esc(p.nom)} · ch${esc(p.ch)} · NEWS2 ${news2(V(p)).total}</p>
+  return `<h1 style="margin-top:0">Priorité</h1><p class="sub">${esc(p.nom)} · ${esc(p.ch)} · NEWS2 ${news2(V(p)).total}</p>
   ${ai ? `<p class="small muted">Proposée ${Store.prioAI()?.engine === 'ai' ? "par l'IA" : 'selon le NEWS2'} : ${prioTag(ai.niveau)} · ${esc(ai.raison)}</p>` : ''}
   <div class="card level-list">${LEVELS.map((l, i) => `<button type="button" class="level-opt ${cur === l ? 'on' : ''}" data-act="setLevel" data-arg="${p.id}:${l}"><span class="lvl ro" style="--c:${LV[l].bg};--f:${LV[l].fg}">${prioTag(l)}</span><span class="small muted lo-hint">${hint[i]}</span>${cur === l ? ic('check', 18) : ''}</button>`).join('')}</div>
   ${manual ? `<button type="button" class="btn sec" data-act="setLevel" data-arg="${p.id}:">Revenir à la priorité proposée</button>` : ''}`;
@@ -195,7 +226,7 @@ export const vDone = () =>
 function crItem(c, S) {
   const p = S.patients.find((x) => x.id === c.pid);
   return `<div class="cr-item">
-    <div class="between"><span class="cr-who">${esc(p?.nom || '')} <span class="room-chip sm">ch${esc(p?.ch || '')}</span></span><span class="small muted">${esc(c.t || '')}</span></div>
+    <div class="between"><span class="cr-who">${esc(p?.nom || '')} <span class="room-chip sm">${esc(p?.ch || '')}</span></span><span class="small muted">${esc(c.t || '')}</span></div>
     <p class="cr-text">${esc(c.text)}</p>
     ${Store.isMine(c) ? `<button type="button" class="linkbtn danger" data-act="delCr" data-arg="${esc(c.id)}">${ic('trash', 14)} Supprimer</button>` : ''}
   </div>`;
@@ -237,7 +268,7 @@ function summaryCard(p) {
       .map((pt) => `<li>${esc(pt.t)} ${srcLine(pt, crs)}</li>`)
       .join('')}</ul>`;
   return `<div class="card sum" style="--bar:${LV[lv].bar}">
-    <div class="between"><span class="cr-who">${esc(p.nom)} <span class="room-chip sm">ch${esc(p.ch)}</span></span>${prioBtn(p, true)}</div>
+    <div class="between"><span class="cr-who">${esc(p.nom)} <span class="room-chip sm">${esc(p.ch)}</span></span>${prioBtn(p, true)}</div>
     ${body}
   </div>`;
 }
@@ -245,7 +276,10 @@ function summaryCard(p) {
 export function vTransmissions(S, U) {
   const seg = (k, l) =>
     `<button type="button" class="seg-b ${U.trScope === k ? 'on' : ''}" data-act="trScope" data-arg="${k}" aria-pressed="${U.trScope === k}">${l}</button>`;
-  const head = `<h1 class="tr-title">Transmissions</h1><div class="seg" role="group" aria-label="Quels comptes rendus">${seg('mine', 'Mes CR')}${seg('all', 'Tous')}</div>`;
+  const out = `<button type="button" class="hello-out" data-act="logout">Déconnexion</button>`;
+  const head =
+    `<div class="tr-top"><h1 class="tr-title">Transmissions</h1>${out}</div>` +
+    `<div class="seg" role="group" aria-label="Quels comptes rendus">${seg('mine', 'Mes CR')}${seg('all', 'Tous')}</div>`;
   if (U.trScope === 'mine') {
     const mine = Store.allCr()
       .filter((c) => Store.isMine(c))
