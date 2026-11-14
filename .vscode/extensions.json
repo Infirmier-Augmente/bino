@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "biomejs.biome",
+    "expo.vscode-expo-tools",
+    "vitest.explorer",
+    "ms-playwright.playwright"
+  ]
+}
