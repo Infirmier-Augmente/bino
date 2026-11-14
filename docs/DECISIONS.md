@@ -37,11 +37,14 @@ choix structurant (une PR qui change une décision met à jour ce fichier).
 | T14 | Tests : Vitest (unitaire, intégration via `app.request` + client réel), Playwright (E2E sur export web) | Pyramide rapide ; E2E = build de prod | Jest partout, Detox/Maestro (natif) : V2 |
 | T15 | **TypeScript 6** (attendu par Expo 58) partout | Une seule version | TS 7 (non supporté par Expo au 14/11) |
 | T16 | `AGENTS.md` = source unique ; `CLAUDE.md` l'importe | Tous les agents de code et humains lisent les mêmes règles | Fichiers divergents par outil |
+| T17 | **Relecture de code indépendante** (agent sans contexte) avant livraison ; chaque bug confirmé = test de non-régression | 13 points trouvés dont 4 sur les lignes rouges (ancrage, export de brouillons, réponse sur note validée, patient non modifiable) : tous corrigés | — |
+| T18 | Export DPI : **uniquement les transmissions validées** | « Rien n'est versé au dossier sans validation » | Exporter les brouillons en `preliminary` |
+| T19 | Continuité des cibles **au niveau de la vue** (fiche, compteurs, priorité) | Ne jamais modifier une transmission signée ; la réévaluation reste sourcée dans la dictée qui l'apporte | Écrire le R dans la transmission d'origine |
 
 ## Pistes V2 identifiées
 
-- **Continuité des cibles** : quand une dictée ultérieure apporte le résultat (« sat 95 % sous 3 L »),
-  le rattacher à la cible ouverte (fournir les cibles ouvertes au LLM, champ `followUps`).
+- **Continuité des cibles, étape 2** : fournir au LLM les cibles ouvertes du patient pour qu'il
+  rattache explicitement une réévaluation à la bonne cible (aujourd'hui : même libellé).
 - **Pseudonymisation** du transcript avant envoi au LLM (remplacer noms/chambres puis réinjecter).
 - **Dictée native sur l'appareil** (`expo-speech-recognition`, nécessite un dev build).
 - Store Postgres HDS, authentification (CPS / e-CPS), journal d'audit.

@@ -58,7 +58,7 @@ flowchart TD
 | 🟦 Could | Questions en langage naturel, extraits sourcés | ✅ recherche façon Ctrl+F (pas de chiffre affirmé) |
 | 🟨 V2 | Détection des « non-dits », IA qui pose des questions d'incohérence | 🟡 questions d'imprécision par le LLM (max 2), pas d'analyse clinique |
 | 🟨 V2 | Score de priorité automatique | 🟡 suggestion explicable (règles + gravité Jev/LLM), l'IDE garde la main |
-| 🟨 V2 | Continuité des cibles entre dictées (R dicté plus tard) | ⬜ à faire (voir DECISIONS) |
+| 🟨 V2 | Continuité des cibles entre dictées (R dicté plus tard) | 🟡 fiche et priorité : la question « R manquant » se ferme si une dictée ultérieure apporte le résultat (vue, sans modifier l'original) |
 | ⬜ Vision | Écoute continue, pin's, prédiction clinique, prescriptions | ⬜ pitch « et demain » |
 
 ## Indicateurs (kit Foch) et comment on les mesure
