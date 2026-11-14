@@ -12,8 +12,8 @@ Martine, infirmière (IDE), 12 h de poste, relève à 7h45 et 19h45. Elle perd d
 transmissions après coup, et la relève repose sur sa mémoire. Notre réponse :
 
 1. **Dictée au fil de l'eau** : en sortant de la chambre, un bouton, elle dicte (« Box 12, extubé à 10h… »).
-2. **L'IA range** : transcription → bon patient → transmissions ciblées **DAR** (Données, Actions, Résultats)
-   - soins de routine + « à faire » + infos transverses, **chaque phrase liée à l'extrait de dictée d'origine**.
+2. **L'IA range** : transcription → bon patient → transmissions ciblées **DAR** (Données, Actions, Résultats),
+   soins de routine, « à faire » et infos transverses, **chaque phrase liée à l'extrait de dictée d'origine**.
 3. **Elle valide en 1 clic** ou marque « non relue ».
 4. **À la relève** : une fiche par patient est prête, la vue service est triée ★ puis Rouge → Vert.
    On ne supprime pas la relève orale, **on la prépare**.

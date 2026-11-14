@@ -17,7 +17,8 @@
       "!**/test-results",
       "!**/.data",
       "!**/expo-env.d.ts",
-      "!**/*.gen.ts"
+      "!**/*.gen.ts",
+      "!**/*.md"
     ]
   },
   "formatter": {
@@ -47,7 +48,12 @@
       "preset": "recommended",
       "suspicious": {
         "noExplicitAny": "error",
-        "noConsole": { "level": "warn", "options": { "allow": ["warn", "error", "info"] } }
+        "noConsole": {
+          "level": "warn",
+          "options": {
+            "allow": ["warn", "error", "info"]
+          }
+        }
       },
       "style": {
         "noNonNullAssertion": "error",
@@ -70,7 +76,9 @@
       "includes": ["**/scripts/**", "**/cli.ts", "**/*.test.ts", "**/*.spec.ts", "e2e/**"],
       "linter": {
         "rules": {
-          "suspicious": { "noConsole": "off" }
+          "suspicious": {
+            "noConsole": "off"
+          }
         }
       }
     }
