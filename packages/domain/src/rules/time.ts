@@ -120,10 +120,11 @@ export function currentShift(now: Date, unit: Pick<CareUnit, 'shifts' | 'timeZon
   const start = fromLocal({ ...startDate, ...startHM }, tz);
   const endDate = kind === 'jour' ? startDate : addDays(startDate, 1);
   const end = fromLocal({ ...endDate, ...endHM }, tz);
+  const hm = (t: string) => t.replace(/^0/, '').replace(':', 'h');
   const label =
     kind === 'jour'
-      ? `Jour ${unit.shifts.dayStart} → ${unit.shifts.nightStart}`
-      : `Nuit ${unit.shifts.nightStart} → ${unit.shifts.dayStart}`;
+      ? `Poste de jour · ${hm(unit.shifts.dayStart)} → ${hm(unit.shifts.nightStart)}`
+      : `Poste de nuit · ${hm(unit.shifts.nightStart)} → ${hm(unit.shifts.dayStart)}`;
   return { kind, start: toLocalIso(start, tz), end: toLocalIso(end, tz), label };
 }
 

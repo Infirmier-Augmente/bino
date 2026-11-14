@@ -35,3 +35,6 @@ apps/mobile/android/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# export web Expo
+apps/mobile/dist/

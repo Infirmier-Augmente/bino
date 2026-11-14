@@ -18,7 +18,8 @@
       "!**/.data",
       "!**/expo-env.d.ts",
       "!**/*.gen.ts",
-      "!**/*.md"
+      "!**/*.md",
+      "!**/assets"
     ]
   },
   "formatter": {
