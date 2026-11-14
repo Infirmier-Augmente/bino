@@ -27,7 +27,7 @@ export const colors = {
   successSoft: 'rgba(34,181,115,0.14)',
   footLine: 'rgba(0,34,68,0.08)',
   shellLine: 'rgba(0,34,68,0.06)',
-  /** Ton « question » (manque à préciser, bandeaux d'avertissement). */
+  /** Ton d'avertissement (bandeaux). */
   warn: '#9A4A06',
   warnSoft: '#FDF1E3',
   error: '#DC0000',

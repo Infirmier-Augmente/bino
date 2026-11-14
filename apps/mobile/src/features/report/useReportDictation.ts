@@ -1,36 +1,58 @@
-import * as Haptics from 'expo-haptics';
-import { useCallback } from 'react';
-import { Platform } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Animated, Easing, Platform } from 'react-native';
 import { useConfig } from '@/features/api/hooks';
-import {
-  DICTATION_UNAVAILABLE,
-  MIC_REFUSED,
-  type SttOutcome,
-  useServerDictation,
-} from '@/features/dictation/useServerDictation';
+import { hapticStart, hapticStop } from '@/features/dictation/haptics';
+import { DICTATION_UNAVAILABLE, MIC_REFUSED } from '@/features/dictation/messages';
+import { useLiveDictation } from '@/features/dictation/useLiveDictation';
+import { type SttOutcome, useServerDictation } from '@/features/dictation/useServerDictation';
 import { useWebSpeech, webSpeechSupported } from '@/features/dictation/useWebSpeech';
 import { chooseDictationEngine } from '@/lib/dictation-engine';
 import { appendDictation } from '@/lib/report';
 import { useToast } from '@/ui/toast';
 import { useDrafts } from './drafts';
 
-const haptic = () => {
-  if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-};
+/** Où en est la dictée : la fiche s'affiche en conséquence (micro, texte, statut). */
+export type DictationStatus = 'idle' | 'recording' | 'finalizing' | 'transcribing';
+
+const NATIVE_DRIVER = Platform.OS !== 'web';
+const LEVEL_EVERY_MS = 80;
 
 /**
  * Micro de la fiche « Nouveau compte rendu ». Moteur choisi par `chooseDictationEngine` :
- * transcription serveur en priorité, sinon navigateur, sinon clavier. Le texte reconnu est
- * toujours AJOUTÉ À LA FIN du brouillon du patient (jamais à la place).
+ * dictée en direct, sinon transcription serveur à la fin, sinon navigateur, sinon clavier.
+ * L'état « enregistrement » s'affiche DÈS le toucher. Le texte reconnu est toujours AJOUTÉ À
+ * LA FIN du brouillon du patient (jamais à la place).
  */
 export function useReportDictation(patientId: string, focusInput: () => void) {
   const toast = useToast();
   const config = useConfig();
+  /** Niveau du micro (0 à 1) : anime le halo sans re-rendre l'écran. */
+  const [level] = useState(() => new Animated.Value(0));
+  const lastLevelAt = useRef(0);
+  const setLevel = useCallback(
+    (value: number) => {
+      // Le micro rend un niveau toutes les ~20 ms : une animation toutes les 80 ms suffit.
+      const now = Date.now();
+      if (value > 0 && now - lastLevelAt.current < LEVEL_EVERY_MS) return;
+      lastLevelAt.current = now;
+      Animated.timing(level, {
+        toValue: value,
+        duration: LEVEL_EVERY_MS,
+        easing: Easing.linear,
+        useNativeDriver: NATIVE_DRIVER,
+      }).start();
+    },
+    [level],
+  );
   const web = useWebSpeech();
-  const server = useServerDictation();
+  const server = useServerDictation(setLevel);
+  const live = useLiveDictation(setLevel);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
   const update = useDrafts((s) => s.update);
+  const serverSttReady = config.data?.stt.ready === true;
   const engine = chooseDictationEngine({
-    serverSttReady: config.data?.stt.ready === true,
+    liveSttReady: config.data?.sttLive.ready === true,
+    serverSttReady,
     webSpeechAvailable: webSpeechSupported(),
   });
 
@@ -48,36 +70,77 @@ export function useReportDictation(patientId: string, focusInput: () => void) {
     } else toast.show(outcome.error);
   };
 
-  /** Arrête la dictée ; avec la transcription serveur, attend le texte avant de rendre la main. */
+  const recording = live.phase === 'recording' || server.recording || web.listening;
+  const status: DictationStatus = recording
+    ? 'recording'
+    : live.phase === 'finalizing'
+      ? 'finalizing'
+      : server.transcribing
+        ? 'transcribing'
+        : 'idle';
+
+  const startServer = async () => {
+    const error = await server.start();
+    if (error) toast.show(error);
+  };
+
+  /** Arrête la dictée ; attend le texte (définitif ou transcrit) avant de rendre la main. */
   const finish = async () => {
     if (web.listening) web.stop();
+    await live.stop();
     if (server.recording) report(await server.stop());
   };
 
   const toggle = async () => {
-    haptic();
-    if (web.listening || server.recording) return finish();
-    if (engine === 'web-speech') {
+    if (status === 'finalizing' || status === 'transcribing') return;
+    if (recording) {
+      hapticStop();
+      return finish();
+    }
+    if (engine === 'keyboard') {
+      focusInput();
+      toast.show(DICTATION_UNAVAILABLE);
+      return;
+    }
+    hapticStart();
+    setStartedAt(Date.now());
+    if (engine === 'live') {
+      live.start({
+        onText: (text) => append(text, 'voice-server'),
+        onError: toast.show,
+        // La dictée en direct n'a pas démarré (API ancienne, serveur injoignable…).
+        onFallback: () => {
+          if (serverSttReady) void startServer();
+          else toast.show(DICTATION_UNAVAILABLE);
+        },
+      });
+    } else if (engine === 'server') {
+      await startServer();
+    } else {
       web.start({
         onFinal: (text) => append(text, 'voice-device'),
         onError: (kind) => toast.show(kind === 'not-allowed' ? MIC_REFUSED : DICTATION_UNAVAILABLE),
       });
-    } else if (engine === 'server') {
-      const error = await server.start();
-      if (error) toast.show(error);
-    } else {
-      focusInput();
-      toast.show(DICTATION_UNAVAILABLE);
     }
   };
 
   return {
-    listening: web.listening || server.recording,
-    transcribing: server.transcribing,
-    interim: web.interim,
-    canRetry: server.canRetry && !server.recording,
+    status,
+    /** Le micro capte (affiché dès le toucher). */
+    recording,
+    /** Arrêté, le texte est en route : micro et « Valider » en attente. */
+    busy: status === 'finalizing' || status === 'transcribing',
+    /** Texte provisoire (dictée en direct ou navigateur), affiché après le brouillon. */
+    provisional: live.provisional || web.interim,
+    /** Le texte s'affiche pendant la dictée (sinon : à l'arrêt). */
+    textWhileSpeaking: live.phase !== 'idle' || web.listening,
+    startedAt,
+    level,
+    canRetry: server.canRetry && status === 'idle',
     toggle,
     finish,
     retry: async () => report(await server.retry()),
   };
 }
+
+export type ReportDictation = ReturnType<typeof useReportDictation>;

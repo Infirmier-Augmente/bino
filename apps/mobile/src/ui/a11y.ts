@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AccessibilityInfo, Platform } from 'react-native';
 
 /**
  * Attributs ARIA que react-native-web sait rendre mais que les types de React Native ne
@@ -35,4 +35,27 @@ export function useEscapeKey(onEscape: () => void, enabled = true): void {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onEscape, enabled]);
+}
+
+/** Réglage « Réduire les animations » du système (iOS, Android, navigateur), suivi en direct. */
+export function useReducedMotion(): boolean {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((value) => {
+        if (alive) setReduce(value);
+      })
+      .catch(() => {});
+    // Sur le web sans matchMedia, react-native-web ne renvoie pas d'abonnement.
+    const sub: { remove(): void } | undefined = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduce,
+    );
+    return () => {
+      alive = false;
+      sub?.remove();
+    };
+  }, []);
+  return reduce;
 }

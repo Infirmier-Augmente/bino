@@ -22,20 +22,21 @@ describe('resolveApiUrl', () => {
 });
 
 describe('chooseDictationEngine', () => {
-  it('la transcription serveur prime sur celle du navigateur dès qu’elle est configurée', () => {
-    expect(chooseDictationEngine({ serverSttReady: true, webSpeechAvailable: true })).toBe(
+  const off = { liveSttReady: false, serverSttReady: false, webSpeechAvailable: false };
+  it('la dictée en direct prime dès qu’elle est configurée', () => {
+    expect(
+      chooseDictationEngine({ liveSttReady: true, serverSttReady: true, webSpeechAvailable: true }),
+    ).toBe('live');
+    expect(chooseDictationEngine({ ...off, liveSttReady: true })).toBe('live');
+  });
+  it('puis la transcription serveur, qui prime sur celle du navigateur', () => {
+    expect(chooseDictationEngine({ ...off, serverSttReady: true, webSpeechAvailable: true })).toBe(
       'server',
     );
-    expect(chooseDictationEngine({ serverSttReady: true, webSpeechAvailable: false })).toBe(
-      'server',
-    );
+    expect(chooseDictationEngine({ ...off, serverSttReady: true })).toBe('server');
   });
   it('sans transcription serveur : navigateur, sinon clavier', () => {
-    expect(chooseDictationEngine({ serverSttReady: false, webSpeechAvailable: true })).toBe(
-      'web-speech',
-    );
-    expect(chooseDictationEngine({ serverSttReady: false, webSpeechAvailable: false })).toBe(
-      'keyboard',
-    );
+    expect(chooseDictationEngine({ ...off, webSpeechAvailable: true })).toBe('web-speech');
+    expect(chooseDictationEngine(off)).toBe('keyboard');
   });
 });

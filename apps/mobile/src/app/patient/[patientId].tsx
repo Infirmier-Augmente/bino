@@ -158,7 +158,7 @@ export default function PatientReportScreen() {
           label="Valider"
           onPress={() => void validate()}
           loading={create.isPending}
-          disabled={dictation.transcribing}
+          disabled={dictation.busy}
           style={styles.validate}
           testID="valider"
         />

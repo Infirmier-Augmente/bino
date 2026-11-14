@@ -18,7 +18,8 @@ import { colors, PRIORITY_COLORS, space, type } from '@/ui/theme';
 
 /**
  * Carte d'un patient dans « Tous » : barre et pastille de priorité (« Priorité n », raison lue
- * par le lecteur d'écran), puces sourcées par thème avec auteurs et heures dessous.
+ * par le lecteur d'écran), puces sourcées par thème avec auteurs et heures dessous. Aucune
+ * question à l'IDE : on ne remet pas en cause ce qu'elle a dit (décision P16).
  */
 export function SummaryCard({
   digest,
@@ -110,11 +111,6 @@ export function SummaryCard({
                 <Text variant="source" tone="sec">
                   {contributorsLine(b)}
                 </Text>
-                {b.question ? (
-                  <Text variant="source" tone="warn" style={styles.question}>
-                    {b.question}
-                  </Text>
-                ) : null}
               </View>
             </View>
           ))}
@@ -175,7 +171,6 @@ const styles = StyleSheet.create({
   bullet: { flexDirection: 'row', gap: 10 },
   dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.navy, marginTop: 8 },
   bulletBody: { flex: 1, gap: 2 },
-  question: { fontStyle: 'italic' },
   more: { alignSelf: 'flex-start', paddingVertical: space[1], marginLeft: 15 },
   moreText: { fontWeight: '700' },
 });

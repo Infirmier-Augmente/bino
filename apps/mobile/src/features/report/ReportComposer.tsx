@@ -1,16 +1,20 @@
 import type { SampleDictation } from '@infirmier/domain';
-import { Mic, Play, Square } from 'lucide-react-native';
+import { Play } from 'lucide-react-native';
 import { type ComponentRef, type Ref, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { Text, TextButton } from '@/ui/primitives';
+import { Text as RNText, StyleSheet, TextInput, View } from 'react-native';
+import { TextButton } from '@/ui/primitives';
 import { Chip } from '@/ui/surfaces';
 import { colors, space, type } from '@/ui/theme';
+import { DictationStatusLine } from './DictationStatusLine';
 import { EMPTY_DRAFT, useDrafts } from './drafts';
-import type { useReportDictation } from './useReportDictation';
+import { MicButton } from './MicButton';
+import type { ReportDictation } from './useReportDictation';
 
 /**
- * Zone du compte rendu : grande zone de texte, transcription partielle, micro 72 px et
- * exemple de dictée. Le texte vit dans le brouillon du patient (gardé à la fermeture).
+ * Zone du compte rendu : grande zone de texte, micro 72 px et exemple de dictée. Pendant la
+ * dictée, le texte n'est pas modifiable : le brouillon s'affiche, suivi du texte PROVISOIRE
+ * (gris, italique) mot à mot ; à l'arrêt, le texte définitif le remplace et redevient
+ * modifiable. Le texte vit dans le brouillon du patient (gardé à la fermeture).
  */
 export function ReportComposer({
   patientId,
@@ -21,57 +25,60 @@ export function ReportComposer({
 }: {
   patientId: string;
   inputRef: Ref<ComponentRef<typeof TextInput>>;
-  dictation: ReturnType<typeof useReportDictation>;
+  dictation: ReportDictation;
   sample: SampleDictation | null;
   minHeight: number;
 }) {
   const draft = useDrafts((s) => s.drafts[patientId]) ?? EMPTY_DRAFT;
   const update = useDrafts((s) => s.update);
   const [focused, setFocused] = useState(false);
-  const live = dictation.interim || (dictation.transcribing ? 'Transcription en cours…' : '');
+  const { status, provisional } = dictation;
+  const dictating = status === 'recording' || status === 'finalizing';
+  const pending = provisional.trim();
 
   return (
     <View style={styles.zone}>
-      <TextInput
-        ref={inputRef}
-        multiline
-        value={draft.text}
-        onChangeText={(text) => update(patientId, text, 'typed')}
-        placeholder="Ce que tu as vu et fait, comme à la relève."
-        placeholderTextColor={colors.sec}
-        accessibilityLabel="Compte rendu"
-        textAlignVertical="top"
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        testID="cr-texte"
-        style={[type.composer, styles.input, { minHeight }, focused && styles.focused]}
-      />
-      <Text variant="sub" tone="sec" style={styles.live} accessibilityLiveRegion="polite">
-        {live}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={
-          dictation.transcribing
-            ? 'Transcription en cours'
-            : dictation.listening
-              ? 'Arrêter la dictée'
-              : 'Dicter le compte rendu'
-        }
-        accessibilityState={{ busy: dictation.transcribing }}
-        disabled={dictation.transcribing}
-        onPress={() => void dictation.toggle()}
-        testID="micro"
-        style={({ pressed }) => [styles.mic, (dictation.listening || pressed) && styles.micActive]}
-      >
-        {dictation.transcribing ? (
-          <ActivityIndicator color={colors.white} />
-        ) : dictation.listening ? (
-          <Square size={28} color={colors.white} strokeWidth={2} />
-        ) : (
-          <Mic size={28} color={colors.white} strokeWidth={2} />
-        )}
-      </Pressable>
+      {dictating ? (
+        <View
+          style={[styles.input, styles.preview, { minHeight }]}
+          accessibilityLabel="Compte rendu en cours de dictée"
+          testID="cr-apercu"
+        >
+          {draft.text || pending ? (
+            <RNText style={[type.composer, styles.text]}>
+              {draft.text}
+              {pending ? (
+                <RNText style={styles.provisional} testID="cr-provisoire">
+                  {draft.text ? ` ${pending}` : pending}
+                </RNText>
+              ) : null}
+            </RNText>
+          ) : status === 'recording' ? (
+            <RNText style={[type.composer, styles.hint]}>
+              {dictation.textWhileSpeaking
+                ? 'Parle : le texte s’affiche au fil de la dictée.'
+                : 'Parle : le texte s’affichera à l’arrêt.'}
+            </RNText>
+          ) : null}
+        </View>
+      ) : (
+        <TextInput
+          ref={inputRef}
+          multiline
+          value={draft.text}
+          onChangeText={(text) => update(patientId, text, 'typed')}
+          placeholder="Ce que tu as vu et fait, comme à la relève."
+          placeholderTextColor={colors.sec}
+          accessibilityLabel="Compte rendu"
+          textAlignVertical="top"
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          testID="cr-texte"
+          style={[type.composer, styles.input, { minHeight }, focused && styles.focused]}
+        />
+      )}
+      <DictationStatusLine status={status} startedAt={dictation.startedAt} />
+      <MicButton status={status} level={dictation.level} onPress={() => void dictation.toggle()} />
       {dictation.canRetry ? (
         <TextButton label="Réessayer l’envoi de la dictée" onPress={() => void dictation.retry()} />
       ) : null}
@@ -104,24 +111,15 @@ const styles = StyleSheet.create({
     color: colors.navy,
     backgroundColor: colors.white,
   },
+  // Même boîte que la zone de texte, bordure magenta : on voit que la dictée est en cours.
+  preview: { borderColor: colors.magenta },
+  text: { color: colors.navy },
+  provisional: { color: colors.sec, fontStyle: 'italic' },
+  hint: { color: colors.sec },
   focused: {
     outlineWidth: 3,
     outlineStyle: 'solid',
     outlineColor: colors.focus,
     outlineOffset: 1,
-  },
-  live: { alignSelf: 'stretch', minHeight: 20, fontStyle: 'italic' },
-  mic: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.magenta,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Halo fixe, sans pulsation : on n'anime que l'activité réelle (le bouton change d'icône).
-  micActive: {
-    backgroundColor: colors.magentaPress,
-    boxShadow: '0 0 0 6px rgba(255,0,102,0.1)',
   },
 });
