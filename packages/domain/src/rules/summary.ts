@@ -1,8 +1,7 @@
 import { APPAREIL_LABELS, type SourcedItem, type SourceRef } from '../schemas/common';
 import { type Nurse, TRANSVERSE_LABELS } from '../schemas/hospital';
-import type { Flag, Transmission } from '../schemas/transmission';
+import type { Transmission } from '../schemas/transmission';
 import type { SummaryBullet, SummaryContributor } from '../schemas/views';
-import { openFlagsWithContinuity } from './completeness';
 import { normalize } from './text';
 import { formatClock } from './time';
 
@@ -13,6 +12,9 @@ import { formatClock } from './time';
  *
  * Thèmes : libellé de la cible DAR (D, A puis R), appareil d'une observation, « À faire »,
  * rubrique d'une info transverse, « Entrée » pour la macro-cible d'entrée.
+ *
+ * Pas de question à l'IDE dans le résumé (décision P16) : les questions restent calculées sur
+ * les transmissions (`rules/completeness.ts`), le résumé ne les montre pas.
  */
 
 export const ADMISSION_THEME = 'Entrée';
@@ -22,8 +24,6 @@ const UNKNOWN_AUTHOR = 'Un soignant';
 interface Group {
   theme: string;
   items: SourcedItem[];
-  /** Cibles DAR d'origine (`transmissionId:targetId`), pour rattacher la question « R manquant ». */
-  targetKeys: string[];
   /** Position du premier extrait dans la dictée (ordre de la dictée). */
   position: number;
 }
@@ -32,7 +32,6 @@ interface BulletDraft {
   key: string;
   theme: string;
   items: SourcedItem[];
-  targetKeys: string[];
   /** Heure de la dernière transmission du thème (si aucun auteur n'est identifiable). */
   latestTransmissionAt: string;
 }
@@ -58,14 +57,9 @@ function byPosition(a: Group, b: Group): number {
 /** Les groupes thématiques d'une transmission, dans l'ordre de la dictée (routine exclue). */
 function transmissionGroups(t: Transmission): Group[] {
   const groups: Group[] = [];
-  const add = (theme: string, items: readonly SourcedItem[], targetKey?: string) => {
+  const add = (theme: string, items: readonly SourcedItem[]) => {
     if (items.length === 0) return;
-    groups.push({
-      theme,
-      items: [...items],
-      targetKeys: targetKey ? [targetKey] : [],
-      position: firstOffset(items),
-    });
+    groups.push({ theme, items: [...items], position: firstOffset(items) });
   };
   const c = t.content;
   if (c.admission) {
@@ -79,11 +73,7 @@ function transmissionGroups(t: Transmission): Group[] {
     ]);
   }
   for (const target of c.targets) {
-    add(
-      target.label,
-      [...target.data, ...target.actions, ...target.results],
-      `${t.id}:${target.id}`,
-    );
+    add(target.label, [...target.data, ...target.actions, ...target.results]);
   }
   for (const o of c.observations) add(APPAREIL_LABELS[o.appareil], [o]);
   for (const todo of c.todos) add(TODO_THEME, [todo]);
@@ -151,20 +141,6 @@ function contributors(
     }));
 }
 
-/** Question « R manquant » encore ouverte (continuité des cibles respectée), par cible. */
-function openMissingResults(transmissions: readonly Transmission[]): Map<string, string> {
-  const open = new Set<Flag>(openFlagsWithContinuity(transmissions));
-  const questions = new Map<string, string>();
-  for (const t of transmissions) {
-    for (const f of t.flags) {
-      if (f.kind === 'missing-result' && f.targetId && open.has(f)) {
-        questions.set(`${t.id}:${f.targetId}`, f.question);
-      }
-    }
-  }
-  return questions;
-}
-
 export interface SummaryInput {
   patientId: string;
   /** Transmissions de la fenêtre de relève (tous statuts) ; celles d'autres patients sont ignorées. */
@@ -185,7 +161,6 @@ export function buildSummaryBullets({
     .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   const byId = new Map(live.map((t) => [t.id, t]));
   const firstNames = new Map(nurses.map((n) => [n.id, n.firstName]));
-  const questions = openMissingResults(live);
 
   const drafts = new Map<string, BulletDraft>();
   for (const t of live) {
@@ -193,16 +168,9 @@ export function buildSummaryBullets({
       const key = normalize(g.theme) || g.theme;
       let draft = drafts.get(key);
       if (!draft) {
-        draft = {
-          key,
-          theme: g.theme,
-          items: [],
-          targetKeys: [],
-          latestTransmissionAt: t.createdAt,
-        };
+        draft = { key, theme: g.theme, items: [], latestTransmissionAt: t.createdAt };
         drafts.set(key, draft);
       }
-      draft.targetKeys.push(...g.targetKeys);
       draft.latestTransmissionAt = t.createdAt;
       for (const item of g.items) addItem(draft.items, item);
     }
@@ -210,8 +178,6 @@ export function buildSummaryBullets({
 
   const bullets: SummaryBullet[] = [...drafts.values()].map((d) => {
     const who = contributors(d.items, byId, firstNames, timeZone);
-    // La question la plus récente l'emporte (transmissions parcourues dans l'ordre chronologique).
-    const question = d.targetKeys.reduce<string | null>((q, k) => questions.get(k) ?? q, null);
     return {
       id: `bullet:${patientId}:${d.key.replace(/ /g, '-')}`,
       theme: d.theme,
@@ -219,7 +185,6 @@ export function buildSummaryBullets({
       text: d.items.map((i) => asSentenceEnd(i.text)).join(' '),
       contributors: who,
       lastAt: who[0]?.at ?? d.latestTransmissionAt,
-      question,
     };
   });
   return bullets.sort((a, b) => Date.parse(b.lastAt) - Date.parse(a.lastAt));

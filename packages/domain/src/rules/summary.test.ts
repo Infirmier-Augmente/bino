@@ -135,32 +135,20 @@ describe('buildSummaryBullets', () => {
     );
   });
 
-  it('la question « R manquant » est fermée par le R dicté plus tard (continuité des cibles)', () => {
-    expect(bullets[0]?.question).toBeNull();
+  it('ne pose aucune question à l’IDE, même avec un R manquant (décision P16)', () => {
     const alone = buildSummaryBullets({
       patientId: 'p12',
       transmissions: [morning],
       nurses: NURSES,
       timeZone: TZ,
     });
-    expect(alone.find((b) => b.theme === 'Douleur')?.question).toMatch(
-      /^Résultat non renseigné pour « Douleur »/,
-    );
-    expect(alone.find((b) => b.theme === 'Général')?.question).toBeNull();
-  });
-
-  it('une question déjà traitée ne s’affiche plus', () => {
-    const answered: Transmission = {
-      ...morning,
-      flags: morning.flags.map((f) => ({ ...f, status: 'answered' as const, answer: 'Mieux' })),
-    };
-    const out = buildSummaryBullets({
-      patientId: 'p12',
-      transmissions: [answered],
-      nurses: NURSES,
-      timeZone: TZ,
-    });
-    expect(out.find((b) => b.theme === 'Douleur')?.question).toBeNull();
+    // La question reste calculée sur la transmission (flux de relecture)…
+    expect(morning.flags.some((f) => f.kind === 'missing-result')).toBe(true);
+    // … mais le résumé ne la montre pas.
+    for (const b of [...alone, ...bullets]) {
+      expect(b).not.toHaveProperty('question');
+      expect(b.text).not.toMatch(/non renseigné/);
+    }
   });
 
   it('un texte identique n’est pas répété, mais ses auteurs sont gardés', () => {

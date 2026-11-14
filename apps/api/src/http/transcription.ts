@@ -5,6 +5,11 @@ import { AppError } from './errors';
 
 const MAX_BYTES = 25 * 1024 * 1024;
 
+/** Consigne de transcription (vocabulaire soignant), partagée avec la dictée en direct. */
+export function dictationPrompt(): string {
+  return `Transmissions infirmières. Vocabulaire : ${sttVocabulary()}`;
+}
+
 /**
  * POST /transcriptions (multipart, champ "audio") → { text, durationSec, engine }.
  * Hors contrat JSON car c'est un envoi de fichier. Client : apps/mobile/src/features/dictation/useServerDictation.ts.
@@ -30,7 +35,7 @@ export function registerTranscription(app: Hono, stt: SttPort): void {
       audio,
       mimeType: file.type || 'audio/m4a',
       language: 'fr',
-      prompt: `Transmissions infirmières. Vocabulaire : ${sttVocabulary()}`,
+      prompt: dictationPrompt(),
     });
     return c.json({ text: result.text, durationSec: result.durationSec, engine: stt.id });
   });

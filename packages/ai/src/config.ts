@@ -20,6 +20,12 @@ export type LlmProviderName = (typeof LLM_PROVIDERS)[number];
 export const STT_PROVIDERS = ['none', 'openai', 'groq', 'openai-compatible'] as const;
 export type SttProviderName = (typeof STT_PROVIDERS)[number];
 
+/** Transcription en direct (texte provisoire pendant la dictée) : OpenAI Realtime pour l'instant. */
+export const STT_LIVE_PROVIDERS = ['none', 'openai'] as const;
+export type SttLiveProviderName = (typeof STT_LIVE_PROVIDERS)[number];
+/** Modèle de transcription en direct par défaut (`STT_LIVE_MODEL=none` pour désactiver). */
+export const DEFAULT_STT_LIVE_MODEL = 'gpt-live-transcribe';
+
 export const CLASSIFIER_PROVIDERS = ['heuristic', 'llm', 'jev'] as const;
 export type ClassifierProviderName = (typeof CLASSIFIER_PROVIDERS)[number];
 
@@ -52,6 +58,13 @@ export const AiConfig = z.object({
     apiKey: z.string().nullable(),
     baseUrl: z.string().nullable(),
   }),
+  /** Activée quand `STT_PROVIDER=openai` (même clé `STT_API_KEY`), sauf `STT_LIVE_MODEL=none`. */
+  sttLive: z.object({
+    provider: z.enum(STT_LIVE_PROVIDERS),
+    model: z.string().nullable(),
+    apiKey: z.string().nullable(),
+    baseUrl: z.string().nullable(),
+  }),
   classifier: z.object({
     provider: z.enum(CLASSIFIER_PROVIDERS),
     jevApiKey: z.string().nullable(),
@@ -72,6 +85,7 @@ const Env = z.object({
   STT_MODEL: emptyToNull,
   STT_API_KEY: emptyToNull,
   STT_BASE_URL: emptyToNull,
+  STT_LIVE_MODEL: emptyToNull,
   CLASSIFIER_PROVIDER: z.enum(CLASSIFIER_PROVIDERS).default('heuristic'),
   JEV_API_KEY: emptyToNull,
   JEV_MODEL: z.string().default('jev-latest'),
@@ -116,6 +130,9 @@ export function aiConfigFromEnv(env: Record<string, string | undefined>): AiConf
     throw new AiConfigError('CLASSIFIER_PROVIDER=llm nécessite un LLM_PROVIDER réel.');
   }
 
+  const liveModel = e.STT_LIVE_MODEL ?? DEFAULT_STT_LIVE_MODEL;
+  const liveOn = e.STT_PROVIDER === 'openai' && liveModel.toLowerCase() !== 'none';
+
   return {
     llm: {
       provider: e.LLM_PROVIDER,
@@ -133,6 +150,12 @@ export function aiConfigFromEnv(env: Record<string, string | undefined>): AiConf
           : (e.STT_MODEL ?? DEFAULT_STT_MODELS[e.STT_PROVIDER] ?? null),
       apiKey: e.STT_API_KEY,
       baseUrl: e.STT_BASE_URL,
+    },
+    sttLive: {
+      provider: liveOn ? 'openai' : 'none',
+      model: liveOn ? liveModel : null,
+      apiKey: liveOn ? e.STT_API_KEY : null,
+      baseUrl: liveOn ? e.STT_BASE_URL : null,
     },
     classifier: {
       provider: e.CLASSIFIER_PROVIDER,

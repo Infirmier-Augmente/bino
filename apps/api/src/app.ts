@@ -7,6 +7,7 @@ import { cors } from 'hono/cors';
 import { DEFAULT_DEMO_PASSWORD } from './config';
 import { registerContract } from './http/contract-adapter';
 import { AppError } from './http/errors';
+import { registerLiveTranscription } from './http/live-transcription';
 import { createHandlers } from './http/routes';
 import { registerTranscription } from './http/transcription';
 import { HospitalService } from './services/hospital-service';
@@ -77,6 +78,11 @@ export function createApp(deps: AppDeps) {
     createHandlers({ hospital, team, simulation, status: () => deps.ai.status(VERSION) }),
   );
   registerTranscription(app, deps.ai.stt);
+  registerLiveTranscription(app, {
+    live: deps.ai.liveStt,
+    stt: deps.ai.stt,
+    log: deps.logRequests ? (line) => console.info(line) : undefined,
+  });
 
   return { app, hospital, team, simulation };
 }

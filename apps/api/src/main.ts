@@ -1,10 +1,10 @@
 import { networkInterfaces } from 'node:os';
 import { join, resolve } from 'node:path';
-import { serve } from '@hono/node-server';
 import { aiConfigFromEnv, createAiServices } from '@infirmier/ai';
 import { DEFAULT_SCENARIO_ID, getScenario, initialState } from '@infirmier/simulation';
 import { createApp, VERSION } from './app';
 import { apiConfigFromEnv } from './config';
+import { startServer } from './server';
 import { anchorClock } from './services/clock';
 import { HospitalStore } from './store/store';
 
@@ -33,7 +33,7 @@ const { app, simulation } = createApp({
   demoPassword: config.DEMO_PASSWORD,
 });
 
-serve({ fetch: app.fetch, port: config.API_PORT, hostname: '0.0.0.0' }, (info) => {
+startServer(app, { port: config.API_PORT, hostname: '0.0.0.0' }, (info) => {
   const status = ai.status(VERSION);
   const lan = Object.values(networkInterfaces())
     .flat()
@@ -44,7 +44,7 @@ serve({ fetch: app.fetch, port: config.API_PORT, hostname: '0.0.0.0' }, (info) =
   ➜ local    http://localhost:${info.port}
   ${lan.map((u) => `➜ réseau   ${u}`).join('\n  ')}
   LLM        ${status.llm.provider}${status.llm.model ? ` (${status.llm.model})` : ''}${status.llm.fallback ? `, repli ${status.llm.fallback}` : ''}
-  STT        ${status.stt.provider}
+  STT        ${status.stt.provider}${status.stt.model ? ` (${status.stt.model})` : ''}${status.sttLive.ready ? `, direct ${status.sttLive.model}` : ''}
   Classifieur ${status.classifier.provider}
   État       ${dataFile ?? 'mémoire seule'}
 `);

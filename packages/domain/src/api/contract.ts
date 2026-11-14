@@ -57,6 +57,8 @@ export const AiStatus = z.object({
     fallback: z.string().nullable(),
   }),
   stt: z.object({ provider: z.string(), model: z.string().nullable(), ready: z.boolean() }),
+  /** Transcription en direct (texte pendant la dictée), voir `api/live-transcription.ts`. */
+  sttLive: z.object({ provider: z.string(), model: z.string().nullable(), ready: z.boolean() }),
   classifier: z.object({ provider: z.string(), ready: z.boolean() }),
 });
 export type AiStatus = z.infer<typeof AiStatus>;

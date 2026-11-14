@@ -3,6 +3,7 @@
 
 export * from './api/client';
 export * from './api/contract';
+export * from './api/live-transcription';
 export * from './interop/fhir';
 export * from './rules/completeness';
 export * from './rules/grounding';

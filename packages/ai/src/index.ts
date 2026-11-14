@@ -18,5 +18,8 @@ export * from './pipeline/severity';
 export * from './pipeline/structure';
 export * from './services';
 export * from './stt/ai-sdk';
+export * from './stt/live-port';
 export * from './stt/openai-compatible';
+export * from './stt/openai-realtime';
 export * from './stt/port';
+export * from './stt/wav';

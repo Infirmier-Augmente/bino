@@ -194,8 +194,8 @@ export const SummaryBullet = z.object({
   /** Auteurs et heures, dédoublonnés, du plus récent au plus ancien. */
   contributors: z.array(SummaryContributor),
   lastAt: IsoDateTime,
-  /** Question ouverte sur ce thème (ex. résultat non renseigné), jamais une supposition. */
-  question: z.string().nullable(),
+  // Pas de question à l'IDE dans le résumé (décision P16) : on ne challenge pas ce qu'elle dit.
+  // Les questions restent calculées sur les transmissions (flux de relecture de l'API).
 });
 export type SummaryBullet = z.infer<typeof SummaryBullet>;
 

@@ -14,12 +14,16 @@ import { resolvePatient } from './pipeline/resolve-patient';
 import { rateSeverity } from './pipeline/severity';
 import { type StructureOutcome, structureDictation } from './pipeline/structure';
 import { AiSdkStt } from './stt/ai-sdk';
+import { type LiveSttPort, NoLiveStt } from './stt/live-port';
 import { OpenAiCompatibleStt } from './stt/openai-compatible';
+import { OpenAiRealtimeLiveStt } from './stt/openai-realtime';
 import { NoStt, type SttPort } from './stt/port';
 
 export interface AiServices {
   readonly config: AiConfig;
   readonly stt: SttPort;
+  /** Texte provisoire pendant la dictée (le texte final vient de `stt`). */
+  readonly liveStt: LiveSttPort;
   readonly classifier: ClassifierPort;
   status(version: string): AiStatus;
   structure(
@@ -38,6 +42,7 @@ export interface AiOverrides {
   llm?: LlmPort;
   classifier?: ClassifierPort;
   stt?: SttPort;
+  liveStt?: LiveSttPort;
   fetch?: typeof fetch;
   logger?: Pick<Console, 'warn'>;
 }
@@ -71,9 +76,17 @@ export function createAiServices(config: AiConfig, overrides: AiOverrides = {}):
         ? new OpenAiCompatibleStt(config.stt, fetchImpl)
         : new AiSdkStt(config.stt));
 
+  const live = config.sttLive;
+  const liveStt: LiveSttPort =
+    overrides.liveStt ??
+    (live.provider === 'openai' && live.model && live.apiKey
+      ? new OpenAiRealtimeLiveStt({ model: live.model, apiKey: live.apiKey, baseUrl: live.baseUrl })
+      : new NoLiveStt());
+
   return {
     config,
     stt,
+    liveStt,
     classifier,
     status: (version) => ({
       version,
@@ -84,6 +97,7 @@ export function createAiServices(config: AiConfig, overrides: AiOverrides = {}):
         fallback: fallback && fallback.id !== primary.id ? fallback.id : null,
       },
       stt: { provider: config.stt.provider, model: config.stt.model, ready: stt.ready },
+      sttLive: { provider: live.provider, model: live.model, ready: liveStt.ready },
       classifier: { provider: classifier.id, ready: true },
     }),
     async structure(transmissionId, ctx, ids) {

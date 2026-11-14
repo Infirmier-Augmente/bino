@@ -180,8 +180,8 @@ describe('GET /units/:id/summaries — onglet « Tous »', () => {
       'Karim 14h05',
       'Sophie 8h10',
     ]);
-    // Le R dicté par Karim à 14h05 ferme la question de la cible de 8h10.
-    expect(douleur?.question).toBeNull();
+    // Pas de question à l'IDE dans le résumé (décision P16).
+    expect(douleur).not.toHaveProperty('question');
 
     for (const row of s.rows) {
       const times = row.bullets.map((b) => Date.parse(b.lastAt));
@@ -195,17 +195,19 @@ describe('GET /units/:id/summaries — onglet « Tous »', () => {
     expect(berger).toMatchObject({ reportCount: 0, bullets: [] });
   });
 
-  it('un R manquant devient une question sous sa puce, fermée par la réponse de l’IDE', async () => {
+  it('un R manquant reste une question sur la transmission, jamais sous la puce ; la réponse de l’IDE s’ajoute à la puce', async () => {
     const { client } = await bootedBino();
     const garnier = (await client.unitSummaries({ params: { unitId: 'chir' } })).rows.find(
       (r) => r.patient.id === 'chir-14',
     );
-    const bullet = garnier?.bullets.find((b) => b.question !== null);
-    expect(bullet?.question).toMatch(/^Résultat non renseigné pour « Confusion »/);
+    const bullet = garnier?.bullets.find((b) => b.theme === 'Confusion');
+    expect(bullet).toBeDefined();
+    for (const b of garnier?.bullets ?? []) expect(b).not.toHaveProperty('question');
 
     const g = (await client.patientDetail({ params: { patientId: 'chir-14' } })).transmissions[0];
     const flag = g?.flags.find((f) => f.kind === 'missing-result');
     expect(flag?.status).toBe('open');
+    expect(flag?.question).toMatch(/^Résultat non renseigné pour « Confusion »/);
     await client.answerFlag({
       params: { transmissionId: g?.id ?? '', flagId: flag?.id ?? '' },
       body: { nurseId: 'sophie', answer: 'Calme et orienté à 17h' },
@@ -214,7 +216,6 @@ describe('GET /units/:id/summaries — onglet « Tous »', () => {
       (r) => r.patient.id === 'chir-14',
     );
     const confusion = after?.bullets.find((b) => b.theme === bullet?.theme);
-    expect(confusion?.question).toBeNull();
     expect(confusion?.text).toMatch(/Calme et orienté à 17h\.$/);
     expect(confusion?.contributors.map((c) => `${c.firstName} ${c.time}`)).toEqual([
       'Sophie 17h45',
