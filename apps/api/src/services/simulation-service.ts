@@ -151,7 +151,7 @@ export class SimulationService {
           nurseId: event.nurseId,
           transcript: event.text,
           mode: event.mode ?? 'transmission',
-          inputMethod: 'simulation',
+          inputMethod: event.inputMethod ?? 'simulation',
           patientId: event.patientId ?? null,
         });
         if (event.review === 'validate' && t.patientId) {

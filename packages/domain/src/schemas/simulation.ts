@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { Appareil, Id, IsoDate, IsoDateTime } from './common';
 import { CareUnit, Nurse, Patient, PriorityLevel, Sex } from './hospital';
-import { Transmission, TransmissionMode } from './transmission';
+import { InputMethod, Transmission, TransmissionMode } from './transmission';
 import { DpiExport } from './views';
 
 // ─── État complet de l'hôpital simulé (persisté en JSON côté API) ────────────
@@ -82,6 +82,8 @@ export const ScenarioEvent = z.discriminatedUnion('type', [
     nurseId: Id,
     text: z.string().min(1),
     mode: TransmissionMode.optional(),
+    /** Saisie d'origine (défaut : « simulation »), ex. « keyboard » pour un CR tapé. */
+    inputMethod: InputMethod.optional(),
     /** Patient présélectionné (dictée lancée depuis la fiche patient). */
     patientId: Id.optional(),
     /** Ce que fait l'IDE après relecture. */

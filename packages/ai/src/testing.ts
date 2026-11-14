@@ -15,6 +15,8 @@ export function makePatientForTests(overrides: Partial<Patient> = {}): Patient {
     admissionReason: 'Test',
     history: null,
     transverse: emptyTransverse(),
+    vitals: null,
+    devices: [],
     assignedNurseId: null,
     priority: defaultPriority(),
     status: 'present',

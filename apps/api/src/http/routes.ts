@@ -1,10 +1,12 @@
 import { sampleDictations } from '@infirmier/simulation';
 import type { HospitalService } from '../services/hospital-service';
 import type { SimulationService } from '../services/simulation-service';
+import type { TeamService } from '../services/team-service';
 import type { Handlers } from './contract-adapter';
 
 export interface RouteDeps {
   hospital: HospitalService;
+  team: TeamService;
   simulation: SimulationService;
   status: () => ReturnType<import('@infirmier/ai').AiServices['status']>;
 }
@@ -13,19 +15,25 @@ export interface RouteDeps {
  * Implémentation de CHAQUE endpoint du contrat (packages/domain/src/api/contract.ts).
  * Les handlers restent fins : la logique est dans les services.
  */
-export function createHandlers({ hospital, simulation, status }: RouteDeps): Handlers {
+export function createHandlers({ hospital, team, simulation, status }: RouteDeps): Handlers {
   return {
     health: () => ({ ok: true }),
     config: () => status(),
     session: () => hospital.session(),
+    login: ({ body }) => team.login(body),
 
     unitPatients: ({ params }) => hospital.unitPatients(params.unitId),
     unitBoard: ({ params }) => hospital.unitBoard(params.unitId),
     unitRecap: ({ params }) => hospital.unitRecap(params.unitId),
     unitSearch: ({ params, query }) => hospital.search(params.unitId, query.q),
+    unitSummaries: ({ params }) => team.unitSummaries(params.unitId),
+
+    nurseReports: ({ params }) => team.nurseReports(params.nurseId),
 
     patientDetail: ({ params }) => hospital.patientDetail(params.patientId),
     patientHandover: ({ params }) => hospital.handover(params.patientId),
+    updateVitals: ({ params, body }) =>
+      team.updateVitals(params.patientId, body.nurseId, body.vitals),
     updatePriority: ({ params, body }) => hospital.updatePriority(params.patientId, body),
     admitPatient: ({ body }) => hospital.admitPatient(body),
     patientFhir: ({ params }) => hospital.fhir(params.patientId),

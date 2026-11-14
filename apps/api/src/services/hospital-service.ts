@@ -11,6 +11,7 @@ import {
   type CreateTransmissionBody,
   completenessFlags,
   type DpiExport,
+  deviceLines,
   displayName,
   effectivePriority,
   type Flag,
@@ -24,6 +25,7 @@ import {
   type PatientDetail,
   type PatientListItem,
   type PriorityLevel,
+  patientNews2,
   patientSummary,
   type RecapLine,
   roomLabel,
@@ -140,6 +142,8 @@ export class HospitalService {
         suggestPriority({ patient, shiftTransmissions: inShift, now }),
       ),
       transmissions,
+      news2: patientNews2(patient),
+      devices: deviceLines(patient.devices, now, unit.timeZone),
     };
   }
 
@@ -217,6 +221,8 @@ export class HospitalService {
         famille: [],
         personneDeConfiance: [],
       },
+      vitals: null,
+      devices: [],
       assignedNurseId: input.assignedNurseId ?? null,
       priority: { starred: false, manualLevel: null, updatedAt: null, updatedBy: null },
       status: 'present',

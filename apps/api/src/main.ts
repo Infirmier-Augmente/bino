@@ -26,7 +26,12 @@ if (!fresh && store.snapshot.clock.mode === 'simulated' && store.snapshot.clock.
   });
 }
 
-const { app, simulation } = createApp({ store, ai, logRequests: true });
+const { app, simulation } = createApp({
+  store,
+  ai,
+  logRequests: true,
+  demoPassword: config.DEMO_PASSWORD,
+});
 
 serve({ fetch: app.fetch, port: config.API_PORT, hostname: '0.0.0.0' }, (info) => {
   const status = ai.status(VERSION);

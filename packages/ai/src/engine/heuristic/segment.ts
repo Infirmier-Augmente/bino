@@ -18,6 +18,9 @@ const CONTRAST = /^(?:par contre|en revanche|mais|cependant|sauf que)(?=[\s,]|$)
 const FILLERS =
   /^(?:(?:alors|donc|là|euh|bon|et|puis|ensuite|sinon|voilà|du coup|par contre|en revanche|mais)(?=[\s,]|$)[\s,]*)+/i;
 
+/** Civilité abrégée juste avant un point : « M », « Mme », « Mlle », « Dr », « Pr ». */
+const TITLE_BEFORE = /(?:^|[\s,(])(?:M|Mr|Mme|Mlle|Dr|Pr)$/;
+
 function words(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -62,6 +65,10 @@ export function segment(transcript: string): Clause[] {
   // Un point n'est une fin de phrase que s'il est suivi d'un espace ("37.8" reste entier).
   const sentenceEnd = /[.!?;]+(?=\s|$)|\n+/g;
   for (let m = sentenceEnd.exec(transcript); m !== null; m = sentenceEnd.exec(transcript)) {
+    // « M. Dupond », « Dr. Martin » : le point d'une civilité ne termine pas la phrase.
+    if (m[0] === '.' && TITLE_BEFORE.test(transcript.slice(Math.max(0, m.index - 5), m.index))) {
+      continue;
+    }
     pushSentence(cursor, m.index);
     cursor = m.index + m[0].length;
   }

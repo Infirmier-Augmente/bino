@@ -27,7 +27,14 @@ describe('buildFhirBundle', () => {
       unit: REA,
       patient: makePatient(),
       nurses: [
-        { id: 'martine', unitId: 'rea', firstName: 'Martine', lastName: 'Roux', role: 'IDE' },
+        {
+          id: 'martine',
+          unitId: 'rea',
+          matricule: '20482',
+          firstName: 'Martine',
+          lastName: 'Roux',
+          role: 'IDE',
+        },
       ],
       transmissions: [validated, draft],
       now: new Date('2026-11-14T19:30:00+01:00'),

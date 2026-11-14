@@ -4,6 +4,7 @@ import { SEVERITY_RANK, type SeverityLevel, type Transmission } from '../schemas
 import type { EffectivePriority, PriorityReason, PrioritySuggestion } from '../schemas/views';
 import { isResultGivenLater } from './completeness';
 import { lexicalSeverity } from './lexicon';
+import { news2 } from './news2';
 
 /**
  * PRIORISATION — suggestion explicable, jamais une décision.
@@ -17,6 +18,12 @@ export const PRIORITY_WEIGHTS = {
     number
   >,
   missingResult: 10,
+  /**
+   * Par point NEWS2 : ordonne les patients d'un même niveau (NEWS2 7 → 35).
+   * NEWS2 3 (seuil du jaune) pèse autant qu'une cible « surveillance » (15).
+   */
+  news2Point: 5,
+  /** Par transmission mise de côté (« non relue »), pas par brouillon. */
   unreviewedTransmission: 5,
   recentAdmission: 15,
   scheduledExam: 3,
@@ -73,7 +80,21 @@ export function suggestPriority({
     }
   }
 
-  const notReviewed = live.filter((t) => t.review.status !== 'validated').length;
+  // NEWS2 = PLANCHER de la suggestion (jamais en dessous), sourcé par les constantes.
+  // Le choix manuel de l'IDE prime toujours (effectivePriority).
+  if (patient.vitals) {
+    const score = news2(patient.vitals);
+    reasons.push({
+      label: score.reason,
+      weight: PRIORITY_WEIGHTS.news2Point * score.total,
+      sources: [patient.vitals.source],
+    });
+    level = maxLevel(level, score.level);
+  }
+
+  // Seules les transmissions explicitement mises de côté (« Plus tard ») comptent : dans Bino,
+  // tous les comptes rendus restent des brouillons (structuration IA à relire).
+  const notReviewed = live.filter((t) => t.review.status === 'unreviewed').length;
   if (notReviewed > 0) {
     reasons.push({
       label:

@@ -37,6 +37,8 @@ export function makePatient(overrides: Partial<Patient> = {}): Patient {
     admissionReason: 'Pneumopathie hypoxémique',
     history: null,
     transverse: emptyTransverse(),
+    vitals: null,
+    devices: [],
     assignedNurseId: 'martine',
     priority: defaultPriority(),
     status: 'present',

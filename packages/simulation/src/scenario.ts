@@ -5,7 +5,16 @@ import type {
   Patient,
   ScenarioEvent,
   ScenarioSummary,
+  TransmissionMode,
 } from '@infirmier/domain';
+
+/** Dictée d'exemple proposée en démo (sans micro), sans être rejouée par le simulateur. */
+export interface ScenarioSample {
+  label: string;
+  text: string;
+  patientId: string | null;
+  mode?: TransmissionMode;
+}
 
 /**
  * Un scénario = un état initial de l'hôpital + une chronologie d'événements
@@ -25,6 +34,8 @@ export interface Scenario {
   nurses: Nurse[];
   patients: Patient[];
   events: ScenarioEvent[];
+  /** Exemples de dictée. Absents : les dictées des événements servent d'exemples. */
+  samples?: ScenarioSample[];
 }
 
 export function defineScenario(s: Scenario): Scenario {

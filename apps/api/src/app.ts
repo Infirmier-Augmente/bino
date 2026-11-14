@@ -4,12 +4,14 @@ import type { Scenario } from '@infirmier/simulation';
 import { SCENARIOS } from '@infirmier/simulation';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { DEFAULT_DEMO_PASSWORD } from './config';
 import { registerContract } from './http/contract-adapter';
 import { AppError } from './http/errors';
 import { createHandlers } from './http/routes';
 import { registerTranscription } from './http/transcription';
 import { HospitalService } from './services/hospital-service';
 import { SimulationService } from './services/simulation-service';
+import { TeamService } from './services/team-service';
 import type { HospitalStore } from './store/store';
 
 export const VERSION = '0.1.0';
@@ -21,6 +23,8 @@ export interface AppDeps {
   scenarios?: readonly Scenario[];
   realNow?: () => Date;
   logRequests?: boolean;
+  /** Mot de passe de démo partagé (`DEMO_PASSWORD`, défaut « bino »). */
+  demoPassword?: string;
 }
 
 export function createApp(deps: AppDeps) {
@@ -30,6 +34,11 @@ export function createApp(deps: AppDeps) {
     ai: deps.ai,
     ids,
     realNow: deps.realNow,
+  });
+  const team = new TeamService({
+    store: deps.store,
+    hospital,
+    demoPassword: deps.demoPassword ?? DEFAULT_DEMO_PASSWORD,
   });
   const simulation = new SimulationService(
     deps.store,
@@ -65,9 +74,9 @@ export function createApp(deps: AppDeps) {
 
   registerContract(
     app,
-    createHandlers({ hospital, simulation, status: () => deps.ai.status(VERSION) }),
+    createHandlers({ hospital, team, simulation, status: () => deps.ai.status(VERSION) }),
   );
   registerTranscription(app, deps.ai.stt);
 
-  return { app, hospital, simulation };
+  return { app, hospital, team, simulation };
 }

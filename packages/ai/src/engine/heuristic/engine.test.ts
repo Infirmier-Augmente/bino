@@ -16,6 +16,21 @@ describe('segment', () => {
   it('conserve les positions exactes', () => {
     for (const c of segment(EXAMPLE_A)) expect(EXAMPLE_A.slice(c.start, c.end)).toBe(c.text);
   });
+  it('le point d’une civilité (« M. Dupond ») ne termine pas la phrase', () => {
+    const clauses = segment('Chambre 12, M. Dupond. Nuit calme. Vu par le Dr. Martin.');
+    expect(clauses.map((c) => c.text)).toEqual([
+      'Chambre 12',
+      'M. Dupond',
+      'Nuit calme',
+      'Vu par le Dr. Martin',
+    ]);
+    const raw = structureHeuristically({
+      transcript: 'Chambre 12, M. Dupond. Nuit calme selon l’équipe de nuit.',
+      mode: 'transmission',
+      patient: null,
+    });
+    expect(raw.observations.map((o) => o.quote)).toEqual(['Nuit calme selon l’équipe de nuit']);
+  });
 });
 
 describe('moteur heuristique — exemple A du kit Foch', () => {

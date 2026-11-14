@@ -1,11 +1,14 @@
 import {
+  type Device,
   defaultPriority,
   emptyTransverse,
   fromLocal,
   type Patient,
   type SourcedItem,
+  type SourceRef,
   type TransverseInfo,
   toLocalIso,
+  type Vitals,
 } from '@infirmier/domain';
 
 const TZ = 'Europe/Paris';
@@ -25,13 +28,18 @@ export function scenarioDay(date: string) {
 
 let recordSeq = 0;
 
+/** Source « dossier patient » (DPI simulé). */
+export function recordSource(field: string, label = 'Dossier patient (DPI simulé)'): SourceRef {
+  return { kind: 'record', field, label };
+}
+
 /** Donnée issue du dossier patient (DPI simulé), avec sa source. */
-export function record(field: string, text: string): SourcedItem {
+export function record(field: string, text: string, label?: string): SourcedItem {
   recordSeq++;
   return {
     id: `rec_${field}_${recordSeq}`,
     text,
-    sources: [{ kind: 'record', field, label: 'Dossier patient (DPI simulé)' }],
+    sources: [recordSource(field, label)],
     edited: false,
   };
 }
@@ -49,6 +57,9 @@ export interface PatientSeed {
   history?: string;
   assignedNurseId?: string | null;
   transverse?: (t: TransverseInfo) => void;
+  /** Dernières constantes du dossier (null par défaut : pas de relevé). */
+  vitals?: Vitals | null;
+  devices?: Device[];
 }
 
 /** Crée un patient FICTIF. L'IPP est dérivé de l'id (stable entre deux chargements). */
@@ -68,6 +79,8 @@ export function patient(seed: PatientSeed): Patient {
     admissionReason: seed.admissionReason,
     history: seed.history ?? null,
     transverse,
+    vitals: seed.vitals ?? null,
+    devices: seed.devices ?? [],
     assignedNurseId: seed.assignedNurseId ?? null,
     priority: defaultPriority(),
     status: 'present',

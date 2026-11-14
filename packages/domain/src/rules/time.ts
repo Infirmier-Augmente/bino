@@ -173,12 +173,22 @@ export function ageAt(birthDate: string, now: Date, timeZone = 'Europe/Paris'): 
   return Math.max(0, age);
 }
 
-/** Jour d'hospitalisation "J0", "J5"… (J0 = jour d'entrée, heure locale). */
-export function dayOfStay(admittedAt: string, now: Date, timeZone: string): string {
-  const a = localParts(new Date(admittedAt), timeZone);
+/** « J0 », « J5 »… : jours calendaires (heure locale) entre `fromIso` et `now`, jamais négatif. */
+function dayLabel(fromIso: string, now: Date, timeZone: string): string {
+  const a = localParts(new Date(fromIso), timeZone);
   const n = localParts(now, timeZone);
   const days = Math.round(
     (Date.UTC(n.year, n.month - 1, n.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86400000,
   );
   return `J${Math.max(0, days)}`;
+}
+
+/** Jour d'hospitalisation "J0", "J5"… (J0 = jour d'entrée, heure locale). */
+export function dayOfStay(admittedAt: string, now: Date, timeZone: string): string {
+  return dayLabel(admittedAt, now, timeZone);
+}
+
+/** Jour d'un dispositif "J0", "J2"… (J0 = jour de pose, heure locale), même calcul que `dayOfStay`. */
+export function deviceDay(insertedAt: string, now: Date, timeZone: string): string {
+  return dayLabel(insertedAt, now, timeZone);
 }

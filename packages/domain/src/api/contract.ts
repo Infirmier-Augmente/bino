@@ -1,17 +1,20 @@
 import { z } from 'zod';
 import { Id, IsoDateTime } from '../schemas/common';
-import { Patient, PriorityLevel } from '../schemas/hospital';
+import { Matricule, Patient, PriorityLevel, VitalSigns } from '../schemas/hospital';
 import { NewPatientInput, ScenarioSummary, SimulationStatus } from '../schemas/simulation';
 import { InputMethod, Transmission, TransmissionMode } from '../schemas/transmission';
 import {
   DpiExport,
   HandoverSheet,
+  LoginResult,
+  NurseReport,
   PatientDetail,
   PatientListItem,
   RecapLine,
   SearchHit,
   SessionInfo,
   UnitBoard,
+  UnitSummaries,
 } from '../schemas/views';
 
 /**
@@ -43,6 +46,7 @@ function endpoint<const E extends EndpointDef>(e: E): E {
 const unitParams = z.object({ unitId: Id });
 const patientParams = z.object({ patientId: Id });
 const transmissionParams = z.object({ transmissionId: Id });
+const nurseParams = z.object({ nurseId: Id });
 
 export const AiStatus = z.object({
   version: z.string(),
@@ -79,6 +83,13 @@ export const CreateTransmissionBody = z.object({
 });
 export type CreateTransmissionBody = z.infer<typeof CreateTransmissionBody>;
 
+/** Connexion de démo : matricule + mot de passe partagé (pas une authentification réelle). */
+export const LoginBody = z.object({
+  matricule: z.string().trim().pipe(Matricule),
+  password: z.string().min(1),
+});
+export type LoginBody = z.infer<typeof LoginBody>;
+
 export const api = {
   health: endpoint({
     method: 'GET',
@@ -97,6 +108,13 @@ export const api = {
     path: '/session',
     summary: 'Services et soignants disponibles (écran de connexion).',
     response: SessionInfo,
+  }),
+  login: endpoint({
+    method: 'POST',
+    path: '/session/login',
+    summary: 'Connexion de démo par matricule et mot de passe (401 si incorrect).',
+    body: LoginBody,
+    response: LoginResult,
   }),
 
   // ─── Service ───────────────────────────────────────────────────────────────
@@ -129,6 +147,23 @@ export const api = {
     query: z.object({ q: z.string().min(1) }),
     response: z.array(SearchHit),
   }),
+  unitSummaries: endpoint({
+    method: 'GET',
+    path: '/units/:unitId/summaries',
+    summary:
+      "Transmissions de toute l'équipe (onglet « Tous ») : une carte par patient, puces sourcées par thème, priorité et NEWS2.",
+    params: unitParams,
+    response: UnitSummaries,
+  }),
+
+  // ─── Soignant ──────────────────────────────────────────────────────────────
+  nurseReports: endpoint({
+    method: 'GET',
+    path: '/nurses/:nurseId/reports',
+    summary: 'Comptes rendus du soignant sur le poste (« Mes CR »), du plus récent au plus ancien.',
+    params: nurseParams,
+    response: z.array(NurseReport),
+  }),
 
   // ─── Patient ───────────────────────────────────────────────────────────────
   patientDetail: endpoint({
@@ -144,6 +179,15 @@ export const api = {
     summary: 'Fiche de relève du poste en cours.',
     params: patientParams,
     response: HandoverSheet,
+  }),
+  updateVitals: endpoint({
+    method: 'PUT',
+    path: '/patients/:patientId/vitals',
+    summary:
+      'Saisie manuelle des constantes (horodatées, source = soignant) ; renvoie le dossier recalculé.',
+    params: patientParams,
+    body: z.object({ nurseId: Id, vitals: VitalSigns }),
+    response: PatientDetail,
   }),
   updatePriority: endpoint({
     method: 'PATCH',

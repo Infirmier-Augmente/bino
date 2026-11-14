@@ -125,13 +125,116 @@ export const HandoverSheet = z.object({
 });
 export type HandoverSheet = z.infer<typeof HandoverSheet>;
 
+// ─── NEWS2 et dossier médical (aide au calcul, entrées toujours affichées) ───
+
+/** Points NEWS2 par paramètre (0 à 3). La diastolique ne compte pas. */
+export const News2Points = z.object({
+  respiratoryRate: z.number().int().min(0).max(3),
+  spo2: z.number().int().min(0).max(3),
+  oxygen: z.number().int().min(0).max(3),
+  systolic: z.number().int().min(0).max(3),
+  heartRate: z.number().int().min(0).max(3),
+  temperature: z.number().int().min(0).max(3),
+  consciousness: z.number().int().min(0).max(3),
+});
+export type News2Points = z.infer<typeof News2Points>;
+
+export const News2Result = z.object({
+  points: News2Points,
+  total: z.number().int().nonnegative(),
+  /** Niveau de la démo : ≥ 7 rouge, 5-6 orange, 3-4 ou un paramètre à 3 jaune, sinon vert. */
+  level: PriorityLevel,
+  /** Raison courte et factuelle, ex. « NEWS2 7 · FR 24, TA 98/62 ». */
+  reason: z.string(),
+});
+export type News2Result = z.infer<typeof News2Result>;
+
+/** Dispositif avec son jour de pose calculé (« J2 »). */
+export const DeviceLine = z.object({
+  id: Id,
+  label: z.string(),
+  day: z.string(),
+});
+export type DeviceLine = z.infer<typeof DeviceLine>;
+
 export const PatientDetail = z.object({
   patient: Patient,
   summary: PatientSummary,
   priority: EffectivePriority,
   transmissions: z.array(Transmission),
+  /** NEWS2 des dernières constantes (null sans relevé). */
+  news2: News2Result.nullable(),
+  devices: z.array(DeviceLine),
 });
 export type PatientDetail = z.infer<typeof PatientDetail>;
+
+// ─── Transmissions de l'équipe (onglet « Tous ») et « Mes CR » ───────────────
+
+/** Qui a dit quoi et quand, sous chaque puce : « Karim 14h05 ». */
+export const SummaryContributor = z.object({
+  nurseId: Id,
+  firstName: z.string(),
+  at: IsoDateTime,
+  /** Heure locale du service, ex. « 14h05 ». */
+  time: z.string(),
+});
+export type SummaryContributor = z.infer<typeof SummaryContributor>;
+
+/**
+ * Une puce du résumé d'un patient : un thème (« Douleur ») et les éléments SOURCÉS des comptes
+ * rendus de toute l'équipe, sans aucune phrase générée (zéro information inventée).
+ */
+export const SummaryBullet = z.object({
+  id: Id,
+  theme: z.string(),
+  /** Éléments repris tels quels des transmissions structurées, dans l'ordre chronologique. */
+  items: z.array(SourcedItem).min(1),
+  /** Texte affiché après « Thème : » (les textes des éléments, bout à bout). */
+  text: z.string(),
+  /** Auteurs et heures, dédoublonnés, du plus récent au plus ancien. */
+  contributors: z.array(SummaryContributor),
+  lastAt: IsoDateTime,
+  /** Question ouverte sur ce thème (ex. résultat non renseigné), jamais une supposition. */
+  question: z.string().nullable(),
+});
+export type SummaryBullet = z.infer<typeof SummaryBullet>;
+
+export const PatientDigest = z.object({
+  patient: PatientSummary,
+  priority: EffectivePriority,
+  news2: News2Result.nullable(),
+  /** Du plus récent au plus ancien. */
+  bullets: z.array(SummaryBullet),
+  /** Nombre de comptes rendus du poste pour ce patient (0 = « Aucun compte rendu aujourd'hui »). */
+  reportCount: z.number().int().nonnegative(),
+});
+export type PatientDigest = z.infer<typeof PatientDigest>;
+
+export const UnitSummaries = z.object({
+  unit: CareUnit,
+  shift: ShiftWindow,
+  now: IsoDateTime,
+  rows: z.array(PatientDigest),
+});
+export type UnitSummaries = z.infer<typeof UnitSummaries>;
+
+/** Un compte rendu du soignant connecté (« Mes CR »), texte intégral. */
+export const NurseReport = z.object({
+  transmissionId: Id,
+  patient: PatientSummary.nullable(),
+  createdAt: IsoDateTime,
+  /** Heure locale du service, ex. « 10h20 ». */
+  time: z.string(),
+  transcript: z.string(),
+  status: z.enum(['draft', 'validated', 'unreviewed']),
+});
+export type NurseReport = z.infer<typeof NurseReport>;
+
+export const LoginResult = z.object({
+  nurse: Nurse,
+  unit: CareUnit,
+});
+export type LoginResult = z.infer<typeof LoginResult>;
 
 export const SearchHit = z.object({
   transmissionId: Id,
