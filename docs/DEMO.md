@@ -1,42 +1,59 @@
 # Script de démo (≈ 5 min)
 
+Parcours du front « Bino » sur le scénario `chir-bino` (Chirurgie polyvalente, 11 patients).
+Comportement détaillé : [FONCTIONNEMENT.md](FONCTIONNEMENT.md).
+
 ## Préparation (avant de monter sur scène)
 
 1. `.env` : `LLM_PROVIDER=deepseek` + clé, `CLASSIFIER_PROVIDER=jev` + clé (sinon moteur local),
    `STT_PROVIDER=openai` + clé pour la transcription (sinon reconnaissance du navigateur).
-2. `pnpm dev:api` puis `pnpm dev:web` (PC). Sur le téléphone (même Wi-Fi) : ouvrir
-   `http://<IP-du-PC>:8081` dans Chrome/Safari, ou Expo Go via `pnpm dev:app`. Dans un navigateur
-   de téléphone, le micro n'est autorisé qu'en **HTTPS** (tunnel, ex. `cloudflared tunnel --url`).
-   Réglages → Serveur si l'adresse de l'API n'est pas trouvée.
-3. Simulateur → **« Préparer la démo (16h25) »** sur *Réa — journée de Martine* : la journée est rejouée
-   jusqu'à 16h25, l'exemple A reste à dicter en direct.
-4. PC : onglet Relève. Téléphone : connecté en tant que Martine.
+   Garder `DEFAULT_SCENARIO=chir-bino`, `SIM_BOOT=end`, `DEMO_PASSWORD=bino` (valeurs par défaut).
+2. `pnpm dev:api` puis `pnpm dev:web` (PC). Au premier démarrage, l'API rejoue `chir-bino` : les
+   11 CR de démo passent par l'IA configurée (environ 2 s chacun avec un LLM). Un
+   `.data/state.json` déjà présent est gardé : dans ce cas, remettre à zéro (étape 4).
+3. Téléphone, au choix :
+   - **Expo Go** (`pnpm dev:app`, même Wi-Fi) : le micro marche sans HTTPS ;
+   - **navigateur du téléphone** : le micro n'y est autorisé qu'en **HTTPS**. Ouvrir deux tunnels,
+     ex. `cloudflared tunnel --url http://localhost:8081` (app) et
+     `cloudflared tunnel --url http://localhost:8787` (API). Ouvrir l'adresse HTTPS de l'app, aller
+     sur `/serveur`, coller l'adresse HTTPS de l'API, **Tester et enregistrer** (une page HTTPS ne
+     peut pas appeler une API en HTTP).
+4. Moins de 4 h avant : ouvrir `/simulateur` (taper l'URL) → carte *Chirurgie — journée de Martine,
+   Sophie et Karim* → **Rejouer la journée**. L'horloge simulée repart de 17h45 ; vers 21h45
+   simulées, Tous et Mes CR passent au poste de nuit et se vident.
+5. Téléphone : sur l'écran Connexion (se déconnecter si besoin). PC : connecté en Karim
+   (**10415** / `bino`), sur Transmissions › Tous. L'app web garde la session par navigateur :
+   pour deux soignants sur un même PC, utiliser deux navigateurs.
 
 ## Déroulé
 
-| Temps | Écran | Ce qu'on dit |
+| Temps | Écran | Ce qu'on fait et ce qu'on dit |
 | --- | --- | --- |
 | 0:00 | — | « Martine, 12 h de poste, écrit ses transmissions après l'heure. Le premier besoin du terrain : du temps. » |
-| 0:30 | Téléphone, liste | « Ses patients, triés. Un seul bouton : Dicter. » |
-| 0:45 | Dictée | Dicter (ou « Exemples » → *exemple A du kit*) : « Alors monsieur du box 12… » Le texte s'affiche en direct. |
-| 1:30 | Relecture | « Le bon patient. Deux cibles DAR. Le **R n'est pas inventé** : il est posé en question. Je touche une phrase : voici l'extrait exact de ma dictée. » |
-| 2:15 | Relecture | Répondre au R : « SpO2 95 % sous 3 L, bien toléré » → Valider. « 1 geste. Rien n'est versé sans moi. » |
-| 2:45 | PC, Relève | Simulateur → horloge 19h40. « La relève : ★ puis Rouge → Vert, la couleur est une suggestion **expliquée**, Martine garde la main. » |
-| 3:15 | Fiche Box 12 | « La fiche de l'exemple B du kit, construite toute seule pendant le poste. Infos transverses : BMR, allergies. » |
-| 3:45 | Mode réunion + récap SMS | « On ne supprime pas la relève orale, on la prépare. Pour qui l'a ratée : le récap. » |
-| 4:15 | Entrée | « Le DPI bloque l'admission sans cible : ici, dictée libre → macro-cible d'entrée, et l'outil demande les allergies. » |
-| 4:40 | Export DPI | « On ne remplace pas le DPI : export FHIR. Couche au-dessus de l'existant. » |
-| 5:00 | — | « Aucun fournisseur imposé : DeepSeek aujourd'hui, un modèle hébergé HDS demain, une ligne de config. » |
+| 0:20 | Téléphone, Connexion | **10482** / `bino` → « Connexion réussie » → **Continuer**. « Un matricule pour la démo ; la carte CPS en V2. » |
+| 0:30 | Patients | « Ses 11 patients, par chambre. Pas de tâche en plus : elle touche celui qu'elle vient de voir. » Toucher **M. Jean Dupond** (CHAMB 12). |
+| 0:45 | Fiche, Dossier médical | Déplier : « Constantes de 17h40, NEWS2 7 : FR 24, +2 ; tension 98/62, +2. Le score montre ses entrées : une aide au calcul, pas un verdict. » |
+| 1:15 | Fiche, micro | Toucher le micro et dicter (ou la puce **Exemple : M. Dupond se dégrade**) : « Chambre 12, M. Dupond. Il est plus essoufflé qu'à 14h… » Avec la transcription serveur, le texte arrive quand on arrête le micro. |
+| 1:50 | Fiche | **Valider** → « Compte rendu fait ». « Signé, horodaté, un geste. » |
+| 2:00 | Transmissions › Mes CR | « Son compte rendu en tête, tel qu'elle l'a dit. » |
+| 2:15 | Tous, carte M. Dupond | « Les CR de Sophie à 8h10, de Karim à 14h05 et de Martine, rangés par thème. Sous chaque puce : qui et quand. Le résumé n'écrit rien : il regroupe des éléments sourcés. Un résultat manque ? C'est une question, pas une supposition. » |
+| 3:00 | Tous, priorités | « M. Dupond est en Priorité 1 : le NEWS2 sert de plancher à la suggestion. » Sur M. Louis Garnier (CHAMB 14), toucher **Priorité n**, puis **1** → « Priorité 1 enregistrée. », la liste se retrie. « Le choix de l'infirmière prime toujours. » |
+| 3:40 | PC, Karim sur Tous | « Sur le PC du poste, le CR de Martine est déjà là (rafraîchi toutes les 5 s). On ne supprime pas la relève orale : on la prépare. » |
+| 4:10 | — | « Valider n'a rien signé à sa place : la structuration de l'IA reste à relire. Relecture, fiche de relève, export FHIR vers le DPI : prêts dans l'API pour la suite. » |
+| 4:40 | — | « Aucun fournisseur imposé : DeepSeek aujourd'hui, un modèle hébergé HDS demain, une ligne de config. » |
 
 ## Pépites à placer
 
 - « Qui va m'offrir ma pizza ? » : on garde le moment collectif de la relève.
 - « L'IA ne décide rien : elle range, résume et vous dit ce qui manque. »
 - Analogie Word : un correcteur qui souligne en rouge rend aveugle au reste → on pose des questions.
-- Mesuré sur nos scénarios : 133/133 vérifications, 0 information inventée.
+- Mesuré le 14/11 sur 26 dictées (réa, médecine, nuit) : 133/133 vérifications, 0 information inventée.
 
 ## Si quelque chose casse
 
-- Pas de réseau / LLM HS : l'app bascule seule en moteur local (badge « Mode dégradé »).
-- Micro refusé : « Exemples de dictée » (mode démo) ou clavier.
-- État bizarre : Simulateur → « Rejouer la journée ».
+- LLM injoignable ou trop lent : le serveur bascule seul sur le moteur local et le CR est enregistré
+  (ce front n'affiche pas de badge « mode dégradé »).
+- Micro refusé ou indisponible : puce **Exemple** (chambres 12 et 10), ou micro du clavier.
+- Transcription échouée : **Réessayer l'envoi de la dictée** sous le micro.
+- Téléphone sans données : lien « Serveur injoignable : régler l'adresse » sur la connexion, ou `/serveur`.
+- Tous vide, ou état bizarre : `/simulateur` → **Rejouer la journée** (carte Chirurgie).

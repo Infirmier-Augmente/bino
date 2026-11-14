@@ -1,8 +1,10 @@
 # Infirmier augmenté
 
-> Martine dicte ses transmissions en sortant de la chambre. L'IA les range en transmissions ciblées
-> **DAR**, chaque phrase liée à l'extrait de dictée d'origine. Elle valide d'un geste. À la relève de
-> 19h45, la fiche de chaque patient est prête et le service est trié par priorité.
+> En sortant de la chambre, Martine ouvre la fiche du patient et écrit ou dicte son compte rendu.
+> L'IA le range en transmissions ciblées **DAR**, chaque élément lié à l'extrait d'origine, et le
+> laisse « à relire ». À la relève, l'onglet **Tous** montre une carte par patient : des puces
+> sourcées (qui, à quelle heure), le résultat manquant posé en question et une priorité de 1 à 4
+> qu'elle peut changer.
 > **On ne remplace pas la relève : on la prépare.**
 
 Hackathon IA santé ARS × AdoptAI (13–15 nov. 2026) · défi Hôpital Foch « infirmier augmenté ».
@@ -22,23 +24,43 @@ cp .env.example .env
 pnpm dev
 ```
 
-- API : http://localhost:8787 (au premier démarrage, une journée de réanimation fictive est rejouée).
+- API : http://localhost:8787. Au premier démarrage (sans `.data/state.json` valide), une journée de
+  chirurgie fictive est rejouée (scénario `chir-bino`, 11 patients, 3 IDE).
 - App web : appuie sur `w` dans le terminal Expo (ou `pnpm dev:web`). Sur téléphone : scanne le QR code avec **Expo Go** (même Wi-Fi).
+  Dans un navigateur de téléphone, le micro exige HTTPS (voir [docs/DEMO.md](docs/DEMO.md)).
 - Sans clé d'API, l'IA tourne en **moteur local** (déterministe). Pour l'IA réelle, renseigne `LLM_PROVIDER` / `LLM_API_KEY` dans `.env` (voir [docs/AI_PROVIDERS.md](docs/AI_PROVIDERS.md)).
 
 Prérequis : Node ≥ 22.12 et pnpm (`corepack enable`).
 
-## Ce que fait le produit
+### Comptes de démo
+
+Mot de passe `bino` pour tous (`DEMO_PASSWORD` dans `.env`). Ce n'est pas une authentification réelle.
+
+| Matricule | Soignant |
+| --- | --- |
+| 10482 | Martine Dubois · IDE |
+| 10401 | Sophie Lemoine · IDE |
+| 10415 | Karim Haddad · IDE |
+
+## Le parcours
+
+Connexion (matricule + mot de passe) → Connexion réussie → onglets **Patients** et **Transmissions**.
+Toucher un patient ouvre la fiche **Nouveau compte rendu** : dossier médical, zone de texte, micro,
+**Valider**. Détail écran par écran et règles : [docs/FONCTIONNEMENT.md](docs/FONCTIONNEMENT.md).
 
 | Moment | Ce que voit l'infirmière | Où dans le code |
 | --- | --- | --- |
-| Entre deux chambres | Un bouton **Dicter**, le texte s'affiche pendant qu'elle parle | `apps/mobile/src/app/dictee.tsx` |
-| Juste après | Transmissions **DAR** rangées, R manquant posé en **question**, chaque phrase renvoie à son extrait | `apps/mobile/src/app/transmission/[transmissionId].tsx`, `packages/ai` |
-| 1 geste | **Valider** (versé au dossier) ou **Plus tard** (« non relue ») | `apps/api/src/services/hospital-service.ts` |
-| Entrée d'un patient | Dictée libre → **macro-cible d'entrée** (le blocage « pas de cible adaptée » disparaît) | `apps/mobile/src/app/admission.tsx` |
-| À la relève | **Vue service** triée ★ puis Rouge → Vert (suggestion expliquée), **fiche par patient** (exemple B du kit), récap « taille SMS », mode réunion sur grand écran | `apps/mobile/src/app/(app)/releve.tsx`, `packages/domain/src/rules/handover.ts` |
-| Intégration | Export **FHIR R4** vers un DPI simulé | `packages/domain/src/interop/fhir.ts` |
-| Démo / tests | **Simulateur** d'hôpital : journées rejouables, évaluation de l'IA | `packages/simulation`, `pnpm sim` |
+| Prise de poste | Connexion par **matricule** + mot de passe de démo | `apps/mobile/src/app/connexion.tsx`, `apps/api/src/services/team-service.ts` |
+| Entre deux chambres | Fiche **Nouveau compte rendu** : elle écrit, ou dicte au **micro** (le texte arrive à la fin de l'enregistrement avec la transcription serveur, en direct avec celle du navigateur) | `apps/mobile/src/app/patient/[patientId].tsx`, `apps/mobile/src/features/report` |
+| Dans la fiche | **Dossier médical** : constantes avec les points **NEWS2** de chaque paramètre, dispositifs (J+n), allergies… ; feuille **Constantes** avec score recalculé en direct | `apps/mobile/src/features/report`, `packages/domain/src/rules/news2.ts` |
+| 1 geste | **Valider** : compte rendu signé et horodaté, popup « Compte rendu fait ». L'IA le range en **DAR** sourcé, R manquant posé en **question** ; il reste « à relire », jamais validé à sa place | `packages/ai`, `apps/api/src/services/hospital-service.ts` |
+| Pendant le poste | **Mes CR** : ses comptes rendus, texte intégral, du plus récent au plus ancien | `apps/mobile/src/features/transmissions/MyReports.tsx` |
+| À la relève | **Tous** : une carte par patient, puces sourcées par thème avec auteur et heure, question « R manquant » sous sa puce, **Priorité 1 à 4** (suggestion avec plancher NEWS2, le choix manuel prime) | `apps/mobile/src/features/transmissions`, `packages/domain/src/rules/{summary,team,priority}.ts` |
+| Démo / tests | **Simulateur** d'hôpital : journées rejouables (`/simulateur`, par l'URL), évaluation de l'IA | `packages/simulation`, `pnpm sim` |
+
+Gardé dans l'API mais pas affiché par ce front : relecture et validation des transmissions,
+réponse aux questions, étoile ★, entrée d'un patient, fiche de relève, recherche sourcée, récap « taille SMS »,
+export **FHIR R4** vers un DPI simulé (voir [FONCTIONNEMENT.md §3](docs/FONCTIONNEMENT.md#3-fonctions-gardées-dans-le-backend-mais-pas-affichées)).
 
 ## Lignes rouges (testées)
 
@@ -53,7 +75,7 @@ Prérequis : Node ≥ 22.12 et pnpm (`corepack enable`).
 pnpm check                 # lint + types + tests (obligatoire avant de pousser)
 pnpm test:e2e              # parcours Playwright (lance API + app web)
 pnpm sim list              # scénarios de l'hôpital simulé
-pnpm sim run rea-box12     # rejoue une journée et affiche la relève dans le terminal
+pnpm sim run chir-bino     # rejoue une journée et affiche la relève dans le terminal
 pnpm sim eval              # évalue l'IA (bon patient, DAR, R manquant, zéro invention)
 ```
 
@@ -63,10 +85,11 @@ pnpm sim eval              # évalue l'IA (bon patient, DAR, R manquant, zéro i
 | --- | --- |
 | [AGENTS.md](AGENTS.md) | **À lire en premier** (humains et agents de code) : règles, carte du code, workflow |
 | [docs/PRODUCT.md](docs/PRODUCT.md) | Le problème, Martine, le parcours, le périmètre MVP / V2 / vision |
+| [docs/FONCTIONNEMENT.md](docs/FONCTIONNEMENT.md) | Ce que fait l'app, écran par écran ; d'où viennent les données ; NEWS2, priorité, puces ; remise à zéro de la démo |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Comment c'est construit et pourquoi |
 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | Travailler à 7+ sans se marcher dessus : branches, PR, tests, chantiers parallèles |
 | [docs/AI_PROVIDERS.md](docs/AI_PROVIDERS.md) | Brancher un LLM, un speech-to-text, un classifieur (Jev) |
 | [docs/SCENARIOS.md](docs/SCENARIOS.md) | Le simulateur d'hôpital, écrire un scénario, évaluer l'IA |
-| [docs/DESIGN.md](docs/DESIGN.md) | Principes d'interface, tokens, ce qu'on s'interdit |
+| [docs/DESIGN.md](docs/DESIGN.md) | Identité Bino : principes, tokens, composants, ce qu'on s'interdit |
 | [docs/DEMO.md](docs/DEMO.md) | Script de démo pour le jury |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Journal des décisions d'architecture et produit |

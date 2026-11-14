@@ -8,7 +8,7 @@
 
 ## Captures (si UI)
 
-<!-- Téléphone ET poste de soins (≥ 900 px) si l'écran existe dans les deux. -->
+<!-- Téléphone ET grand écran (colonne centrée de 440 px, voir docs/DESIGN.md). -->
 
 ## Checklist
 

@@ -16,6 +16,12 @@ choix structurant (une PR qui change une décision met à jour ce fichier).
 | P7 | « À faire » = ce que l'IDE a dicté, au conditionnel ; **pas de lecture des prescriptions** | Synthèse : périmètre, paradigme | Checklists générées |
 | P8 | Recherche = **extraits sourcés** façon Ctrl+F, pas de réponse synthétique | « C'est à l'infirmière de conclure » | RAG génératif |
 | P9 | Données **100 % fictives**, hôpital simulé rejouable | Kit Foch, RGPD | — |
+| P10 | **Front « Bino »** (maquettes de l'équipe, branche `demo`) : 2 onglets Patients / Transmissions, fiche « Nouveau compte rendu », priorité 1 à 4 | Parcours validé par l'équipe sur maquettes papier ; un geste par compte rendu | Ancien front (relecture DAR, relève PC, recherche, DPI) : retiré du front, **gardé dans le backend** |
+| P11 | **« Valider » enregistre le compte rendu** (signé, horodaté) ; la structuration IA reste « À relire », jamais validée automatiquement | « L'IA ne décide rien » : valider d'un toucher signerait un contenu IA jamais vu et écrirait des allergies extraites dans le dossier | Créer + valider en un toucher |
+| P12 | Résumé « Tous » **sans IA générative** : une puce par thème faite d'éléments sourcés des CR, auteur et heure dessous ; une question (R manquant) s'affiche sous sa puce | Zéro information inventée, traçabilité « qui a dit quoi » | Synthèse LLM multi-CR (il faudrait un ancrage multi-sources) |
+| P13 | **NEWS2** affiché (entrées et points) et utilisé comme **plancher de la priorité suggérée** ; le choix manuel prime | Demande de l'équipe (prototype Bino) ; aide au calcul explicable | ⚠ Score clinique : à revoir avant tout usage réel (dispositif médical, voir PRODUCT « Réglementaire ») |
+| P14 | **Connexion de démo** par matricule + mot de passe partagé (`DEMO_PASSWORD`) | Parcours des maquettes ; « Mes CR » par soignant | Authentification réelle CPS / e-CPS : V2 |
+| P15 | Scénario par défaut **`chir-bino`** (chirurgie, 11 patients, 3 IDE) | Rejoue la démo de l'équipe à l'identique ; réa et médecine restent disponibles | — |
 
 ## Technique
 
@@ -40,6 +46,9 @@ choix structurant (une PR qui change une décision met à jour ce fichier).
 | T17 | **Relecture de code indépendante** (agent sans contexte) avant livraison ; chaque bug confirmé = test de non-régression | 13 points trouvés dont 4 sur les lignes rouges (ancrage, export de brouillons, réponse sur note validée, patient non modifiable) : tous corrigés | — |
 | T18 | Export DPI : **uniquement les transmissions validées** | « Rien n'est versé au dossier sans validation » | Exporter les brouillons en `preliminary` |
 | T19 | Continuité des cibles **au niveau de la vue** (fiche, compteurs, priorité) | Ne jamais modifier une transmission signée ; la réévaluation reste sourcée dans la dictée qui l'apporte | Écrire le R dans la transmission d'origine |
+| T20 | Priorité : le bonus « non relue » ne vaut plus que pour les transmissions **mises de côté** (`unreviewed`), pas pour les brouillons | Dans Bino tous les CR restent `draft` : le bonus ferait monter tout patient ayant un CR | Garder le bonus sur `draft` |
+| T21 | Polices **Nunito + Plus Jakarta Sans**, couleurs du logo Bino, colonne de 440 px sur grand écran | Fidélité aux maquettes de l'équipe | Atkinson Hyperlegible (AGENTS.md §9 à mettre à jour si l'équipe confirme) |
+| T22 | Branche de référence consultée en **`git worktree`** dans `.reference/` (ignoré par git et Biome) | Comparer au prototype sans fusionner deux historiques | `git merge` de `demo` |
 
 ## Pistes V2 identifiées
 

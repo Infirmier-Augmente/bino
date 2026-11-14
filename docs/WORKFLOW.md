@@ -37,7 +37,7 @@ commitlint, typecheck + tests au push. **Ne jamais contourner avec `--no-verify`
 | Moteur local (règles) | `packages/ai/src/engine/heuristic/*`, `domain/rules/lexicon.ts` | dev back |
 | Continuité des cibles entre dictées | `apps/api/src/services/hospital-service.ts`, `packages/ai` | dev back |
 | Dictée native (STT sur l'appareil) | `apps/mobile/src/features/dictation/*` | dev mobile |
-| Vue relève / mode réunion | `apps/mobile/src/app/(app)/releve.tsx`, `features/handover` | dev front |
+| Front Bino (fiche, Transmissions) | `apps/mobile/src/features/{report,transmissions}`, `apps/mobile/src/lib` | dev front |
 | Scénarios et jeux de test terrain | `packages/simulation/src/scenarios/*` | profil soignant + dev |
 | Pitch / démo | `docs/DEMO.md`, simulateur | produit / design |
 

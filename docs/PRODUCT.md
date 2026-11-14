@@ -24,41 +24,47 @@ ce qui guide le code ; en cas de doute, la synthèse Notion fait foi.
 2. **Perte d'informations** : après 12 h, tout repose sur la mémoire, compressé en quelques minutes.
 3. **Harmonisation** : chaque service, chaque soignant a sa façon de faire ; rien n'est comparable.
 
-## Parcours cible (implémenté)
+## Parcours implémenté (front « Bino »)
+
+Le front suit les maquettes de l'équipe (DECISIONS P10). Détail écran par écran :
+[FONCTIONNEMENT.md](FONCTIONNEMENT.md).
 
 ```mermaid
 flowchart TD
-  A["Sortie de chambre"] --> B["🎙️ Dicter (1 bouton)"]
-  B --> C["Transcription + bon patient"]
-  C --> D["DAR + routine + à faire + transverses, sourcés"]
-  D --> E{"Relecture"}
-  E -->|Valider| F["Versé au dossier"]
-  E -->|Plus tard| G["Non relue (visible à la relève)"]
-  F --> H["Fiche par patient"]
-  G --> H
-  H --> I["Vue service triée ★ / Rouge → Vert"]
-  I --> J["Relève orale : vérifier, questionner, prioriser"]
-  F -.-> K["Export FHIR vers le DPI (simulé)"]
+  A["Connexion (matricule)"] --> B["Patients : toucher le patient"]
+  B --> C["Fiche « Nouveau compte rendu » : écrire ou dicter"]
+  C --> D["Valider : CR signé et horodaté"]
+  D --> E["Structuration DAR sourcée, R manquant = question (reste « à relire »)"]
+  E --> F["Mes CR : ses comptes rendus"]
+  E --> G["Tous : une carte par patient, puces sourcées, auteur et heure"]
+  V["Constantes du dossier : NEWS2"] --> P
+  G --> P["Priorité 1 à 4 : suggestion (plancher NEWS2), choix manuel"]
+  P --> J["Relève orale : vérifier, questionner, prioriser"]
+  E -.-> K["Relecture, validation, fiche de relève, export FHIR : dans l'API, pas à l'écran"]
 ```
 
 ## Périmètre
 
+✅ = à l'écran. 🟡 API = fait et testé dans l'API, pas affiché par le front Bino.
+
 | Priorité (synthèse) | Fonction | État |
 | --- | --- | --- |
-| 🟩 Must | Bouton de dictée mobile, patient nommé en début de note | ✅ web (texte en direct), natif (STT serveur), clavier |
+| 🟩 Must | Bouton de dictée mobile, patient nommé en début de note | ✅ micro dans la fiche du patient (patient déjà choisi) : STT serveur d'abord, sinon navigateur, sinon clavier |
 | 🟩 Must | Transcription robuste au jargon | ✅ lexique soignant partagé (prompt LLM, biais STT, moteur local) |
-| 🟩 Must | Rangement DAR + tri cible / soin de routine | ✅ LLM (few-shot exemple A) + moteur local de secours |
-| 🟩 Must | Champs manquants signalés, jamais inventés | ✅ R manquant → question ; ancrage des sources + chiffres |
-| 🟩 Must | Validation en 1 clic ou « non relu » | ✅ |
-| 🟩 Must | Fiche de relève par patient + bloc transverse | ✅ par appareil (réa) ou sommaire (service) |
-| 🟨 Should | Vue service priorisée (couleurs + ★) sur le web | ✅ maître-détail, mode réunion, rafraîchie en continu |
-| 🟨 Should | Mode admission → macro-cible d'entrée | ✅ |
-| 🟨 Should | Export structuré type FHIR (simulé) | ✅ Bundle R4, DPI simulé |
-| 🟦 Could | Récap « taille SMS » | ✅ copiable |
-| 🟦 Could | Questions en langage naturel, extraits sourcés | ✅ recherche façon Ctrl+F (pas de chiffre affirmé) |
-| 🟨 V2 | Détection des « non-dits », IA qui pose des questions d'incohérence | 🟡 questions d'imprécision par le LLM (max 2), pas d'analyse clinique |
-| 🟨 V2 | Score de priorité automatique | 🟡 suggestion explicable (règles + gravité Jev/LLM), l'IDE garde la main |
-| 🟨 V2 | Continuité des cibles entre dictées (R dicté plus tard) | 🟡 fiche et priorité : la question « R manquant » se ferme si une dictée ultérieure apporte le résultat (vue, sans modifier l'original) |
+| 🟩 Must | Rangement DAR + tri cible / soin de routine | ✅ à chaque « Valider » (LLM few-shot exemple A, moteur local de secours) ; repris en puces dans Tous, routine exclue |
+| 🟩 Must | Champs manquants signalés, jamais inventés | ✅ R manquant → question sous sa puce ; ancrage des sources + chiffres |
+| 🟩 Must | Validation en 1 clic ou « non relu » | 🟡 API. Le front enregistre sans valider : la structuration reste « à relire » (P11) |
+| 🟩 Must | Fiche de relève par patient + bloc transverse | ✅ carte Tous (puces sourcées) + dossier médical de la fiche ; 🟡 API pour la fiche complète par appareil ou sommaire |
+| 🟨 Should | Vue service priorisée | ✅ Tous trié par priorité 1 → 4, choix manuel par les cercles ; 🟡 API pour l'étoile ★ |
+| 🟨 Should | Mode admission → macro-cible d'entrée | 🟡 API |
+| 🟨 Should | Export structuré type FHIR (simulé) | 🟡 API (Bundle R4, DPI simulé) |
+| 🟦 Could | Récap « taille SMS » | 🟡 API |
+| 🟦 Could | Questions en langage naturel, extraits sourcés | 🟡 API (recherche façon Ctrl+F, pas de chiffre affirmé) |
+| Ajout Bino | Constantes et NEWS2 | ✅ points par paramètre, saisie avec score en direct, plancher de la priorité suggérée (P13) |
+| Ajout Bino | Connexion par matricule | ✅ démo, mot de passe partagé (P14) ; CPS / e-CPS en V2 |
+| 🟨 V2 | Détection des « non-dits », IA qui pose des questions d'incohérence | 🟡 API : questions d'imprécision par le LLM (2 demandées, 3 gardées au plus), pas d'analyse clinique ; non affichées |
+| 🟨 V2 | Score de priorité automatique | 🟡 suggestion explicable (règles + gravité Jev/LLM + plancher NEWS2), l'IDE garde la main ; raison lue par le lecteur d'écran, pas affichée |
+| 🟨 V2 | Continuité des cibles entre dictées (R dicté plus tard) | 🟡 la question « R manquant » se ferme si un CR ultérieur du poste apporte le résultat (vue, sans modifier l'original) |
 | ⬜ Vision | Écoute continue, pin's, prédiction clinique, prescriptions | ⬜ pitch « et demain » |
 
 ## Indicateurs (kit Foch) et comment on les mesure
@@ -68,10 +74,11 @@ flowchart TD
 | Zéro information inventée | `pnpm sim eval` : chaînes interdites + éléments rejetés par l'ancrage |
 | Taux de DAR complets (R rempli) | `darCompletionRate()` (domaine) |
 | Bon patient | `pnpm sim eval` (« Bon patient ») |
-| Corrections avant validation | `SourcedItem.edited` + source `nurse` |
-| Temps de saisie | `dictation.durationSec`, `engine.durationMs` |
+| Corrections avant validation | `SourcedItem.edited` + source `nurse` (correction possible par l'API, pas d'écran dans le front Bino) |
+| Temps de saisie | `engine.durationMs` ; `dictation.durationSec` existe mais le front Bino ne l'envoie pas |
 
-Référence au 14/11 : DeepSeek + Jev sur 26 dictées → **133/133 vérifications, 100 % bon patient, 0 invention**, ~2 s par dictée.
+Référence au 14/11, avant l'ajout de `chir-bino` : DeepSeek + Jev sur les 26 dictées de `rea-box12`,
+`medecine-journee` et `admission-nuit` → **133/133 vérifications, 100 % bon patient, 0 invention**, ~2 s par dictée.
 
 ## Réglementaire (à dire au jury)
 
@@ -79,3 +86,9 @@ Données fictives uniquement. En cible : secret partagé (CSP L1110-4), RGPD, h�
 information des patients sur l'enregistrement, analyse d'impact. L'outil reste sur **structuration et
 synthèse sans interprétation clinique** pour ne pas basculer en dispositif médical. Le fournisseur
 `openai-compatible` permet un LLM et un STT **auto-hébergés** (piste HDS).
+
+**Exception assumée pour la démo : NEWS2** (DECISIONS P13). C'est un score clinique. Il est montré
+comme une aide au calcul (entrées et points de chaque paramètre visibles) et ne sert que de plancher
+à la priorité **suggérée** ; le choix manuel de l'IDE prime toujours. Un logiciel qui calcule un score
+clinique pour prioriser des patients peut relever du règlement européen sur les dispositifs médicaux
+(UE 2017/745) : à qualifier avant tout usage réel, ou à retirer.
