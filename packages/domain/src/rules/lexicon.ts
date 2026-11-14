@@ -391,6 +391,10 @@ export const TARGET_RULES: readonly TargetRule[] = [
 /** Indices qu'une proposition décrit une ACTION réalisée. */
 export const ACTION_MARKERS: readonly string[] = [
   'j ai',
+  'je l ai',
+  'je les ai',
+  'je lui ai',
+  'je leur ai',
   'on a',
   'on l a',
   'on lui a',
@@ -519,12 +523,41 @@ export function detectAppareil(text: string): Appareil | null {
   return best?.appareil ?? null;
 }
 
-/** Règle de cible déclenchée par un texte, la plus grave d'abord. */
+const NEGATIONS = ['pas', 'pas de', 'non', 'sans', 'aucun', 'aucune', 'ni', 'plus de', 'jamais'];
+
+/** Le mot-clé est-il nié juste avant ("pas de douleur", "non algique", "sans fièvre") ? */
+export function isNegated(normalizedText: string, keyword: string): boolean {
+  const k = normalize(keyword);
+  const padded = ` ${normalizedText} `;
+  let idx = padded.indexOf(` ${k} `);
+  while (idx >= 0) {
+    const before = padded.slice(0, idx).trim().split(' ').slice(-2);
+    const negated = NEGATIONS.some((neg) => {
+      const parts = neg.split(' ');
+      return parts.length === 1 ? before.includes(neg) : before.join(' ') === neg;
+    });
+    if (!negated) return false;
+    idx = padded.indexOf(` ${k} `, idx + 1);
+  }
+  return true;
+}
+
+const HYPERTHERMIA_RULE: TargetRule = {
+  keywords: ['fievre'],
+  label: 'Hyperthermie',
+  appareil: 'general',
+  severity: 'surveillance',
+};
+/** "elle a fait 38,9", "température à 39" : fièvre exprimée en chiffres. */
+const FEVER_VALUE = /\b(fait|temperature|temp|t) (a )?(3[89]|4[0-2])( [0-9])?\b/;
+
+/** Règle de cible déclenchée par un texte (la plus grave d'abord), en ignorant les négations. */
 export function detectTargetRule(text: string): TargetRule | null {
   const n = normalize(text);
   for (const rule of TARGET_RULES) {
-    if (findKeywords(n, rule.keywords).length > 0) return rule;
+    if (findKeywords(n, rule.keywords).some((k) => !isNegated(n, k))) return rule;
   }
+  if (FEVER_VALUE.test(n)) return HYPERTHERMIA_RULE;
   return null;
 }
 

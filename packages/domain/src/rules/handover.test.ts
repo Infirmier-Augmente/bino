@@ -4,7 +4,7 @@ import type { DarTarget } from '../schemas/transmission';
 import { completenessFlags, mergeFlags } from './completeness';
 import { buildHandoverSheet, buildRecap, buildUnitBoard } from './handover';
 import { comparePriority, effectivePriority, suggestPriority } from './priority';
-import { currentShift, dayOfStay } from './time';
+import { currentShift, dayOfStay, handoverWindow } from './time';
 
 const NOW = new Date('2026-11-14T19:30:00+01:00');
 
@@ -34,6 +34,13 @@ describe('currentShift (heure de Paris)', () => {
   it('gère l’heure d’été', () => {
     const s = currentShift(new Date('2026-07-01T10:00:00+02:00'), REA);
     expect(s.start).toBe('2026-07-01T07:45:00+02:00');
+  });
+  it('à 20h, la relève montre encore le poste de jour qui se termine', () => {
+    const w = handoverWindow(new Date('2026-11-14T20:00:00+01:00'), REA);
+    expect(w.kind).toBe('jour');
+    expect(w.start).toBe('2026-11-14T07:45:00+01:00');
+    expect(w.label).toMatch(/relève en cours/);
+    expect(handoverWindow(new Date('2026-11-14T23:00:00+01:00'), REA).kind).toBe('nuit');
   });
   it('jour d’hospitalisation', () => {
     expect(dayOfStay('2026-11-09T14:00:00+01:00', NOW, 'Europe/Paris')).toBe('J5');

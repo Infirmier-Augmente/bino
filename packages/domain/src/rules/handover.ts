@@ -25,7 +25,7 @@ import type {
 import { patientLevelFlags } from './completeness';
 import { lexicalSeverity } from './lexicon';
 import { comparePriority, effectivePriority, suggestPriority } from './priority';
-import { ageAt, currentShift, dayOfStay, formatClock, isWithin, toLocalIso } from './time';
+import { ageAt, dayOfStay, formatClock, handoverWindow, isWithin, toLocalIso } from './time';
 
 /**
  * FICHE DE RELÈVE — assemblée de façon DÉTERMINISTE à partir des transmissions
@@ -90,7 +90,7 @@ function targetSeverityRank(t: DarTarget): number {
 /** Une ligne "À retenir" par cible : libellé + premières données, avec leurs sources. */
 function targetHeadline(t: DarTarget): SourcedItem {
   const parts = [...t.data, ...t.actions].slice(0, 2);
-  const details = parts.map((p) => p.text.replace(/\.$/, '')).join(', ');
+  const details = joinFragments(parts.map((p) => p.text));
   const sources = [...t.data, ...t.actions, ...t.results].flatMap((i) => i.sources);
   return {
     id: `headline:${t.id}`,
@@ -98,6 +98,17 @@ function targetHeadline(t: DarTarget): SourcedItem {
     sources: sources.length > 0 ? sources : [{ kind: 'record', field: 'target', label: t.label }],
     edited: false,
   };
+}
+
+/** "Agité vers 16h." + "Il a arraché sa SNG." → "Agité vers 16h, il a arraché sa SNG" */
+export function joinFragments(texts: readonly string[]): string {
+  return texts
+    .map((t, i) => {
+      const s = t.trim().replace(/\.$/, '');
+      // On ne baisse pas la casse d'un sigle ("SNG", "KT").
+      return i === 0 || /^[A-ZÀ-Ý]{2}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1);
+    })
+    .join(', ');
 }
 
 export function buildHeadline(transmissions: readonly Transmission[], limit = 4): SourcedItem[] {
@@ -132,6 +143,8 @@ function buildSections(unit: CareUnit, transmissions: readonly Transmission[]): 
   for (const appareil of APPAREIL_ORDER) {
     const items = [
       ...observations.filter((o) => o.appareil === appareil),
+      // Les données des cibles apparaissent aussi dans leur appareil (comme l'exemple B du kit).
+      ...targets.filter((t) => t.appareil === appareil).flatMap((t) => t.data),
       ...routine.filter((r) => r.appareil === appareil),
     ];
     if (items.length > 0 || CORE_APPAREILS.includes(appareil)) {
@@ -212,7 +225,7 @@ export function buildHandoverSheet({
   transmissions,
   now,
 }: HandoverInput): HandoverSheet {
-  const shift = currentShift(now, unit);
+  const shift = handoverWindow(now, unit);
   const inShift = transmissionsInShift(transmissions, patient.id, shift);
   const suggestion = suggestPriority({ patient, shiftTransmissions: inShift, now });
   return {
@@ -241,7 +254,7 @@ export function buildPatientListItem({
   transmissions,
   now,
 }: HandoverInput): PatientListItem {
-  const shift = currentShift(now, unit);
+  const shift = handoverWindow(now, unit);
   const inShift = transmissionsInShift(transmissions, patient.id, shift);
   const suggestion = suggestPriority({ patient, shiftTransmissions: inShift, now });
   const alerts: string[] = [];
@@ -281,7 +294,7 @@ export function buildUnitBoard({ unit, patients, transmissions, now }: BoardInpu
         { priority: b.priority, room: b.patient.room },
       ),
     );
-  const shift = currentShift(now, unit);
+  const shift = handoverWindow(now, unit);
   const inShift = transmissions.filter(
     (t) => t.unitId === unit.id && isWithin(t.createdAt, shift.start, shift.end),
   );

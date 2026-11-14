@@ -8,8 +8,13 @@ import { DpiExport } from './views';
 
 export const ClockState = z.object({
   mode: z.enum(['real', 'simulated']),
-  /** Heure simulée courante (si mode = simulated). */
+  /** Heure simulée au moment de l'ancrage (si mode = simulated). */
   now: IsoDateTime.nullable(),
+  /**
+   * Heure RÉELLE de l'ancrage : l'horloge simulée avance ensuite en temps réel
+   * (now + (maintenant − anchoredAt)). Ré-ancrée au redémarrage du serveur.
+   */
+  anchoredAt: IsoDateTime.nullable(),
 });
 export type ClockState = z.infer<typeof ClockState>;
 

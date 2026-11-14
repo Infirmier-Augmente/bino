@@ -78,9 +78,12 @@ export function mergeFlags(existing: readonly Flag[], computed: readonly Flag[])
     const prev = byId.get(f.id);
     return prev && prev.status !== 'open' ? prev : f;
   });
-  // Conserve les signalements non recalculés (ex. venant du LLM : incohérences).
+  // Conserve les signalements qui ne sont pas recalculés ici (questions du LLM, patient ambigu…).
+  // Les signalements de complétude disparus (ex. cible supprimée) ne sont pas conservés.
+  const isComputedKind = (f: Flag) =>
+    f.id.includes(':missing-result:') || f.id.includes(':admission:');
   for (const f of existing) {
-    if (!merged.some((m) => m.id === f.id)) merged.push(f);
+    if (!isComputedKind(f) && !merged.some((m) => m.id === f.id)) merged.push(f);
   }
   return merged;
 }

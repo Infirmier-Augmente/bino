@@ -213,7 +213,7 @@ export function structureHeuristically(ctx: StructuringContext): RawStructuring 
       continue;
     }
 
-    if (has(TODO_MARKERS)) {
+    if (has(TODO_MARKERS) && !isAction) {
       out.todos.push(stmt);
       remember(out.todos, clause);
       continue;

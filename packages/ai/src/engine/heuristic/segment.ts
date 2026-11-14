@@ -32,7 +32,7 @@ export function segment(transcript: string): Clause[] {
     const parts: { start: number; end: number }[] = [];
     let partStart = 0;
     // Virgule hors nombre décimal ("37,8" reste entier).
-    const re = /(?<!\d),(?!\d)|\s+(?:et|puis)\s+/g;
+    const re = /(?<!\d),|,(?!\d)|\s+(?:et|puis)\s+/g;
     for (let m = re.exec(sentence); m !== null; m = re.exec(sentence)) {
       const left = sentence.slice(partStart, m.index);
       const right = sentence.slice(m.index + m[0].length);

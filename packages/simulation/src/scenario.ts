@@ -35,7 +35,7 @@ export function defineScenario(s: Scenario): Scenario {
 export function initialState(s: Scenario): HospitalState {
   return {
     schemaVersion: 1,
-    clock: { mode: 'simulated', now: s.startsAt },
+    clock: { mode: 'simulated', now: s.startsAt, anchoredAt: null },
     units: structuredClone(s.units),
     nurses: structuredClone(s.nurses),
     patients: structuredClone(s.patients),

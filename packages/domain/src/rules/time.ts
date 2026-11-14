@@ -12,6 +12,7 @@ interface LocalParts {
   day: number;
   hour: number;
   minute: number;
+  second: number;
 }
 
 const formatterCache = new Map<string, Intl.DateTimeFormat>();
@@ -26,6 +27,7 @@ function formatter(timeZone: string): Intl.DateTimeFormat {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
       hourCycle: 'h23',
     });
     formatterCache.set(timeZone, f);
@@ -42,14 +44,15 @@ export function localParts(date: Date, timeZone: string): LocalParts {
     day: get('day'),
     hour: get('hour') % 24,
     minute: get('minute'),
+    second: get('second'),
   };
 }
 
 /** Décalage (ms) entre l'heure locale du fuseau et UTC à un instant donné. */
 export function timeZoneOffsetMs(date: Date, timeZone: string): number {
   const p = localParts(date, timeZone);
-  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute);
-  const truncated = Math.floor(date.getTime() / 60000) * 60000;
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  const truncated = Math.floor(date.getTime() / 1000) * 1000;
   return asUtc - truncated;
 }
 
@@ -73,7 +76,7 @@ export function toLocalIso(date: Date, timeZone: string): string {
   const sign = offsetMin >= 0 ? '+' : '-';
   const abs = Math.abs(offsetMin);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${p.year}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}:00${sign}${pad(
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}:${pad(p.second)}${sign}${pad(
     Math.floor(abs / 60),
   )}:${pad(abs % 60)}`;
 }
@@ -122,6 +125,30 @@ export function currentShift(now: Date, unit: Pick<CareUnit, 'shifts' | 'timeZon
       ? `Jour ${unit.shifts.dayStart} → ${unit.shifts.nightStart}`
       : `Nuit ${unit.shifts.nightStart} → ${unit.shifts.dayStart}`;
   return { kind, start: toLocalIso(start, tz), end: toLocalIso(end, tz), label };
+}
+
+/** Durée pendant laquelle, après 7h45 / 19h45, on montre encore le poste qui vient de finir. */
+export const HANDOVER_OVERLAP_MS = 2 * 3_600_000;
+
+/**
+ * Fenêtre de la RELÈVE : le poste en cours… sauf pendant les 2 h qui suivent
+ * le changement d'équipe, où l'on montre le poste qui vient de se terminer
+ * (c'est lui que l'équipe sortante transmet).
+ */
+export function handoverWindow(
+  now: Date,
+  unit: Pick<CareUnit, 'shifts' | 'timeZone'>,
+): ShiftWindow {
+  const cur = currentShift(now, unit);
+  const sinceStart = now.getTime() - Date.parse(cur.start);
+  if (sinceStart >= HANDOVER_OVERLAP_MS) return cur;
+  const prev = currentShift(new Date(Date.parse(cur.start) - 60_000), unit);
+  return {
+    kind: prev.kind,
+    start: prev.start,
+    end: toLocalIso(now, unit.timeZone),
+    label: `${prev.label} · relève en cours`,
+  };
 }
 
 /** "16h05" en heure locale. */
