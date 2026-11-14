@@ -71,8 +71,6 @@ export const SORTS = {
 export const byPriority = (patients) => [...patients].sort(byPrio);
 export const sorted = (patients, by = 'chambre') =>
   by === 'prio' ? byPriority(patients) : [...patients].sort((SORTS[by] || SORTS.chambre).f);
-// Tri de Transmissions › Tous : par priorité (défaut), chambre ou nom.
-export const TR_SORTS = { prio: { l: 'Priorité' }, ...SORTS };
 export const room = (p) => `CHAMB ${esc(p?.ch ?? '')}`;
 
 // Menu « Trier » partagé par le dashboard et Transmissions › Tous.
@@ -303,9 +301,8 @@ export function vTransmissions(S, U) {
     return `${head}
     ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
   }
-  const ps = sorted(S.patients, U.trSort);
+  const ps = byPriority(S.patients);
   return `${head}
-  <div class="sum-head">${sortMenu(TR_SORTS, U.trSort, 'trSort')}</div>
   ${U.sumBusy ? `<p class="small muted"><span class="spin dark"></span> Mise à jour des résumés ${esc(U.sumBusy)}</p>` : ''}
   ${ps.map((p) => summaryCard(p, U.lvlOpen === p.id)).join('')}
   <p class="foot">Puces de la plus récente à la plus ancienne ; chacune vient d'un compte rendu (auteur et heure dessous). À relire avant la relève.</p>`;

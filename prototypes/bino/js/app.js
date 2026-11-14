@@ -39,7 +39,6 @@ const U = {
   saving: false,
   syncing: false,
   trScope: 'mine',
-  trSort: ['prio', 'chambre', 'nom'].includes(settings.trSort) ? settings.trSort : 'prio',
   lvlOpen: null, // patient dont la rangée de priorité 1 à 4 est dépliée (Transmissions › Tous)
   docBusy: '',
   sumBusy: '',
@@ -559,11 +558,6 @@ const A = {
   sortBy: (a) => {
     U.sortBy = a;
     saveSettings({ sortBy: a });
-    render();
-  },
-  trSort: (a) => {
-    U.trSort = a;
-    saveSettings({ trSort: a });
     render();
   },
   pickLevel: (a) => {

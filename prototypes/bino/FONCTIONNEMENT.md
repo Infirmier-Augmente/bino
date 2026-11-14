@@ -71,7 +71,7 @@ Transmissions › Mes CR. Chaque nouveau CR relance le calcul des priorités (vo
 
 La transmission finale de **toute l'équipe**, une carte par patient.
 
-- **Trier** : par **priorité** (par défaut), **chambre** ou **nom**. Le choix est mémorisé.
+- Cartes rangées par **priorité** (1 en haut), sans menu de tri.
 - **Carte patient** :
   - nom + chambre ;
   - bouton **Priorité n**, à la couleur de son niveau ;
