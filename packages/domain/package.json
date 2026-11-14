@@ -1,0 +1,26 @@
+{
+  "name": "@infirmier/domain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modèle métier partagé (schémas zod, règles pures, contrat d'API). Aucune dépendance runtime hors zod : utilisable côté mobile ET serveur.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/fhir": "^0.0.44",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0"
+  }
+}
