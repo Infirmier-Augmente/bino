@@ -1276,3 +1276,165 @@ details.prev .cr-item:first-of-type {
   font-size: 15px;
   color: var(--sec);
 }
+
+/* ---------- v5 : en-tête, marges, fiche patient, document global ---------- */
+header.top {
+  align-items: flex-start;
+  padding: calc(18px + env(safe-area-inset-top)) 20px 20px;
+  background: var(--white);
+  border-radius: 0 0 24px 24px;
+  box-shadow:
+    0 1px 0 var(--line),
+    0 6px 18px rgba(0, 34, 68, 0.06);
+  margin-bottom: 4px;
+}
+.hello {
+  min-width: 0;
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sec);
+  margin-bottom: 10px;
+}
+.eyebrow img {
+  border-radius: 6px;
+}
+.hello-t {
+  font-size: 30px;
+  line-height: 36px;
+}
+.hello-d {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.avatar {
+  width: 52px;
+  height: 52px;
+  margin-top: 26px;
+}
+.avatar.sm {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  font-size: 13px;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+main {
+  padding: 8px 20px calc(96px + env(safe-area-inset-bottom));
+}
+.card {
+  margin-bottom: 12px;
+}
+.list-head {
+  margin: 12px 0 12px;
+}
+h2 .count {
+  display: inline-flex;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--navy);
+  color: var(--white);
+  font-size: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  margin-left: 6px;
+  vertical-align: 2px;
+}
+.prow {
+  padding: 16px 18px;
+}
+.sheet {
+  padding: 12px 20px 32px;
+}
+.sheet-wrap.full .sheet {
+  padding: calc(8px + env(safe-area-inset-top)) 20px 32px;
+}
+.pp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 14px;
+}
+.pill.on {
+  background: var(--navy);
+  color: var(--white);
+}
+.pill.on svg:last-child {
+  transform: rotate(180deg);
+}
+.dossier-body {
+  margin: 0 0 14px;
+}
+textarea.cr-box {
+  margin-top: 2px;
+}
+.btn.valider {
+  margin-top: 8px;
+}
+.doc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+.doc-card-t {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--navy);
+}
+.doc-card-t svg {
+  flex: none;
+  margin-top: 2px;
+}
+.doc-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin: -36px 48px 14px 0;
+}
+.nurse-list {
+  padding: 6px;
+}
+.nurse {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--navy);
+  text-align: left;
+  cursor: pointer;
+}
+.nurse span:nth-child(2) {
+  flex: 1;
+}
+.nurse.on {
+  background: var(--sky-l);
+}
+.nurse:hover {
+  background: rgba(0, 34, 68, 0.05);
+}
+.seg {
+  margin: 12px 0 12px;
+}
+.cr-list {
+  padding: 0 18px;
+}

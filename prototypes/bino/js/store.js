@@ -5,14 +5,13 @@ import { SEED_CR } from './data.js';
 import { settings } from './settings.js';
 import { hhmm } from './util.js';
 
-const LKEY = 'bino-shared-v1';
+const LKEY = 'bino-shared-v2';
 const cache = { cr: [], syn: {}, vit: {} };
 const names = new Map();
 const listeners = [];
 let db = null;
 let user = null;
 let me = null;
-let meName = '';
 let mode = 'local';
 let loading = false;
 let stale = false;
@@ -52,14 +51,6 @@ export async function init() {
   db = d;
   user = u;
   me = u ? await u.id().catch(() => null) : null;
-  if (u) {
-    try {
-      const prof = await u.me();
-      meName = prof?.name || '';
-    } catch {
-      meName = '';
-    }
-  }
   mode = 'shared';
   loading = true;
   cache.cr = [];
@@ -132,7 +123,9 @@ async function resolveNames() {
 export const storeMode = () => mode;
 export const isLoading = () => loading;
 export const isStale = () => stale;
-export const crFor = (pid) => cache.cr.filter((c) => c.pid === pid);
+// Ordre chronologique, quel que soit le format d'heure enregistré.
+const byTime = (a, b) => Date.parse(a.at) - Date.parse(b.at);
+export const crFor = (pid) => cache.cr.filter((c) => c.pid === pid).sort(byTime);
 export const allCr = () => cache.cr;
 export const synthFor = (pid) => cache.syn[pid] || null;
 export const vitalsFor = (pid) => cache.vit[pid] || null;
@@ -142,16 +135,16 @@ export function needsSynth(s, crs) {
   const ids = s.crIds || [];
   return crs.some((c) => !ids.includes(c.id)) || ids.some((id) => !crs.some((c) => c.id === id));
 }
-export const isMine = (c) => (mode === 'shared' ? !!me && c.by === me : c.byName === myName());
+// La soignante simulée (Martine par défaut) signe et retrouve « ses » comptes rendus par son nom.
+export const isMine = (c) => !!c.byName && c.byName === myName();
 export const myName = () => settings.name.trim();
-// Prénom affiché dans « Bonjour … » : le compte Claude en mode partagé, sinon le réglage local.
-export const displayName = () =>
-  mode === 'shared' ? meName || settings.name.trim() : settings.name.trim();
+// Nom affiché dans « Bonjour … » : la soignante simulée choisie (Martine par défaut).
+export const displayName = () => myName();
 export const canWrite = () => mode !== 'shared' || !!me;
 export function authorOf(c) {
+  if (c.byName) return c.byName;
   if (c.by && names.get(c.by)) return names.get(c.by);
-  if (c.by && c.by === me) return 'Vous';
-  return c.byName || 'Un soignant';
+  return 'Un soignant';
 }
 export const personLabel = (id) => (id && names.get(id)) || (id && id === me ? 'Vous' : '');
 
@@ -160,10 +153,10 @@ export async function addCr(pid, text) {
   const now = new Date();
   const doc = { pid, text, at: now.toISOString(), t: hhmm(now) };
   if (mode === 'shared') {
-    await db.collection('cr').add({ ...doc, by: me });
+    await db.collection('cr').add({ ...doc, by: me, byName: myName() });
     return;
   }
-  cache.cr.push({ id: `l${now.getTime()}`, ...doc, byName: myName() || 'Un soignant' });
+  cache.cr.push({ id: `l${now.getTime()}`, ...doc, byName: myName() });
   saveLocal();
   emit();
 }
@@ -194,7 +187,7 @@ export async function validateSynth(pid) {
   const patch = {
     validatedAt: new Date().toISOString(),
     validatedT: hhmm(),
-    ...(mode === 'shared' ? { validatedBy: me } : { validatedName: myName() || 'Un soignant' }),
+    validatedName: myName(),
   };
   if (mode === 'shared') {
     await db.doc(`syntheses/${pid}`).update(patch);

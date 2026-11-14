@@ -2,7 +2,7 @@
 
 Démo du hackathon IA santé ARS × AdoptAI (novembre 2026), défi Hôpital Foch « infirmier augmenté ».
 
-Bino suit les maquettes papier de l'équipe. **Patients** : « Bonjour Martine », la date, la liste des patients (chambre à droite). Un toucher ouvre la **popup patient** : bouton **Dossier médical** (constantes, NEWS2, infos, import DPI), zone de **compte rendu**, **micro**, **Valider**, puis « ✓ Compte rendu fait » et retour à la liste. **Transmissions** : les comptes rendus de la journée, **Mes CR** ou **Tous**, avec un filtre par soignant.
+Bino suit les maquettes papier de l'équipe. **Patients** : « Bonjour Martine » (l'infirmière simulée), la date, 11 patients avec la chambre à droite. Un toucher ouvre la **fiche patient** : **Dossier médical** et **Import DPI**, zone de compte rendu, **micro**, **Valider**, puis « ✓ Compte rendu fait ». Le compte rendu part dans **Transmissions › Mes CR**. Dans **Tous** : les comptes rendus de toute l'équipe, un filtre par soignant et la **génération d'un document de transmission global** (copier, télécharger).
 
 > **Données entièrement fictives.** Ne jamais saisir de données réelles de patients : la démo n'est ni hébergée HDS ni conforme RGPD pour des données de santé.
 
@@ -14,15 +14,16 @@ Bino suit les maquettes papier de l'équipe. **Patients** : « Bonjour Martine �
 
 Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir comme une app.
 
-**Parcours de démo conseillé (1 minute)**
+**Parcours de démo conseillé (2 minutes)**
 
-1. Au premier lancement hors Claude, indiquez votre prénom : l'accueil affiche « Bonjour … ».
-2. **Patients** : touchez Mme Hélène Durand (ch12).
-3. **Dossier médical** : constantes et NEWS2. **Constantes ▾** › **Récupérer depuis le DPI** : le score passe à 9.
-4. Dictez au **micro** (ou écrivez, ou touchez l'exemple), puis **Valider** : « Compte rendu fait », retour à la liste.
-5. **Transmissions** : **Mes CR** montre le vôtre ; **Tous** montre ceux de Sophie et Karim, filtrables par soignant.
+1. **Patients** : « Bonjour Martine ». Touchez M. Jean Dupond (ch12).
+2. **Import DPI** : comparez les valeurs, importez, le NEWS2 passe à 9. **Dossier médical** montre le détail.
+3. Dictez au **micro** (ou écrivez, ou touchez l'exemple), puis **Valider** : « Compte rendu fait ».
+4. **Transmissions › Mes CR** : votre compte rendu, avec ceux de Martine plus tôt dans la journée.
+5. **Tous** › **Générer le document** : la transmission de tout le service, patient par patient, priorités en tête. **Copier** ou **Télécharger**.
+6. L'avatar permet de **devenir Sophie ou Karim** pour montrer que chacun a « ses » CR.
 
-L'avatar (en haut à droite) ouvre le profil : prénom, serveur DPI, réinitialisation de la démo.
+L'avatar (en haut à droite) ouvre le profil : soignant simulé (Martine, Sophie, Karim), serveur DPI, réinitialisation de la démo.
 
 ---
 
@@ -30,16 +31,17 @@ L'avatar (en haut à droite) ouvre le profil : prénom, serveur DPI, réinitiali
 
 | Écran | Ce qu'on peut faire |
 | --- | --- |
-| Patients | Bonjour + date, liste triée par NEWS2 (couleur à gauche), chambre à droite, synchronisation du service avec le DPI |
-| Popup patient | **Dossier médical** en déroulant (constantes, NEWS2 détaillé, motif, ATCD, allergies, dispositifs, prescription, menu **Constantes ▾** avec import DPI ou saisie manuelle), compte rendu au **micro** ou au clavier, **Valider**, confirmation « Compte rendu fait » |
-| Transmissions | Comptes rendus du jour, **Mes CR / Tous**, filtre par soignant, suppression de ses propres comptes rendus |
+| Patients | « Bonjour Martine » + date, 11 patients triés par NEWS2 (couleur à gauche), chambre à droite, synchronisation du service avec le DPI |
+| Fiche patient | Boutons **Dossier médical** (constantes, NEWS2 détaillé, motif, ATCD, allergies, dispositifs, prescription, saisie manuelle) et **Import DPI** ; compte rendu au **micro** ou au clavier ; **Valider** puis « Compte rendu fait » |
+| Transmissions | **Mes CR / Tous**, filtre par soignant, suppression de ses propres CR ; dans **Tous**, **document de transmission global** (synthèse DAR par patient à partir des CR de l'équipe, priorités, sources), à copier ou télécharger |
 
 ### Ce qui marche où
 
 | | Dans Claude (lien artifact) | Cloudflare / local |
 | --- | --- | --- |
-| Comptes rendus | **Partagés en temps réel** entre tous ceux qui ouvrent le lien, signés avec leur compte | Sur cet appareil seulement, signés avec le prénom saisi |
-| « Bonjour … » | Prénom du compte Claude | Prénom saisi au premier lancement |
+| Comptes rendus | **Partagés en temps réel** entre tous ceux qui ouvrent le lien | Sur cet appareil seulement |
+| Document global | Synthèse par l'IA de Claude | Règles locales (ou clé API Anthropic) |
+| « Bonjour … » | Martine par défaut, ou le soignant choisi | Idem |
 | Dictée vocale | Chrome ordinateur | Chrome (Android, ordinateur), Safari iOS ; sinon micro du clavier |
 | Import DPI | DPI simulé | DPI simulé ou vrai serveur FHIR (profil) |
 
@@ -86,7 +88,8 @@ css/styles.css           identité visuelle Bino (Plus Jakarta Sans, Nunito, mag
 js/app.js                état, actions, feuilles (constantes, DPI, réglages)
 js/views.js              rendu : en-tête, Patients, popup patient, Transmissions
 js/store.js              comptes rendus, synthèses, constantes : base partagée (Claude) ou localStorage
-js/synthesis.js          synthèse DAR multi-soignants (non branchée sur l'écran actuel, gardée et testée)
+js/synthesis.js          synthèse DAR multi-soignants : prompt IA, règles locales, vérification des sources
+js/document.js           document de transmission global (vue, texte à copier, fichier HTML)
 js/news2.js              calcul NEWS2 (échelle SpO2 n°1)
 js/structure.js          dictée → DAR : prompt IA, règles locales de secours, extraction des constantes
 js/data.js               patients et dictées d'exemple (fictifs)

@@ -22,6 +22,9 @@ const I = {
   pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   sync: '<path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13l2 2 4-4"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   folder: '<path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>',
 };
 export const ic = (n, s = 20) =>
@@ -51,7 +54,7 @@ export const micBtn = (U, Voice, target) =>
     ? `<button type="button" class="mic ${U.listening === target ? 'on' : ''}" data-act="mic" data-arg="${target}" aria-label="${U.listening === target ? 'Arrêter la dictée' : 'Dicter'}">${ic(U.listening === target ? 'stop' : 'mic', 24)}</button>`
     : '';
 
-/* ---------- en-tête : Bonjour + date + profil ---------- */
+/* ---------- en-tête : Bonjour + date + profil (maquette 1) ---------- */
 export function vHeader() {
   const name = Store.displayName();
   const date = new Date().toLocaleDateString('fr-FR', {
@@ -59,14 +62,18 @@ export function vHeader() {
     month: '2-digit',
     year: 'numeric',
   });
-  return `<div class="hello"><div class="hello-t">Bonjour${name ? ` ${esc(firstName(name))}` : ''}</div><div class="hello-d">Date : ${date}</div></div>
-  <button type="button" class="avatar" data-act="settings" aria-label="Profil et réglages">${esc(initials(name))}</button>`;
+  return `<div class="hello">
+    <div class="eyebrow"><img src="assets/logo.png" width="22" height="22" alt="">Bino · Chirurgie, poste de jour</div>
+    <div class="hello-t">Bonjour ${esc(firstName(name))}</div>
+    <div class="hello-d">${ic('cal', 16)} Date : ${date}</div>
+  </div>
+  <button type="button" class="avatar" data-act="settings" aria-label="Profil de ${esc(name)}">${esc(initials(name))}</button>`;
 }
 
 /* ---------- onglet 1 : patients ---------- */
 export function vPatients(S, U) {
   const ps = sorted(S.patients);
-  return `<div class="between list-head"><h2 class="list-t">Patients</h2><button type="button" class="btn sec sm" data-act="syncAll" ${U.syncing ? 'disabled' : ''}>${U.syncing ? '<span class="spin dark"></span>' : ic('sync', 16)} DPI</button></div>
+  return `<div class="between list-head"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2><button type="button" class="btn sec sm" data-act="syncAll" ${U.syncing ? 'disabled' : ''}>${U.syncing ? '<span class="spin dark"></span>' : ic('sync', 16)} DPI</button></div>
   ${Store.isStale() ? '<p class="note">Les comptes rendus de l\'équipe ne sont pas encore joignables.</p>' : ''}
   ${ps
     .map((p) => {
@@ -98,37 +105,33 @@ function vtable(v) {
 
 const info = (k, v) => `<div class="info"><span>${k}</span><b>${esc(v)}</b></div>`;
 
-function constantsMenu(pid) {
-  return `<details class="menu"><summary class="btn sec sm" role="button">${ic('pulse', 18)} Constantes ${ic('chev', 16)}</summary>
-  <div class="menu-pop">
-    <button type="button" data-act="dpiImport" data-arg="${pid}"><span class="mi">${ic('dl', 18)}</span><span><b>Récupérer depuis le DPI</b><small>Dernières constantes du dossier patient (FHIR)</small></span></button>
-    <button type="button" data-act="editVitals" data-arg="${pid}"><span class="mi">${ic('pen', 18)}</span><span><b>Saisie manuelle</b><small>Le NEWS2 se recalcule en direct</small></span></button>
-  </div></details>`;
-}
-
 export function vPatientPopup(S, U, Voice, EXAMPLES) {
   const p = S.patients.find((x) => x.id === U.pid);
   const v = V(p);
-  const crs = [...Store.crFor(p.id)].reverse();
   const ex = EXAMPLES.find(
     (e) => e.pid === p.id && !Store.crFor(p.id).some((c) => c.text === e.text),
   );
   return `<div class="pp">
   <div class="pp-head"><div><h1 class="pp-name">${esc(p.nom)}</h1><div class="pp-sub">Chambre ${esc(p.ch)} · ${p.age} ans</div></div></div>
 
-  <details class="dossier" ${U.foldOpen ? 'open' : ''} data-fold>
-    <summary class="pill">${ic('folder', 18)} Dossier médical ${ic('chev', 16)}</summary>
-    <div class="dossier-body card">
+  <div class="pp-actions">
+    <button type="button" class="pill ${U.foldOpen ? 'on' : ''}" data-act="toggleDossier" aria-expanded="${U.foldOpen}">${ic('folder', 18)} Dossier médical ${ic('chev', 16)}</button>
+    <button type="button" class="pill" data-act="dpiImport" data-arg="${p.id}">${ic('dl', 18)} Import DPI</button>
+  </div>
+  ${
+    U.foldOpen
+      ? `<div class="dossier-body card">
       ${vtable(v)}
       <div class="small muted" style="margin-top:6px">Constantes de ${esc(v.at)}${v.src === 'DPI' ? ' · importées du DPI' : ''}</div>
-      <div class="row" style="margin:10px 0 6px">${constantsMenu(p.id)}</div>
+      <button type="button" class="btn sec sm" data-act="editVitals" data-arg="${p.id}" style="margin:10px 0 6px">${ic('pen', 16)} Modifier les constantes</button>
       ${info('Motif', p.motif)}${info('Antécédents', p.atcd)}${info('Allergies', p.allergies)}
       ${p.precautions ? info('Précautions', p.precautions) : ''}
       ${p.disp.length ? info('Dispositifs', p.disp.map((d) => `${d.l} (J${d.j})`).join(', ')) : ''}
       ${p.rx ? info('Nouvelle prescription', `${p.rx.t} (${p.rx.at})`) : ''}
       ${p.famille ? info('Famille', p.famille) : ''}
-    </div>
-  </details>
+    </div>`
+      : ''
+  }
 
   <label class="sr" for="draft">Compte rendu</label>
   <textarea id="draft" class="draft cr-box" data-model="draft" placeholder="Compte rendu : ce que tu as vu et fait, comme à la relève.">${esc(U.draft)}</textarea>
@@ -137,11 +140,6 @@ export function vPatientPopup(S, U, Voice, EXAMPLES) {
   ${ex ? `<button type="button" class="chip ex" data-act="useEx" data-arg="${EXAMPLES.indexOf(ex)}">${ic('play', 14)} Exemple : ${esc(ex.label)}</button>` : ''}
   <button type="button" class="btn valider" data-act="saveCr" ${U.saving ? 'disabled' : ''}>${U.saving ? '<span class="spin"></span>' : ''} Valider</button>
 
-  ${
-    crs.length
-      ? `<details class="prev"><summary>${plural(crs.length, 'compte rendu', 'comptes rendus')} aujourd'hui ${ic('chev', 16)}</summary>${crs.map((c) => crItem(c, false)).join('')}</details>`
-      : ''
-  }
   </div>`;
 }
 
@@ -160,7 +158,7 @@ function crItem(c, withPatient, S) {
 }
 
 export function vTransmissions(S, U) {
-  const all = [...Store.allCr()].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const all = [...Store.allCr()].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const authors = [...new Set(all.map((c) => Store.authorOf(c)))];
   let list = all;
   if (U.trScope === 'mine') list = all.filter((c) => Store.isMine(c));
@@ -172,6 +170,12 @@ export function vTransmissions(S, U) {
   ${
     U.trScope === 'all' && authors.length > 1
       ? `<div class="chips who" role="group" aria-label="Filtrer par soignant"><button type="button" class="chip ${!U.trWho ? 'on' : ''}" data-act="trWho" data-arg="">Tout le monde</button>${authors.map((a) => `<button type="button" class="chip ${U.trWho === a ? 'on' : ''}" data-act="trWho" data-arg="${esc(a)}">${esc(a)}</button>`).join('')}</div>`
+      : ''
+  }
+  ${
+    U.trScope === 'all'
+      ? `<div class="card doc-card"><div class="doc-card-t">${ic('file', 24)}<div><b>Document de transmission</b><div class="small muted">Tous les patients, à partir des comptes rendus de toute l'équipe</div></div></div>
+    <button type="button" class="btn" data-act="genDoc" ${U.docBusy ? 'disabled' : ''}>${U.docBusy ? `<span class="spin"></span> ${esc(U.docBusy)}` : 'Générer le document'}</button></div>`
       : ''
   }
   <p class="sub">${U.trScope === 'mine' ? `${plural(list.length, 'compte rendu écrit', 'comptes rendus écrits')} par vous` : `${plural(list.length, 'compte rendu', 'comptes rendus')}${U.trWho ? ` de ${esc(U.trWho)}` : " de toute l'équipe"}`} · aujourd'hui</p>

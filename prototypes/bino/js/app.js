@@ -1,14 +1,26 @@
 // Bino — le binôme des infirmiers. Démo hackathon IA santé (Hôpital Foch), données fictives.
 // Parcours des maquettes papier : Patients → popup patient → Valider → « Compte rendu fait » → Patients.
 // Onglet Transmissions : les comptes rendus de l'équipe, « Mes CR » ou « Tous », filtre par soignant.
-import { EXAMPLES, seed } from './data.js';
+import { EXAMPLES, NURSES, seed } from './data.js';
+import { buildModel, DOC_CSS, docFile, docHtml, docText } from './document.js';
 import { LV, news2 } from './news2.js';
+import * as AI from './services/ai.js';
 import * as FHIR from './services/fhir.js';
 import * as Voice from './services/voice.js';
 import { DEFAULT_FHIR, saveSettings, settings } from './settings.js';
 import * as Store from './store.js';
+import { localSynth, normalizeSynth, remapIds, synthPrompt } from './synthesis.js';
 import { esc, fmtVital, hhmm, VITAL_KEYS, VITAL_LABELS } from './util.js';
-import { ic, V, vDone, vHeader, vPatientPopup, vPatients, vTransmissions } from './views.js';
+import {
+  ic,
+  sorted,
+  V,
+  vDone,
+  vHeader,
+  vPatientPopup,
+  vPatients,
+  vTransmissions,
+} from './views.js';
 
 const S = seed(); // patients fictifs ; comptes rendus et constantes dans Store
 const U = {
@@ -22,7 +34,9 @@ const U = {
   syncing: false,
   trScope: 'mine',
   trWho: '',
+  docBusy: '',
 };
+let docModel = null;
 const P = (id) => S.patients.find((p) => p.id === id);
 
 /* ---------- rendu ---------- */
@@ -162,26 +176,134 @@ async function dpiImport(id) {
   }
 }
 
-function profileSheet(welcome = false) {
+function profileSheet() {
   if (U.pid) U.sub = 'profile';
-  const shared = Store.storeMode() === 'shared';
-  sheet(`<h1 style="margin-top:0">${welcome ? 'Bienvenue sur Bino' : 'Profil'}</h1>
-  ${
-    shared
-      ? `<div class="card small">Connecté avec votre compte Claude${Store.displayName() ? ` : <b>${esc(Store.displayName())}</b>` : ''}. Vos comptes rendus sont signés à votre nom et visibles par l'équipe qui ouvre ce lien.</div>`
-      : `<p class="sub">${welcome ? 'Pour signer tes comptes rendus.' : 'Ton nom signe tes comptes rendus.'}</p>
-    <div class="card"><label class="l" for="s-name">Prénom et fonction</label><input class="f" id="s-name" placeholder="Ex. : Martine · IDE" value="${esc(settings.name)}" autocomplete="given-name">
-    <p class="small muted" style="margin:8px 0 0">Sur ce lien, les comptes rendus restent sur ce téléphone. Pour les partager avec l'équipe, utilisez le lien Claude.</p></div>`
-  }
-  ${
-    welcome
-      ? ''
-      : `<h2>Dossier patient (DPI)</h2>
+  const me = Store.myName();
+  sheet(`<h1 style="margin-top:0">Profil</h1><p class="sub">${esc(me)} · tes comptes rendus sont signés à ce nom.</p>
+  <h2>Simuler un autre soignant</h2>
+  <div class="card nurse-list">${NURSES.map(
+    (n) =>
+      `<button type="button" class="nurse ${n === me ? 'on' : ''}" data-act="pickNurse" data-arg="${esc(n)}" aria-pressed="${n === me}"><span class="avatar sm">${esc(
+        n
+          .split(' ')
+          .slice(0, 2)
+          .map((w) => w[0])
+          .join(''),
+      )}</span><span>${esc(n)}</span>${n === me ? ic('check', 18) : ''}</button>`,
+  ).join('')}</div>
+  <p class="small muted">Pour la démo : chaque soignant retrouve « ses » comptes rendus dans Transmissions › Mes CR.${Store.storeMode() === 'shared' ? " Les comptes rendus sont partagés avec toute l'équipe qui ouvre ce lien." : ' Sur ce lien, les comptes rendus restent sur ce téléphone.'}</p>
+  <h2>Dossier patient (DPI)</h2>
   <div class="card"><label class="l" for="s-fhir">Serveur FHIR R4</label><input class="f" id="s-fhir" value="${esc(settings.fhirBase)}" placeholder="${DEFAULT_FHIR}">
-    <p class="small muted" style="margin:8px 0 0"><code>${DEFAULT_FHIR}</code> = DPI simulé fourni avec l'app.</p></div>`
+    <p class="small muted" style="margin:8px 0 0"><code>${DEFAULT_FHIR}</code> = DPI simulé fourni avec l'app.</p></div>
+  <button type="button" class="btn" data-act="saveProfile" style="margin:6px 0 10px">Enregistrer</button>
+  ${Store.storeMode() === 'shared' ? '' : '<button type="button" class="btn sec" data-act="askReset">Réinitialiser les données de démo</button>'}`);
+}
+
+/* ---------- document de transmission global ---------- */
+async function synthFor(p, crs) {
+  const saved = Store.synthFor(p.id);
+  if (saved && !Store.needsSynth(saved, crs)) return saved;
+  let syn = null;
+  let engine = 'local';
+  if (AI.mode() !== 'off') {
+    try {
+      const raw = await AI.askJSON(synthPrompt(p, crs, Store.authorOf));
+      syn = normalizeSynth(remapIds(raw, crs), crs);
+      engine = 'ai';
+      if (!syn.cibles.length) syn = null;
+    } catch {
+      syn = null;
+    }
   }
-  <button type="button" class="btn" data-act="saveProfile" style="margin-bottom:10px">${welcome ? 'Commencer' : 'Enregistrer'}</button>
-  ${!welcome && !shared ? '<button type="button" class="btn sec" data-act="askReset">Réinitialiser les données de démo</button>' : ''}`);
+  if (!syn) {
+    syn = localSynth(crs);
+    engine = 'local';
+  }
+  const full = {
+    ...syn,
+    engine,
+    crIds: crs.map((c) => c.id),
+    at: new Date().toISOString(),
+    t: hhmm(),
+  };
+  try {
+    await Store.saveSynth(p.id, full);
+  } catch {
+    /* lecture seule : on garde la synthèse pour ce document */
+  }
+  return full;
+}
+
+async function genDoc() {
+  const ps = sorted(S.patients);
+  const todo = ps.filter((p) => Store.crFor(p.id).length);
+  let done = 0;
+  U.docBusy = `Synthèse 0/${todo.length}`;
+  render();
+  const syns = new Map();
+  const queue = [...todo];
+  const worker = async () => {
+    while (queue.length) {
+      const p = queue.shift();
+      syns.set(p.id, await synthFor(p, Store.crFor(p.id)));
+      done++;
+      U.docBusy = `Synthèse ${done}/${todo.length}`;
+      const b = document.querySelector('[data-act="genDoc"]');
+      if (b) b.innerHTML = `<span class="spin"></span> ${esc(U.docBusy)}`;
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  docModel = buildModel(
+    ps.map((p) => ({ p, v: V(p), crs: Store.crFor(p.id), syn: syns.get(p.id) || null })),
+    {
+      date: new Date().toLocaleDateString('fr-FR'),
+      time: hhmm(),
+      author: Store.myName(),
+      service: 'Chirurgie · poste de jour',
+      authorOf: Store.authorOf,
+    },
+  );
+  U.docBusy = '';
+  render();
+  showDoc();
+}
+
+function showDoc() {
+  if (!docModel) return;
+  sheet(
+    `<div class="doc-actions"><button type="button" class="btn sec sm" data-act="copyDoc">${ic('copy', 16)} Copier</button><button type="button" class="btn sm" data-act="downloadDoc">${ic('dl', 16)} Télécharger</button></div>${docHtml(docModel)}`,
+    true,
+  );
+}
+
+let downloads = null;
+async function downloadDoc() {
+  if (!docModel) return;
+  const filename = `transmission-${docModel.date.replace(/\//g, '-')}.html`;
+  const data = docFile(docModel);
+  if (window.claude?.use) {
+    downloads = downloads || (await window.claude.use('downloads').catch(() => null));
+    if (downloads) {
+      try {
+        await downloads.save({ filename, data });
+        toast('Document téléchargé.');
+      } catch {
+        toast('Téléchargement annulé.');
+      }
+      return;
+    }
+    toast('Téléchargement indisponible ici : utilise « Copier ».');
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([data], { type: 'text/html' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast('Document téléchargé.');
 }
 
 /* ---------- comptes rendus ---------- */
@@ -190,11 +312,6 @@ async function saveCr() {
   const text = (el ? el.value : U.draft).trim();
   if (!text) {
     toast("Dicte ou écris d'abord le compte rendu.");
-    return;
-  }
-  if (Store.storeMode() === 'local' && !Store.myName()) {
-    U.draft = text;
-    profileSheet(true);
     return;
   }
   if (U.listening) {
@@ -325,6 +442,33 @@ const A = {
     U.foldOpen = false;
     showPatient();
   },
+  toggleDossier: () => {
+    const el = document.getElementById('draft');
+    if (el) U.draft = el.value;
+    U.foldOpen = !U.foldOpen;
+    const sc = document.querySelector('.sheet')?.scrollTop || 0;
+    showPatient();
+    const sh = document.querySelector('.sheet');
+    if (sh) sh.scrollTop = sc;
+  },
+  genDoc: () => genDoc(),
+  copyDoc: () => {
+    if (!docModel) return;
+    const t = docText(docModel);
+    if (navigator.clipboard)
+      navigator.clipboard
+        .writeText(t)
+        .then(() => toast('Document copié.'))
+        .catch(() => toast('Copie impossible ici.'));
+    else toast('Copie impossible ici.');
+  },
+  downloadDoc: () => downloadDoc(),
+  pickNurse: (a) => {
+    saveSettings({ name: a });
+    render();
+    profileSheet();
+    toast(`Tu es maintenant ${a}.`);
+  },
   useEx: (a) => {
     U.draft = EXAMPLES[+a].text;
     const el = document.getElementById('draft');
@@ -377,25 +521,14 @@ const A = {
     toast(`Constantes enregistrées · NEWS2 ${n.total} (${LV[n.level].l}).`);
   },
   syncAll: () => syncAll(),
-  settings: () => profileSheet(false),
+  settings: () => profileSheet(),
   saveProfile: () => {
-    const g = (id) => document.getElementById(id);
-    const patch = {};
-    if (g('s-name')) patch.name = g('s-name').value.trim();
-    if (g('s-fhir')) patch.fhirBase = (g('s-fhir').value || '').trim() || DEFAULT_FHIR;
-    if ('name' in patch && !patch.name) {
-      toast('Indique ton prénom pour signer tes comptes rendus.');
-      return;
-    }
-    saveSettings(patch);
+    const f = document.getElementById('s-fhir');
+    if (f) saveSettings({ fhirBase: (f.value || '').trim() || DEFAULT_FHIR });
     render();
-    if (U.pid) {
-      showPatient();
-      toast('C’est noté. Tu peux valider ton compte rendu.');
-    } else {
-      sheet('');
-      toast('Profil enregistré.');
-    }
+    if (U.pid) showPatient();
+    else sheet('');
+    toast('Profil enregistré.');
   },
   askReset: () =>
     sheet(
@@ -444,13 +577,6 @@ document.addEventListener('input', (e) => {
 document.addEventListener('change', (e) => {
   if (e.target.dataset.vit !== undefined) vprev();
 });
-document.addEventListener(
-  'toggle',
-  (e) => {
-    if (e.target.matches?.('details[data-fold]')) U.foldOpen = e.target.open;
-  },
-  true,
-);
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (document.getElementById('done').innerHTML) document.getElementById('done').innerHTML = '';
@@ -459,16 +585,12 @@ document.addEventListener('keydown', (e) => {
   } else if (document.getElementById('sheet').innerHTML) A.closeSheet();
 });
 
+const style = document.createElement('style');
+style.textContent = DOC_CSS;
+document.head.append(style);
+
 Store.onChange(softRender);
 render();
 Voice.init().then(softRender);
-Store.init().then(() => {
-  softRender();
-  // Première ouverture hors Claude : on demande le prénom pour « Bonjour … » et la signature.
-  if (
-    Store.storeMode() === 'local' &&
-    !Store.myName() &&
-    !document.getElementById('sheet').innerHTML
-  )
-    profileSheet(true);
-});
+AI.init().then(softRender);
+Store.init().then(softRender);
