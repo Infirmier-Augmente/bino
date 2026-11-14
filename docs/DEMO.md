@@ -37,7 +37,7 @@ Comportement détaillé : [FONCTIONNEMENT.md](FONCTIONNEMENT.md).
 | 0:20 | Téléphone, Connexion | **10482** / `bino` → « Connexion réussie » → **Continuer**. « Un matricule pour la démo ; la carte CPS en V2. » |
 | 0:30 | Patients | « Ses 11 patients, par chambre. Pas de tâche en plus : elle touche celui qu'elle vient de voir. » Toucher **M. Jean Dupond** (CHAMB 12). |
 | 0:45 | Fiche, Dossier médical | Déplier : « Constantes de 17h40, NEWS2 7 : FR 24, +2 ; tension 98/62, +2. Le score montre ses entrées : une aide au calcul, pas un verdict. » |
-| 1:15 | Fiche, micro | Toucher le micro : il change tout de suite, petite vibration sur téléphone (pas dans Safari iOS), « Enregistrement 0:01 ». Dicter (ou la puce **Exemple : M. Dupond se dégrade**) : « Chambre 12, M. Dupond. Il est plus essoufflé qu'à 14h… » Le texte s'affiche en gris pendant qu'on parle. Arrêter : « Finalisation… », puis le texte final, chiffres compris, le remplace en 1 à 2 s. « Le texte gris aide à suivre ; on garde celui retranscrit sur toute la dictée. » |
+| 1:15 | Fiche, micro | Toucher le micro : il change tout de suite, petite vibration sur téléphone (pas dans Safari iOS), « Enregistrement 0:01 ». Dicter (ou la puce **Exemple : M. Dupond se dégrade**) : « Chambre 12, M. Dupond. Il est plus essoufflé qu'à 14h… » Le texte s'affiche en gris pendant qu'on parle ; à chaque pause, la phrase passe en bleu nuit, chiffres compris, environ une seconde après. Arrêter : le texte est déjà là, seul le dernier bout se finalise. « Le gris, c'est l'écoute en direct ; à chaque pause, un second modèle réécoute la phrase et la pose, chiffres compris. » |
 | 1:50 | Fiche | **Valider** → « Compte rendu fait ». « Signé, horodaté, un geste. » |
 | 2:00 | Transmissions › Mes CR | « Son compte rendu en tête, tel qu'elle l'a dit. » |
 | 2:15 | Tous, carte M. Dupond | « Les CR de Sophie à 8h10, de Karim à 14h05 et de Martine, rangés par thème. Sous chaque puce : qui et quand. Le résumé n'écrit rien : il regroupe des éléments sourcés. Et il ne lui pose pas de questions : on ne remet pas en cause ce qu'elle a dit. » |
@@ -61,7 +61,8 @@ Comportement détaillé : [FONCTIONNEMENT.md](FONCTIONNEMENT.md).
 - Micro refusé ou indisponible : puce **Exemple** (chambres 12 et 10), ou micro du clavier.
 - Transcription échouée (transcription à la fin) : **Réessayer l'envoi de la dictée** sous le micro.
 - Dictée en direct : connexion refusée → l'app enregistre puis transcrit, sans rien dire. Texte final
-  absent au bout de 20 s → le texte gris est gardé, à relire.
+  absent au bout de 20 s → le texte affiché est gardé, à relire. Faire de vraies pauses (environ
+  1 s) : un segment se termine après 0,7 s de silence.
 - Dictée en direct qui ne démarre pas sur l'app native : `STT_LIVE_MODEL=none` dans `.env`, relancer
   l'API (l'app enregistre puis transcrit).
 - Téléphone sans données : lien « Serveur injoignable : régler l'adresse » sur la connexion, ou `/serveur`.

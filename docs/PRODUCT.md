@@ -49,8 +49,8 @@ flowchart TD
 
 | Priorité (synthèse) | Fonction | État |
 | --- | --- | --- |
-| 🟩 Must | Bouton de dictée mobile, patient nommé en début de note | ✅ micro dans la fiche du patient (patient déjà choisi) : dictée en direct d'abord (texte pendant qu'elle parle, puis texte final retranscrit sur toute la dictée), sinon STT serveur à l'arrêt, sinon navigateur, sinon clavier. Capture native pas encore testée sur un appareil |
-| 🟩 Must | Transcription robuste au jargon | ✅ lexique soignant partagé (prompt LLM, biais STT, moteur local) ; en direct, texte final retranscrit sur toute la dictée, nombres en chiffres (T23) |
+| 🟩 Must | Bouton de dictée mobile, patient nommé en début de note | ✅ micro dans la fiche du patient (patient déjà choisi) : dictée en direct d'abord (texte provisoire pendant qu'elle parle, rendu définitif à chaque pause), sinon STT serveur à l'arrêt, sinon navigateur, sinon clavier. Capture native pas encore testée sur un appareil |
+| 🟩 Must | Transcription robuste au jargon | ✅ lexique soignant partagé (prompt LLM, biais STT, moteur local) ; en direct, chaque segment retranscrit à la pause avec le texte précédent en contexte, nombres en chiffres (T23) |
 | 🟩 Must | Rangement DAR + tri cible / soin de routine | ✅ à chaque « Valider » (LLM few-shot exemple A, moteur local de secours) ; repris en puces dans Tous, routine exclue |
 | 🟩 Must | Champs manquants signalés, jamais inventés | ✅ jamais inventés : ancrage des sources + chiffres ; 🟡 API pour le signalement : R manquant → question sur la transmission, pas affichée (P16 : on ne challenge pas l'IDE) |
 | 🟩 Must | Validation en 1 clic ou « non relu » | 🟡 API. Le front enregistre sans valider : la structuration reste « à relire » (P11) |

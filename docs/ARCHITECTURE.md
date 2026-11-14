@@ -133,32 +133,41 @@ sequenceDiagram
   participant F as SttPort (STT_MODEL)
   M->>W: ouverture + son PCM 16 bits mono 24 kHz (trames binaires), dès le toucher
   W->>L: session de transcription, son relayé
-  L-->>W: morceaux de texte
-  W-->>M: delta (texte provisoire)
+  loop chaque segment n (coupé à une pause de la voix)
+    L-->>W: morceaux de texte du segment n
+    W-->>M: delta n (texte provisoire)
+    W->>F: segment n (WAV) + texte qui précède en contexte
+    F-->>W: texte définitif du segment n
+    W-->>M: segment n (remplace son provisoire)
+  end
   M->>W: message « stop » (arrêt du micro)
-  W->>F: tout l'enregistrement (WAV)
-  F-->>W: texte final
-  W-->>M: final (remplace le provisoire), puis fermeture
+  W->>F: dernier segment (s'il contient de la parole)
+  W-->>M: final (segments définitifs bout à bout), puis fermeture
 ```
 
 - **Clés côté serveur** : l'app n'appelle jamais un fournisseur. Elle ouvre `ws(s)://<api>/transcriptions/live`
   (`apps/mobile/src/lib/live-transcription.ts`) ; l'API ouvre la session chez le fournisseur avec sa
   clé (WebSocket natif de Node, en-tête `Authorization`).
 - **Indépendance fournisseur** : l'API ne connaît que `LiveSttPort` (texte provisoire) et `SttPort`
-  (texte final). Changer de fournisseur = un adaptateur dans `packages/ai/src/stt/`.
-- **Deux passes** (DECISIONS T23) : le provisoire suit la voix ; le final est retranscrit sur tout
-  l'enregistrement, avec les nombres en chiffres, et c'est lui qui part à la structuration.
+  (texte définitif). Changer de fournisseur = un adaptateur dans `packages/ai/src/stt/`.
+- **Segments** (DECISIONS T23) : l'API découpe le son aux pauses de la voix (`PcmSegmenter`,
+  `packages/ai/src/stt/segmenter.ts`, fonction pure). Le provisoire suit la voix ; chaque segment
+  terminé est retranscrit tout de suite, en parallèle des suivants, avec les nombres en chiffres. Le
+  texte devient juste pendant la dictée ; `final` ne fait que réunir les segments, et c'est lui qui
+  part à la structuration. Pas de deuxième passe sur tout l'enregistrement.
 - **Rien n'est perdu** : le son capté avant l'ouverture de la connexion attend en file côté app ;
   celui reçu avant l'ouverture de la session fournisseur est gardé côté API. Si le direct tombe en
-  panne, l'API continue d'enregistrer et produit le final.
-- **Découpage** : `LiveDictation` (`apps/api/src/services/live-dictation.ts`) ne dépend pas du
-  transport et se teste sans réseau. `apps/api/src/http/live-transcription.ts` la branche sur
+  panne, les segments sont quand même retranscrits ; un segment en échec (deux essais) garde son
+  texte provisoire.
+- **Code** : `LiveDictation` (`apps/api/src/services/live-dictation.ts`) ne dépend pas du
+  transport et se teste sans réseau ; `segment-finalizer.ts` retranscrit les segments,
+  `live-report.ts` écrit la ligne de log. `apps/api/src/http/live-transcription.ts` la branche sur
   `upgradeWebSocket` de `@hono/node-server` ; `apps/api/src/server.ts` crée le serveur Node avec
   `ws` (T24). Sans WebSocket, la route répond 426.
 - **Tests** : `app.request()` ne sait pas ouvrir de WebSocket ; `apps/api/src/http/live-transcription.test.ts`
   démarre un vrai serveur sur un port éphémère, avec de faux ports IA (`apps/api/src/testing/fake-live.ts`).
 - **Limites** : 300 s par dictée (`LIVE_MAX_SECONDS`), trames de 1 Mio au plus. Une ligne de log
-  par dictée (durée, octets, moteurs), jamais le son, le texte ni une clé.
+  par dictée (durée, segments, latences, moteurs), jamais le son, le texte ni une clé.
 
 ## Temps
 
@@ -198,6 +207,8 @@ sur Postgres hébergé HDS, sans toucher aux routes.
 - Dictée (`src/lib/dictation-engine.ts`) : dictée en direct si `sttLive.ready` → sinon enregistrement
   `expo-audio` + `/transcriptions` si un STT serveur est configuré → sinon Web Speech API (texte en
   direct, web seulement) → sinon micro du clavier. Le texte reconnu s'ajoute à la fin du brouillon.
+  Pendant la dictée, l'affichage suit les segments : `src/lib/live-segments.ts` (état pur, messages
+  dans le désordre compris), `src/features/report/LiveTranscript.tsx`.
 - Capture du son en direct (`src/features/dictation/`) : `usePcmCapture.ts` sur iOS / Android
   (`useAudioStream` d'`expo-audio`, **pas encore testé sur un appareil**), `usePcmCapture.web.ts` sur
   le web (`getUserMedia` + AudioWorklet, repli ScriptProcessor). Le son est rééchantillonné en

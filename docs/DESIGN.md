@@ -29,9 +29,9 @@ Identité « Bino », reprise des maquettes de l'équipe (DECISIONS P10, T21). L
 | --- | --- | --- |
 | Bleu nuit (encre) | `#002244` | texte, contour de la pilule « Dossier médical », puces |
 | Magenta (marque) | `#FF0066`, appuyé `#D6005A` | action principale : **Valider**, **Se connecter**, micro et son halo, bordure de la zone pendant la dictée, onglet et segment actifs, compteur, liens texte |
-| Bleu ciel | `#5BB8F0`, fond à 18 % | pastille « CHAMB 12 », barre des cartes patient |
+| Bleu ciel | `#5BB8F0`, fond à 18 % | pastille « CHAMB 12 », barre des cartes patient ; à 25 %, surlignage d'un segment dicté qui devient définitif (s'efface en 600 ms) |
 | Fond, cartes | `#FFFFFF` | page, cartes (filet 1 px, pas d'ombre) |
-| Texte secondaire | `#5F5F5F` | sous-titres, auteur et heure, libellés du dossier, ligne d'état de la dictée, texte provisoire (en italique) |
+| Texte secondaire | `#5F5F5F` | sous-titres, auteur et heure, libellés du dossier, ligne d'état de la dictée, texte provisoire de la dictée (en italique ; le définitif passe en bleu nuit) |
 | Filets | `rgba(0,34,68,0.1)`, tableau `#EEF1F4` | contour des cartes, séparateurs |
 | Champ | bordure `#C3CCD5`, focus `#9FD3F6` | saisie (contour bleu clair au focus) |
 | Avertissement | `#9A4A06`, fond `#FDF1E3` (`warnSoft`) | ton `warn`, prévu pour les bandeaux d'avertissement ; plus utilisé à l'écran depuis le retrait des questions sous les puces (P16) |
@@ -86,13 +86,21 @@ Métier (`apps/mobile/src/features`) : `PatientRow`, `MedicalRecord`, `VitalsShe
 
 ## Mouvement
 
-On n'anime qu'une activité réelle : l'enregistrement. Dès le toucher, le micro passe à l'icône
-« carré », la zone de texte prend une bordure magenta et « Enregistrement 0:07 » s'affiche, avec un
-retour haptique au début et à l'arrêt. Le halo du micro suit le niveau réel de la voix (sauf avec
-la reconnaissance du navigateur) ; tant que personne ne parle, une onde lente (1,4 s) montre que le
-micro écoute et s'efface dès que la voix est captée. « Réduire les animations » : halo de taille
-fixe, seule son intensité suit la voix, pas d'onde. Pendant « Finalisation… », une transcription ou
-un envoi : roue de chargement. La fiche monte du bas (transition d'écran).
+On n'anime qu'une activité réelle : l'enregistrement et le texte qui arrive. Dès le toucher, le
+micro passe à l'icône « carré », la zone de texte prend une bordure magenta et « Enregistrement
+0:07 » s'affiche, avec un retour haptique au début et à l'arrêt. Le halo du micro suit le niveau
+réel de la voix (sauf avec la reconnaissance du navigateur) ; tant que personne ne parle, une onde
+lente (1,4 s) montre que le micro écoute et s'efface dès que la voix est captée. « Réduire les
+animations » : halo de taille fixe, seule son intensité suit la voix, pas d'onde. Pendant
+« Finalisation… », une transcription ou un envoi : roue de chargement. La fiche monte du bas
+(transition d'écran).
+
+Texte dicté (`features/report/LiveTranscript.tsx`) : chaque nouveau mot provisoire apparaît en
+fondu en montant de 4 px (180 ms ; seuls les 6 derniers mots d'un segment sont animés). Quand un
+segment devient définitif, il passe du gris italique au bleu nuit, surligné en bleu ciel qui
+s'efface (600 ms) : on voit la phrase se poser. Les mots sont des blocs dans le flux du texte : un
+mot animé ne fait pas bouger les autres. « Réduire les animations » : rien ne bouge, le texte
+change d'un coup.
 
 ## Ce qu'on s'interdit (référence : impeccable.style/slop)
 

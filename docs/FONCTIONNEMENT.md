@@ -64,12 +64,16 @@ Patients. Pas de redirection automatique.
      existent : précautions, dispositifs avec leur jour de pose (« Drain abdominal (J2) »),
      nouvelle prescription, famille.
 3. Grande zone de texte (« Ce que tu as vu et fait, comme à la relève. »). Pendant la dictée, elle
-   n'est plus modifiable et prend une bordure magenta : le texte déjà écrit, puis le **texte
-   provisoire** en gris italique, mot à mot. Si la zone est encore vide : « Parle : le texte
-   s'affiche au fil de la dictée. » (ou « Parle : le texte s'affichera à l'arrêt. » quand le texte
-   n'arrive qu'à la fin).
+   n'est plus modifiable et prend une bordure magenta : le texte déjà écrit, puis la dictée,
+   segment par segment (`features/report/LiveTranscript.tsx`). Un segment s'affiche d'abord en
+   **texte provisoire** gris italique, mot à mot ; chaque nouveau mot apparaît en fondu en montant
+   de 4 px (180 ms). Après la pause qui le termine, son **texte définitif** le remplace en bleu nuit,
+   surligné en bleu ciel qui s'efface (600 ms). « Réduire les animations » : rien ne bouge. Si la
+   zone est encore vide : « Parle : le texte s'affiche au fil de la dictée. » (ou « Parle : le texte
+   s'affichera à l'arrêt. » quand le texte n'arrive qu'à la fin).
 4. Sous la zone, la ligne d'état : « Enregistrement 0:07 » (durée écoulée), puis « Finalisation… »
-   (dictée en direct) ou « Transcription en cours… » (transcription à la fin).
+   (dictée en direct : le temps de finaliser le dernier segment) ou « Transcription en cours… »
+   (transcription à la fin).
 5. **Micro** rond magenta de 72 px (`features/report/MicButton.tsx`) : toucher pour dicter, toucher
    à nouveau pour arrêter. Dès le toucher (4 à 12 ms mesurés), il passe à l'icône carré et
    « Enregistrement » s'affiche, avant même l'accès au micro. Retour haptique au début et à l'arrêt
@@ -153,7 +157,7 @@ Toutes les vues sont calculées par le serveur à la lecture, sans IA, par les r
 | Patients | `unitBoard` (GET `/units/:unitId/board`) | patients du service, date du serveur | toutes les 5 s |
 | Fiche | `patientDetail` (GET `/patients/:patientId`) | dossier, constantes, `news2`, dispositifs (`devices`, J+n), CR du patient | toutes les 5 s |
 | Fiche | `samples` (GET `/simulation/samples`) | CR d'exemple | à l'ouverture |
-| Fiche, micro | `config` (GET `/config`), WebSocket `/transcriptions/live`, POST `/transcriptions` | direct (`sttLive`) et STT serveur (`stt`) prêts ou non ; texte provisoire puis final ; texte transcrit | à l'ouverture ; pendant la dictée ; à l'arrêt du micro |
+| Fiche, micro | `config` (GET `/config`), WebSocket `/transcriptions/live`, POST `/transcriptions` | direct (`sttLive`) et STT serveur (`stt`) prêts ou non ; par segment, texte provisoire puis définitif ; texte transcrit | à l'ouverture ; pendant la dictée ; à l'arrêt du micro |
 | Fiche, Valider | `createTransmission` (POST `/transmissions`) | le CR enregistré (statut `draft`) | après écriture : tout se rafraîchit |
 | Constantes | `updateVitals` (PUT `/patients/:patientId/vitals`) | dossier recalculé | idem |
 | Mes CR | `nurseReports` (GET `/nurses/:nurseId/reports`) | CR du soignant sur le poste | toutes les 5 s |
@@ -270,11 +274,14 @@ Ordre de choix du moteur, d'après `GET /config` :
 1. **Dictée en direct** si `sttLive.ready` (`STT_PROVIDER=openai` avec `STT_API_KEY`,
    `STT_LIVE_MODEL` différent de `none`) : au toucher, l'app ouvre le WebSocket
    `/transcriptions/live` et le micro en même temps et envoie le son en continu (PCM 16 bits mono
-   24 kHz). Le texte provisoire (`gpt-live-transcribe`)
-   s'affiche mot à mot, environ 1,3 s derrière la voix, souvent avec les nombres en lettres. À
-   l'arrêt : « Finalisation… ». L'API retranscrit **tout l'enregistrement** avec `STT_MODEL`
-   (recommandé `gpt-transcribe` : nombres en chiffres, contexte complet). Ce texte final remplace
-   le provisoire en 1,1 à 1,7 s environ et s'ajoute à la zone (DECISIONS T23).
+   24 kHz). L'API découpe la dictée en **segments** aux pauses de la voix (0,7 s de silence, 3 s
+   au moins, 15 s au plus). Le texte provisoire du segment en cours (`gpt-live-transcribe`)
+   s'affiche mot à mot, environ 1,3 s derrière la voix, souvent avec les nombres en lettres. Dès la
+   pause, l'API retranscrit le segment avec `STT_MODEL` (recommandé `gpt-transcribe` : nombres en
+   chiffres), en donnant le texte qui précède en contexte : son texte définitif remplace le
+   provisoire 0,3 à 1,1 s après la pause, pendant qu'on continue de parler. À l'arrêt :
+   « Finalisation… » le temps du dernier segment, puis le texte affiché s'ajoute à la zone (22 ms
+   mesurés quand tout était déjà finalisé). Rien n'est réécrit à la fin (DECISIONS T23).
 2. Sinon, **transcription à la fin** si `stt.ready` (`STT_PROVIDER` = `openai`, `groq` ou
    `openai-compatible`) : l'app enregistre (`expo-audio`), envoie l'audio à `POST /transcriptions`
    à l'arrêt, le texte arrive **à la fin**. Si l'envoi échoue : « Réessayer l'envoi de la dictée ».
@@ -287,13 +294,15 @@ Replis de la dictée en direct (`features/dictation/useLiveDictation.ts`) :
 
 - connexion refusée ou pas ouverte en 4 s, ou direct non configuré côté API : l'app passe sans rien
   dire à la transcription à la fin (moteur 2). Ce qui a été dit avant la bascule n'est pas repris ;
-- direct en panne pendant la dictée : l'API continue d'enregistrer, le texte final arrive quand même ;
-- texte final absent au bout de 20 s, ou en échec : le texte provisoire est ajouté, toast « Texte
-  définitif indisponible : le texte provisoire est gardé, relis-le. » (sans texte provisoire : un
-  message d'erreur) ;
+- direct en panne pendant la dictée : les segments sont quand même retranscrits par `STT_MODEL` ;
+- segment en échec : un nouvel essai, puis son texte provisoire le remplace ;
+- segment sans parole : pas transcrit, rien n'est ajouté ;
+- texte final absent (connexion coupée, ou rien 20 s après l'arrêt) : le texte affiché (définitif là où il est arrivé, provisoire
+  ailleurs) est ajouté, toast « Texte définitif incomplet : le texte affiché est gardé, relis-le. »
+  (sans texte : un message d'erreur) ;
 - 5 min au plus (`LIVE_MAX_SECONDS`) : l'API arrête et transcrit, toast « Dictée arrêtée après
   5 minutes : le texte est ajouté. » ;
-- fiche fermée pendant la dictée : la dictée s'arrête, le texte final arrive quand même dans le
+- fiche fermée pendant la dictée : la dictée s'arrête, le texte arrive quand même dans le
   brouillon.
 
 Capture du son : `features/dictation/usePcmCapture.ts` sur iOS / Android (`useAudioStream`
