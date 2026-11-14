@@ -3,6 +3,8 @@
 import { LV, news2 } from './news2.js';
 import { esc, num } from './util.js';
 
+const PRIO = { critique: 1, eleve: 2, moyen: 3, faible: 4 };
+
 const vitShort = (v) =>
   `FR ${v.fr} · SpO2 ${v.spo2} %${v.o2 ? ' sous O2' : ''} · TA ${v.pas}/${v.pad} · FC ${v.fc} · T ${num(v.temp)} °C`;
 
@@ -13,13 +15,14 @@ const vitShort = (v) =>
 export function buildModel(items, meta) {
   const crCount = items.reduce((a, it) => a + it.crs.length, 0);
   const nurses = [...new Set(items.flatMap((it) => it.crs.map((c) => meta.authorOf(c))))];
-  const rows = items.map((it) => ({ ...it, n: news2(it.v) }));
+  // Priorité affichée : celle de l'app (IA ou choix de l'infirmière), sinon le niveau du NEWS2.
+  const rows = items.map((it) => ({ ...it, n: news2(it.v), lv: it.level || news2(it.v).level }));
   return {
     ...meta,
     rows,
     crCount,
     nurses,
-    attention: rows.filter((r) => r.n.level === 'critique' || r.n.level === 'eleve'),
+    attention: rows.filter((r) => r.lv === 'critique' || r.lv === 'eleve'),
   };
 }
 
@@ -33,7 +36,7 @@ function cibleHtml(c) {
 }
 
 function patientHtml(r, authorOf) {
-  const { p, v, n, crs, syn } = r;
+  const { p, v, n, lv, crs, syn } = r;
   const flags = [
     p.allergies !== 'Aucune connue' ? `Allergie : ${esc(p.allergies)}` : '',
     p.precautions ? `Précautions ${esc(p.precautions)}` : '',
@@ -46,9 +49,9 @@ function patientHtml(r, authorOf) {
       ${(syn?.cibles || []).map(cibleHtml).join('')}
       ${syn?.todo?.length ? `<div class="doc-todo"><b>À faire</b><ul>${syn.todo.map((t) => `<li>${esc(t.t)}</li>`).join('')}</ul></div>` : ''}
       <p class="doc-src">Comptes rendus : ${crs.map((c) => `${esc(authorOf(c))} (${esc(c.t || '')})`).join(', ')}</p>`;
-  return `<section class="doc-p" style="border-left-color:${LV[n.level].bar}">
-    <div class="doc-ph"><span class="doc-room">ch${esc(p.ch)}</span><b>${esc(p.nom)}</b><span class="doc-lv" style="background:${LV[n.level].bg};color:${LV[n.level].fg}">NEWS2 ${n.total} · ${LV[n.level].l}</span></div>
-    <p class="doc-meta">${p.age} ans · ${esc(p.motif)}${flags ? `<br>${flags}` : ''}<br>${vitShort(v)} (${esc(v.at)})</p>
+  return `<section class="doc-p" style="border-left-color:${LV[lv].bar}">
+    <div class="doc-ph"><span class="doc-room">ch${esc(p.ch)}</span><b>${esc(p.nom)}</b><span class="doc-lv" style="background:${LV[lv].bg};color:${LV[lv].fg}">Priorité ${PRIO[lv]}</span></div>
+    <p class="doc-meta">${p.age} ans · ${esc(p.motif)}${flags ? `<br>${flags}` : ''}<br>NEWS2 ${n.total} · ${vitShort(v)} (${esc(v.at)})</p>
     ${body}
   </section>`;
 }
@@ -83,7 +86,7 @@ export function docHtml(m) {
   <div class="doc-sum"><span>${m.rows.length} patients</span><span>${m.crCount} comptes rendus</span><span>${m.nurses.length} soignants : ${esc(m.nurses.join(', '))}</span></div>
   ${
     m.attention.length
-      ? `<div class="doc-att"><b>Priorités</b><ul>${m.attention.map((r) => `<li>ch${esc(r.p.ch)} · ${esc(r.p.nom)} : NEWS2 ${r.n.total} (${LV[r.n.level].l.toLowerCase()})</li>`).join('')}</ul></div>`
+      ? `<div class="doc-att"><b>Priorités</b><ul>${m.attention.map((r) => `<li>Priorité ${PRIO[r.lv]} · ch${esc(r.p.ch)} · ${esc(r.p.nom)} (NEWS2 ${r.n.total})</li>`).join('')}</ul></div>`
       : ''
   }
   ${m.rows.map((r) => patientHtml(r, m.authorOf)).join('')}
@@ -100,7 +103,8 @@ export function docText(m) {
   ];
   if (m.attention.length) {
     lines.push('PRIORITÉS');
-    for (const r of m.attention) lines.push(`- ch${r.p.ch} ${r.p.nom} : NEWS2 ${r.n.total}`);
+    for (const r of m.attention)
+      lines.push(`- Priorité ${PRIO[r.lv]} · ch${r.p.ch} ${r.p.nom} (NEWS2 ${r.n.total})`);
     lines.push('');
   }
   for (const r of m.rows) {

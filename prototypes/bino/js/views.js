@@ -39,26 +39,35 @@ export const badge = (lv) =>
 
 export const V = (p) => Store.vitalsFor(p.id) || p.v;
 
-// Niveau affiché : en mode manuel, le choix de l'infirmière (sinon le NEWS2) ;
-// en mode auto, le classement de l'IA (sinon le NEWS2).
-export function levelOf(p, mode) {
-  if (mode === 'manuel') return Store.manualLevels()[p.id] || news2(V(p)).level;
+// Priorité 1 (la plus urgente) à 4. Proposée par l'IA (repli NEWS2), modifiable à la main :
+// le choix de l'infirmière prime toujours.
+export const PRIO = { critique: 1, eleve: 2, moyen: 3, faible: 4 };
+export const prioTag = (lv) => `Priorité ${PRIO[lv]}`;
+export function levelOf(p) {
+  const manual = Store.manualLevels()[p.id];
+  if (manual) return manual;
   const ai = Store.prioAI()?.order?.find((x) => x.id === p.id);
   return ai?.niveau || news2(V(p)).level;
 }
-export function sorted(patients, mode = 'auto') {
-  const ai = Store.prioAI()?.order || [];
-  const pos = (p) => {
-    const i = ai.findIndex((x) => x.id === p.id);
-    return i < 0 ? 999 : i;
-  };
-  return [...patients].sort(
-    (a, b) =>
-      rank(levelOf(a, mode)) - rank(levelOf(b, mode)) ||
-      (mode === 'auto' ? pos(a) - pos(b) : 0) ||
-      news2(V(b)).total - news2(V(a)).total,
-  );
-}
+const aiPos = (p) => {
+  const i = (Store.prioAI()?.order || []).findIndex((x) => x.id === p.id);
+  return i < 0 ? 999 : i;
+};
+const byPrio = (a, b) =>
+  rank(levelOf(a)) - rank(levelOf(b)) ||
+  aiPos(a) - aiPos(b) ||
+  news2(V(b)).total - news2(V(a)).total;
+const lastName = (p) =>
+  p.nom
+    .replace(/^(M\.|Mme|Mlle)\s+/, '')
+    .split(/\s+/)
+    .slice(-1)[0];
+export const SORTS = {
+  prio: { l: 'Priorité', f: byPrio },
+  chambre: { l: 'Chambre', f: (a, b) => Number(a.ch) - Number(b.ch) },
+  nom: { l: 'Nom', f: (a, b) => lastName(a).localeCompare(lastName(b), 'fr') },
+};
+export const sorted = (patients, by = 'prio') => [...patients].sort((SORTS[by] || SORTS.prio).f);
 
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 const firstName = (s) => (s || '').split(/[·,]/)[0].trim().split(/\s+/)[0] || '';
@@ -66,55 +75,59 @@ const firstName = (s) => (s || '').split(/[·,]/)[0].trim().split(/\s+/)[0] || '
 export const micBtn = (U, target) =>
   `<button type="button" class="mic ${U.listening === target ? 'on' : ''}" data-act="mic" data-arg="${target}" aria-label="${U.listening === target ? 'Arrêter la dictée' : 'Dicter le compte rendu'}">${ic(U.listening === target ? 'stop' : 'mic', 28)}</button>`;
 
-/* ---------- en-tête : Bonjour + date (maquette 1), page Patients seulement ---------- */
+/* ---------- en-tête : logo + Bonjour + date (maquette 1), page Patients seulement ---------- */
 export function vHeader() {
   const date = new Date().toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
-  return `<div class="hello"><div class="hello-t">Bonjour ${esc(firstName(Store.displayName()))}</div><div class="hello-d">Date : ${date}</div></div>`;
+  return `<div class="hello"><img class="hello-logo" src="assets/logo.png" width="52" height="52" alt="Bino"><div><div class="hello-t">Bonjour ${esc(firstName(Store.displayName()))}</div><div class="hello-d">Date : ${date}</div></div></div>`;
 }
 
-/* ---------- onglet 1 : patients, organisés par sévérité ---------- */
-export function vPatients(S, U) {
-  const mode = U.sortMode;
-  const ps = sorted(S.patients, mode);
+/* ---------- onglet 1 : patients ---------- */
+export const prioBtn = (p, sm = false) => {
+  const lv = levelOf(p);
+  return `<button type="button" class="lvl ${sm ? 'sm' : ''}" style="--c:${LV[lv].bg};--f:${LV[lv].fg}" data-act="pickLevel" data-arg="${p.id}" aria-label="${esc(p.nom)} : ${prioTag(lv)}. Changer la priorité">${prioTag(lv)} ${ic('chev', 14)}</button>`;
+};
+
+function reasonOf(p) {
   const ai = Store.prioAI();
-  const seg = (k, l) =>
-    `<button type="button" class="seg-b ${mode === k ? 'on' : ''}" data-act="sortMode" data-arg="${k}" aria-pressed="${mode === k}">${l}</button>`;
-  const status =
-    mode === 'manuel'
-      ? '<p class="sort-note">Touche le niveau d\'un patient pour le changer.</p>'
-      : `<div class="sort-note between"><span>${U.triBusy ? 'Organisation en cours…' : ai ? `Organisé ${ai.engine === 'ai' ? "par l'IA" : 'selon le NEWS2'} à ${esc(ai.t || '')}` : 'Organisé selon le NEWS2'}</span><button type="button" class="linkbtn" data-act="aiSort" ${U.triBusy ? 'disabled' : ''}>${U.triBusy ? '<span class="spin dark"></span>' : ic('spark', 14)} Réorganiser</button></div>`;
-  return `<div class="list-head"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2>
-    <div class="seg sm" role="group" aria-label="Organisation par sévérité">${seg('auto', 'Auto (IA)')}${seg('manuel', 'Manuel')}</div></div>
-  ${status}
+  const r = ai?.order?.find((x) => x.id === p.id)?.raison || `NEWS2 ${news2(V(p)).total}`;
+  return Store.manualLevels()[p.id] ? `${r} · priorité modifiée` : r;
+}
+
+export function vPatients(S, U) {
+  const ps = sorted(S.patients, U.sortBy);
+  return `<div class="list-head between"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2>
+    <details class="menu sort-menu"><summary class="btn sec sm" role="button">Trier : ${SORTS[U.sortBy]?.l || 'Priorité'} ${ic('chev', 16)}</summary>
+      <div class="menu-pop right">${Object.entries(SORTS)
+        .map(
+          ([k, o]) =>
+            `<button type="button" data-act="sortBy" data-arg="${k}" aria-pressed="${U.sortBy === k}"><span><b>${o.l}</b></span>${U.sortBy === k ? ic('check', 18) : ''}</button>`,
+        )
+        .join('')}</div></details></div>
   ${Store.isStale() ? '<p class="note">Les comptes rendus de l\'équipe ne sont pas encore joignables.</p>' : ''}
   ${ps
     .map((p) => {
-      const lv = levelOf(p, mode);
-      const why =
-        mode === 'auto'
-          ? ai?.order?.find((x) => x.id === p.id)?.raison || `NEWS2 ${news2(V(p)).total}`
-          : `NEWS2 ${news2(V(p)).total}${Store.manualLevels()[p.id] ? ' · niveau choisi' : ''}`;
-      const lvTag =
-        mode === 'manuel'
-          ? `<button type="button" class="lvl" style="--c:${LV[lv].bg};--f:${LV[lv].fg}" data-act="pickLevel" data-arg="${p.id}" aria-label="Niveau de ${esc(p.nom)} : ${LV[lv].l}. Changer">${LV[lv].l} ${ic('chev', 14)}</button>`
-          : `<span class="lvl ro" style="--c:${LV[lv].bg};--f:${LV[lv].fg}">${LV[lv].l}</span>`;
+      const lv = levelOf(p);
       return `<div class="card prow" style="--bar:${LV[lv].bar}">
-        <button type="button" class="prow-open" data-act="openPatient" data-arg="${p.id}"><span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${esc(why)}</span></span><span class="room-chip">ch${esc(p.ch)}</span></button>
-        ${lvTag}
+        <button type="button" class="prow-open" data-act="openPatient" data-arg="${p.id}"><span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${esc(reasonOf(p))}</span></span><span class="room-chip">ch${esc(p.ch)}</span></button>
+        ${prioBtn(p)}
       </div>`;
     })
     .join('')}`;
 }
 
 export function vLevelPicker(p) {
-  const cur = Store.manualLevels()[p.id];
-  return `<h1 style="margin-top:0">Niveau de sévérité</h1><p class="sub">${esc(p.nom)} · ch${esc(p.ch)} · NEWS2 ${news2(V(p)).total}</p>
-  <div class="card level-list">${LEVELS.map((l) => `<button type="button" class="level-opt ${cur === l ? 'on' : ''}" data-act="setLevel" data-arg="${p.id}:${l}"><span class="lvl ro" style="--c:${LV[l].bg};--f:${LV[l].fg}">${LV[l].l}</span>${cur === l ? ic('check', 18) : ''}</button>`).join('')}</div>
-  <button type="button" class="btn sec" data-act="setLevel" data-arg="${p.id}:">Revenir au niveau du NEWS2</button>`;
+  const cur = levelOf(p);
+  const manual = Store.manualLevels()[p.id];
+  const ai = Store.prioAI()?.order?.find((x) => x.id === p.id);
+  const hint = ['la plus urgente', 'à voir rapidement', 'à surveiller', 'stable'];
+  return `<h1 style="margin-top:0">Priorité</h1><p class="sub">${esc(p.nom)} · ch${esc(p.ch)} · NEWS2 ${news2(V(p)).total}</p>
+  ${ai ? `<p class="small muted">Proposée ${Store.prioAI()?.engine === 'ai' ? "par l'IA" : 'selon le NEWS2'} : ${prioTag(ai.niveau)} · ${esc(ai.raison)}</p>` : ''}
+  <div class="card level-list">${LEVELS.map((l, i) => `<button type="button" class="level-opt ${cur === l ? 'on' : ''}" data-act="setLevel" data-arg="${p.id}:${l}"><span class="lvl ro" style="--c:${LV[l].bg};--f:${LV[l].fg}">${prioTag(l)}</span><span class="small muted lo-hint">${hint[i]}</span>${cur === l ? ic('check', 18) : ''}</button>`).join('')}</div>
+  ${manual ? `<button type="button" class="btn sec" data-act="setLevel" data-arg="${p.id}:">Revenir à la priorité proposée</button>` : ''}`;
 }
 
 /* ---------- fiche : nouveau compte rendu ---------- */
@@ -129,7 +142,7 @@ function vtable(v) {
     ['Température', `${num(v.temp)} °C`, n.p.temp],
     ['Conscience', v.cons === 'A' ? 'Alerte' : 'Altérée', n.p.cons],
   ];
-  return `<table class="vtable"><tbody>${rows.map((r) => `<tr><td>${r[0]}</td><td class="v">${r[1]}</td><td class="p p${r[2]}">${r[2] ? `+${r[2]}` : '0'}</td></tr>`).join('')}<tr><td><b>Total NEWS2</b></td><td class="v">${badge(n.level)}</td><td class="p p${n.total >= 7 ? 3 : n.total >= 5 ? 2 : n.total ? 1 : 0}">${n.total}</td></tr></tbody></table>`;
+  return `<table class="vtable"><tbody>${rows.map((r) => `<tr><td>${r[0]}</td><td class="v">${r[1]}</td><td class="p p${r[2]}">${r[2] ? `+${r[2]}` : '0'}</td></tr>`).join('')}<tr><td><b>Total NEWS2</b></td><td></td><td class="p p${n.total >= 7 ? 3 : n.total >= 5 ? 2 : n.total ? 1 : 0}">${n.total}</td></tr></tbody></table>`;
 }
 
 const info = (k, v) => `<div class="info"><span>${k}</span><b>${esc(v)}</b></div>`;
@@ -164,12 +177,14 @@ export function vPatientPopup(S, U, EXAMPLES) {
       : ''
   }
 
-  <label class="sr" for="draft">Compte rendu</label>
-  <textarea id="draft" class="draft cr-box" data-model="draft" placeholder="Ce que tu as vu et fait, comme à la relève.">${esc(U.draft)}</textarea>
-  <div class="live" id="live" aria-live="polite"></div>
-  <div class="pp-mic">${micBtn(U, 'draft')}</div>
-  ${ex ? `<div class="pp-ex"><button type="button" class="chip ex" data-act="useEx" data-arg="${EXAMPLES.indexOf(ex)}">${ic('play', 14)} Exemple : ${esc(ex.label)}</button></div>` : ''}
-  <button type="button" class="btn valider" data-act="saveCr" ${U.saving ? 'disabled' : ''}>${U.saving ? '<span class="spin"></span>' : ''} Valider</button>
+  <div class="cr-zone">
+    <label class="sr" for="draft">Compte rendu</label>
+    <textarea id="draft" class="draft cr-box" data-model="draft" placeholder="Ce que tu as vu et fait, comme à la relève.">${esc(U.draft)}</textarea>
+    <div class="live" id="live" aria-live="polite"></div>
+    <div class="pp-mic">${micBtn(U, 'draft')}</div>
+    ${ex ? `<div class="pp-ex"><button type="button" class="chip ex" data-act="useEx" data-arg="${EXAMPLES.indexOf(ex)}">${ic('play', 14)} Exemple : ${esc(ex.label)}</button></div>` : ''}
+  </div>
+  <div class="pp-foot"><button type="button" class="btn valider" data-act="saveCr" ${U.saving ? 'disabled' : ''}>${U.saving ? '<span class="spin"></span>' : ''} Valider</button></div>
   </div>`;
 }
 
@@ -194,15 +209,23 @@ function srcLine(field, crs) {
       field.src
         .map((s) => byId.get(s.cr))
         .filter(Boolean)
+        .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
         .map((c) => `${Store.authorOf(c).split(' ')[0]} ${c.t || ''}`.trim()),
     ),
   ];
   return who.length ? `<span class="pt-src">${esc(who.join(' · '))}</span>` : '';
 }
 
-function summaryCard(p, U) {
+// Une puce est datée par le plus ancien compte rendu qu'elle cite : on les affiche dans l'ordre de la journée.
+function chrono(points, crs) {
+  const at = new Map(crs.map((c) => [c.id, Date.parse(c.at)]));
+  const t = (pt) => Math.min(...(pt.src || []).map((x) => at.get(x.cr) ?? Infinity));
+  return [...points].sort((a, b) => t(a) - t(b));
+}
+
+function summaryCard(p) {
   const crs = Store.crFor(p.id);
-  const lv = levelOf(p, U.sortMode);
+  const lv = levelOf(p);
   const s = Store.synthFor(p.id);
   const fresh = s && !Store.needsSynth(s, crs);
   let body;
@@ -210,9 +233,11 @@ function summaryCard(p, U) {
   else if (!fresh)
     body = '<p class="small muted"><span class="spin dark"></span> Résumé en cours…</p>';
   else
-    body = `<ul class="pts">${(s.points || []).map((pt) => `<li>${esc(pt.t)} ${srcLine(pt, crs)}</li>`).join('')}</ul>`;
+    body = `<ul class="pts">${chrono(s.points || [], crs)
+      .map((pt) => `<li>${esc(pt.t)} ${srcLine(pt, crs)}</li>`)
+      .join('')}</ul>`;
   return `<div class="card sum" style="--bar:${LV[lv].bar}">
-    <div class="between"><span class="cr-who">${esc(p.nom)} <span class="room-chip sm">ch${esc(p.ch)}</span></span><span class="lvl ro sm" style="--c:${LV[lv].bg};--f:${LV[lv].fg}">${LV[lv].l}</span></div>
+    <div class="between"><span class="cr-who">${esc(p.nom)} <span class="room-chip sm">ch${esc(p.ch)}</span></span>${prioBtn(p, true)}</div>
     ${body}
   </div>`;
 }
@@ -224,15 +249,15 @@ export function vTransmissions(S, U) {
   if (U.trScope === 'mine') {
     const mine = Store.allCr()
       .filter((c) => Store.isMine(c))
-      .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-    return `${head}<p class="sub">${plural(mine.length, 'compte rendu écrit', 'comptes rendus écrits')} par vous · aujourd'hui</p>
+      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    return `${head}<p class="sub">${plural(mine.length, 'compte rendu écrit', 'comptes rendus écrits')} par vous · aujourd'hui, dans l'ordre de la journée</p>
     ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
   }
-  const ps = sorted(S.patients, U.sortMode);
+  const ps = sorted(S.patients, 'prio');
   const engines = new Set(ps.map((p) => Store.synthFor(p.id)?.engine).filter(Boolean));
   return `${head}
   <div class="sum-head between"><span class="small muted">${U.sumBusy ? `Résumé par l'IA… ${esc(U.sumBusy)}` : `Résumé de l'équipe${engines.has('ai') ? " par l'IA" : engines.size ? ' · règles locales' : ''}`}</span>
   <button type="button" class="linkbtn" data-act="genDoc" ${U.docBusy ? 'disabled' : ''}>${ic('file', 14)} ${U.docBusy ? esc(U.docBusy) : 'Document complet'}</button></div>
-  ${ps.map((p) => summaryCard(p, U)).join('')}
-  <p class="foot">Chaque puce vient des comptes rendus de l'équipe (auteur et heure à droite). À relire avant la relève.</p>`;
+  ${ps.map((p) => summaryCard(p)).join('')}
+  <p class="foot">Puces dans l'ordre de la journée ; chacune vient d'un compte rendu (auteur et heure dessous). À relire avant la relève.</p>`;
 }

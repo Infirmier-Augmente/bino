@@ -2,7 +2,7 @@
 
 Démo du hackathon IA santé ARS × AdoptAI (novembre 2026), défi Hôpital Foch « infirmier augmenté ».
 
-Bino suit les maquettes papier de l'équipe. **Patients** : « Bonjour Martine », la date, 11 patients organisés par sévérité, **Auto (IA)** (l'IA classe et explique, repli NEWS2) ou **Manuel** (l'infirmière choisit le niveau). Un toucher ouvre **Nouveau compte rendu** : **Dossier médical**, **Import DPI**, zone de texte, **micro**, **Valider**, puis « ✓ Compte rendu fait ». **Transmissions** : **Mes CR**, et **Tous** résumé en puces par l'IA, patient par patient, avec un **document complet** à copier ou télécharger.
+Bino suit les maquettes papier de l'équipe. **Patients** : logo Bino et « Bonjour Martine », la date, 11 patients triables par **priorité**, **chambre** ou **nom**. La priorité (1 = la plus urgente, à 4) est proposée par l'IA avec une raison (repli NEWS2) et se change d'un toucher. Un patient ouvre **Nouveau compte rendu** : **Dossier médical**, **Import DPI**, grande zone de texte, **micro**, **Valider** en bas, puis « ✓ Compte rendu fait ». **Transmissions** : **Mes CR** dans l'ordre de la journée ; **Tous** résumé en puces par l'IA, dans l'ordre de la journée, priorité modifiable ; **document complet** à copier ou télécharger.
 
 > **Données entièrement fictives.** Ne jamais saisir de données réelles de patients : la démo n'est ni hébergée HDS ni conforme RGPD pour des données de santé.
 
@@ -16,11 +16,10 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 
 **Parcours de démo conseillé (2 minutes)**
 
-1. **Patients** : « Bonjour Martine », liste organisée **Auto (IA)** avec la raison sous chaque nom. **Manuel** : touchez un niveau pour le changer (ex. M. Garnier en Critique).
+1. **Patients** : « Bonjour Martine », patients par priorité avec la raison sous chaque nom. **Trier** : par chambre ou par nom. Touchez « Priorité 3 » de M. Garnier et passez-le en Priorité 1.
 2. Touchez M. Jean Dupond (ch12) : **Nouveau compte rendu**. **Import DPI** : le NEWS2 passe à 9.
-3. Dictez au **micro** (ou écrivez, ou touchez l'exemple), puis **Valider** : « Compte rendu fait ». La liste se réorganise.
-4. **Transmissions › Mes CR** : vos comptes rendus. **Tous** : le résumé en puces de toute l'équipe ; **Document complet** pour la relève.
-
+3. Dictez au **micro** (ou écrivez, ou touchez l'exemple), puis **Valider** : « Compte rendu fait ».
+4. **Transmissions › Mes CR** : vos comptes rendus dans l'ordre de la journée. **Tous** : le résumé en puces de toute l'équipe ; la priorité se change aussi ici ; **Document complet** pour la relève.
 
 ---
 
@@ -28,9 +27,9 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 
 | Écran | Ce qu'on peut faire |
 | --- | --- |
-| Patients | « Bonjour Martine » + date ; organisation par sévérité **Auto (IA)** (niveau + raison factuelle, jamais sous le NEWS2, repli NEWS2 sans IA, réorganisation à chaque compte rendu) ou **Manuel** (niveau choisi par patient) |
+| Patients | Logo + « Bonjour Martine » + date ; tri par **priorité**, **chambre** ou **nom** ; **Priorité 1 à 4** proposée par l'IA (raison factuelle, jamais sous le NEWS2, repli NEWS2, mise à jour à chaque compte rendu), modifiable d'un toucher |
 | Nouveau compte rendu | **Dossier médical** (constantes, NEWS2 détaillé, infos, saisie manuelle) et **Import DPI** ; compte rendu au **micro** ou au clavier ; **Valider** puis « Compte rendu fait » |
-| Transmissions | **Mes CR** ; **Tous** : résumé en puces par patient, généré par l'IA, chaque puce avec son auteur et son heure ; **Document complet** (copier, télécharger) |
+| Transmissions | **Mes CR** dans l'ordre de la journée ; **Tous** : résumé en puces par patient (IA), dans l'ordre de la journée, auteur et heure sous chaque puce, priorité modifiable ; **Document complet** (copier, télécharger) |
 
 ### Ce qui marche où
 
@@ -87,7 +86,7 @@ js/views.js              rendu : en-tête, Patients, popup patient, Transmission
 js/store.js              comptes rendus, synthèses, constantes : base partagée (Claude) ou localStorage
 js/synthesis.js          synthèse DAR multi-soignants : prompt IA, règles locales, vérification des sources
 js/document.js           document de transmission global (vue, texte à copier, fichier HTML)
-js/triage.js             organisation par sévérité : prompt IA, garde-fous, repli NEWS2
+js/triage.js             priorités 1 à 4 : prompt IA, garde-fous, repli NEWS2
 js/news2.js              calcul NEWS2 (échelle SpO2 n°1)
 js/structure.js          dictée → DAR : prompt IA, règles locales de secours, extraction des constantes
 js/data.js               patients et dictées d'exemple (fictifs)

@@ -3,7 +3,7 @@
 // Onglet Transmissions : les comptes rendus de l'équipe, « Mes CR » ou « Tous », filtre par soignant.
 import { EXAMPLES, seed } from './data.js';
 import { buildModel, DOC_CSS, docFile, docHtml, docText } from './document.js';
-import { LV, news2 } from './news2.js';
+import { news2 } from './news2.js';
 import * as AI from './services/ai.js';
 import * as FHIR from './services/fhir.js';
 import * as Voice from './services/voice.js';
@@ -14,6 +14,8 @@ import { localTriage, normalizeTriage, triagePrompt } from './triage.js';
 import { esc, fmtVital, hhmm, VITAL_KEYS, VITAL_LABELS } from './util.js';
 import {
   ic,
+  levelOf,
+  PRIO,
   sorted,
   V,
   vDone,
@@ -38,7 +40,7 @@ const U = {
   docBusy: '',
   sumBusy: '',
   triBusy: false,
-  sortMode: settings.sortMode === 'manuel' ? 'manuel' : 'auto',
+  sortBy: ['prio', 'chambre', 'nom'].includes(settings.sortBy) ? settings.sortBy : 'prio',
 };
 let docModel = null;
 const P = (id) => S.patients.find((p) => p.id === id);
@@ -112,9 +114,6 @@ function showDone() {
   }, 1800);
 }
 
-const badgeHtml = (lv) =>
-  `<span class="badge" style="background:${LV[lv].bg};color:${LV[lv].fg}">${LV[lv].l}</span>`;
-
 function vitalsForm(id) {
   U.sub = 'vitals';
   const p = P(id);
@@ -146,7 +145,7 @@ function vprev() {
   const el = document.getElementById('vprev');
   if (!el) return;
   const n = news2(readVitals());
-  el.innerHTML = `<div class="between"><span class="small muted">Nouveau score NEWS2</span><span class="row" style="gap:8px"><b style="font-size:22px">${n.total}</b>${badgeHtml(n.level)}</span></div>`;
+  el.innerHTML = `<div class="between"><span class="small muted">Nouveau score NEWS2</span><span class="row" style="gap:8px"><b style="font-size:22px">${n.total}</b></span></div>`;
 }
 
 let dpi = null;
@@ -173,7 +172,7 @@ async function dpiImport(id) {
         return `<tr><td>${VITAL_LABELS[k]}</td><td style="text-align:right">${fmtVital(k, cur[k])}</td><td style="text-align:right" class="${chg ? 'new chg' : ''}">${has ? fmtVital(k, res.v[k]) : '<span class="muted">non trouvé</span>'}</td></tr>`;
       }).join('')}
     </tbody></table></div>
-    <div class="card between"><span class="small muted">NEWS2</span><span class="row" style="gap:8px"><b>${n0.total} → ${n1.total}</b>${badgeHtml(n1.level)}</span></div>
+    <div class="card between"><span class="small muted">NEWS2</span><span class="row" style="gap:8px"><b>${n0.total} → ${n1.total}</b></span></div>
     <p class="small muted">Source : ${Object.keys(res.v).length} Observations FHIR · ${where}. Le DPI reste la source de vérité.</p>
     <div class="btns"><button type="button" class="btn sec" data-act="closeSheet">Annuler</button><button type="button" class="btn" data-act="applyDpi">${ic('dl', 18)} Importer</button></div>`);
   } catch (e) {
@@ -219,7 +218,7 @@ async function synthFor(p, crs) {
 }
 
 async function genDoc() {
-  const ps = sorted(S.patients, U.sortMode);
+  const ps = sorted(S.patients, 'prio');
   const todo = ps.filter((p) => Store.crFor(p.id).length);
   let done = 0;
   U.docBusy = `Synthèse 0/${todo.length}`;
@@ -238,7 +237,13 @@ async function genDoc() {
   };
   await Promise.all([worker(), worker(), worker()]);
   docModel = buildModel(
-    ps.map((p) => ({ p, v: V(p), crs: Store.crFor(p.id), syn: syns.get(p.id) || null })),
+    ps.map((p) => ({
+      p,
+      v: V(p),
+      level: levelOf(p),
+      crs: Store.crFor(p.id),
+      syn: syns.get(p.id) || null,
+    })),
     {
       date: new Date().toLocaleDateString('fr-FR'),
       time: hhmm(),
@@ -328,7 +333,6 @@ async function runTriage() {
 const triageSig = () =>
   `${Store.allCr().length}|${S.patients.map((p) => news2(V(p)).total).join(',')}`;
 function autoTriage() {
-  if (U.sortMode !== 'auto') return;
   const ai = Store.prioAI();
   if (!ai || ai.sig !== triageSig() || (ai.engine !== 'ai' && AI.mode() !== 'off')) runTriage();
 }
@@ -516,13 +520,11 @@ const A = {
     render();
     ensureSummaries();
   },
-  sortMode: (a) => {
-    U.sortMode = a;
-    saveSettings({ sortMode: a });
+  sortBy: (a) => {
+    U.sortBy = a;
+    saveSettings({ sortBy: a });
     render();
-    autoTriage();
   },
-  aiSort: () => runTriage(),
   pickLevel: (a) => sheet(vLevelPicker(P(a))),
   setLevel: async (a) => {
     const [pid, lv] = a.split(':');
@@ -533,6 +535,7 @@ const A = {
     }
     sheet('');
     render();
+    toast(lv ? `Priorité ${PRIO[lv]} enregistrée.` : 'Priorité proposée rétablie.');
   },
   editVitals: (a) => vitalsForm(a),
   dpiImport: (a) => dpiImport(a),
@@ -545,7 +548,7 @@ const A = {
     U.foldOpen = true;
     showPatient();
     render();
-    toast(`Constantes importées du DPI · NEWS2 ${n.total} (${LV[n.level].l}).`);
+    toast(`Constantes importées du DPI · NEWS2 ${n.total}.`);
     autoTriage();
   },
   saveVitals: async (a) => {
@@ -559,7 +562,7 @@ const A = {
     U.foldOpen = true;
     showPatient();
     render();
-    toast(`Constantes enregistrées · NEWS2 ${n.total} (${LV[n.level].l}).`);
+    toast(`Constantes enregistrées · NEWS2 ${n.total}.`);
     autoTriage();
   },
   closeSheet: () => {

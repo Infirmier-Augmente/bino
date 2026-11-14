@@ -1597,3 +1597,98 @@ h2 .count {
   white-space: nowrap;
   flex: none;
 }
+
+/* ---------- v7 : logo, tri, priorités, fiche plein écran ---------- */
+.hello {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hello-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  flex: none;
+}
+.list-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 12px;
+}
+.sort-menu > summary {
+  min-height: 40px;
+  font-size: 14px;
+  gap: 4px;
+}
+.menu-pop.right {
+  left: auto;
+  right: 0;
+  min-width: 200px;
+}
+.menu-pop.right button {
+  align-items: center;
+  justify-content: space-between;
+}
+.lvl.sm {
+  min-height: 32px;
+  padding: 0 8px;
+}
+.level-opt {
+  gap: 10px;
+}
+.level-opt .lo-hint {
+  flex: 1;
+  text-align: left;
+}
+
+/* fiche : zone de saisie grande et centrée, Valider en bas */
+.sheet-wrap.full .sheet {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+.pp {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.cr-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  max-width: 520px;
+  margin: 8px auto 0;
+}
+textarea.cr-box {
+  min-height: 42vh;
+  font-size: 17px;
+  line-height: 25px;
+  padding: 16px;
+  border-radius: 18px;
+}
+.pp-mic {
+  margin: 16px 0 8px;
+}
+.pp-foot {
+  position: sticky;
+  bottom: 0;
+  margin: 16px -20px 0;
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom));
+  background: var(--white);
+  border-top: 1px solid rgba(0, 34, 68, 0.08);
+  display: flex;
+  justify-content: center;
+}
+.pp-foot .btn.valider {
+  width: 100%;
+  max-width: 420px;
+  margin: 0;
+}
+.prow-name {
+  white-space: normal;
+  overflow: visible;
+}
