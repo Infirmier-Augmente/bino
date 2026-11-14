@@ -86,7 +86,6 @@ function sortMenu(opts, cur, act) {
         .join('')}</div></details>`;
 }
 
-const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 const firstName = (s) => (s || '').split(/[·,]/)[0].trim().split(/\s+/)[0] || '';
 
 export function vLogin(error, matricule) {
@@ -137,7 +136,10 @@ export function vHeader() {
 // Bouton « Priorité n » : un toucher déplie, dans la carte, la rangée 1 2 3 4.
 export const prioBtn = (p, open = false) => {
   const lv = levelOf(p);
-  return `<button type="button" class="lvl sm ${open ? 'open' : ''}" style="--c:${LV[lv].bg};--f:${LV[lv].fg}" data-act="pickLevel" data-arg="${p.id}" aria-expanded="${open}" aria-label="${esc(p.nom)} : ${prioTag(lv)}. Changer la priorité">${prioTag(lv)} ${ic('chev', 14)}</button>`;
+  const why = Store.manualLevels()[p.id]
+    ? 'choisie par un soignant'
+    : Store.prioAI()?.order?.find((x) => x.id === p.id)?.raison || `NEWS2 ${news2(V(p)).total}`;
+  return `<button type="button" class="lvl sm ${open ? 'open' : ''}" style="--c:${LV[lv].bg};--f:${LV[lv].fg}" data-act="pickLevel" data-arg="${p.id}" aria-expanded="${open}" title="${esc(why)}" aria-label="${esc(p.nom)} : ${prioTag(lv)} (${esc(why)}). Changer la priorité">${prioTag(lv)} ${ic('chev', 14)}</button>`;
 };
 
 export function vPatients(S, U) {
@@ -155,19 +157,15 @@ export function vPatients(S, U) {
     .join('')}`;
 }
 
-// Rangée horizontale 1 à 4, dépliée dans la carte du patient (pas de nouvelle fenêtre).
-// La proposition (IA ou NEWS2) reste visible avec sa raison ; le choix de l'infirmière prime.
+// Petite rangée de cercles 1 à 4, dépliée dans la carte sous le bouton Priorité.
+// Le choix de l'infirmière prime sur la proposition (IA ou NEWS2).
 function levelRow(p) {
   const cur = levelOf(p);
-  const manual = Store.manualLevels()[p.id];
-  const ai = Store.prioAI()?.order?.find((x) => x.id === p.id);
-  const by = Store.prioAI()?.engine === 'ai' ? "l'IA" : 'le NEWS2';
   return `<div class="lvl-pick">
     <div class="lvl-row" role="group" aria-label="Priorité de ${esc(p.nom)}">${LEVELS.map(
       (l) =>
         `<button type="button" class="lvl-n ${cur === l ? 'on' : ''}" style="--c:${LV[l].bg};--f:${LV[l].fg}" data-act="setLevel" data-arg="${p.id}:${l}" aria-pressed="${cur === l}" aria-label="${prioTag(l)}">${PRIO[l]}</button>`,
     ).join('')}</div>
-    <p class="small muted lvl-why">${ai ? `Proposée par ${by} : ${PRIO[ai.niveau]} · ${esc(ai.raison)}` : `NEWS2 ${news2(V(p)).total}`}${manual ? ` · <button type="button" class="linkbtn" data-act="setLevel" data-arg="${p.id}:">Revenir à la proposition</button>` : ''}</p>
   </div>`;
 }
 
@@ -293,13 +291,12 @@ export function vTransmissions(S, U) {
     const mine = Store.allCr()
       .filter((c) => Store.isMine(c))
       .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-    return `${head}<p class="sub">${plural(mine.length, 'compte rendu écrit', 'comptes rendus écrits')} par vous · aujourd'hui, du plus récent au plus ancien</p>
+    return `${head}
     ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
   }
   const ps = sorted(S.patients, U.trSort);
   return `${head}
-  <div class="sum-head">${sortMenu(TR_SORTS, U.trSort, 'trSort')}
-  <button type="button" class="linkbtn" data-act="genDoc" ${U.docBusy ? 'disabled' : ''}>${ic('file', 14)} ${U.docBusy ? esc(U.docBusy) : 'Document complet'}</button></div>
+  <div class="sum-head">${sortMenu(TR_SORTS, U.trSort, 'trSort')}</div>
   ${U.sumBusy ? `<p class="small muted"><span class="spin dark"></span> Mise à jour des résumés ${esc(U.sumBusy)}</p>` : ''}
   ${ps.map((p) => summaryCard(p, U.lvlOpen === p.id)).join('')}
   <p class="foot">Puces de la plus récente à la plus ancienne ; chacune vient d'un compte rendu (auteur et heure dessous). À relire avant la relève.</p>`;

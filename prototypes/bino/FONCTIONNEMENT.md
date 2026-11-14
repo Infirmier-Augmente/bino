@@ -61,7 +61,8 @@ Transmissions › Mes CR. Chaque nouveau CR relance le calcul des priorités (vo
 
 ## 4. Onglet Transmissions › Mes CR
 
-- Les comptes rendus **écrits par le soignant connecté** aujourd'hui.
+- Les comptes rendus **écrits par le soignant connecté** aujourd'hui (liste seule, sans phrase
+  d'en-tête).
 - Ordre : **du plus récent au plus ancien**.
 - Chaque CR : patient, chambre, heure, texte intégral.
 - Pas de suppression (traçabilité de ce qui a été transmis).
@@ -81,12 +82,11 @@ La transmission finale de **toute l'équipe**, une carte par patient.
   - « Aucun compte rendu aujourd'hui » si rien n'a été écrit.
 - **Changer la priorité** : toucher **Priorité n** déplie juste en dessous, **dans la carte**,
   une petite rangée de cercles **1 2 3 4** (pas de nouvelle fenêtre).
-  - Le niveau actuel est surligné.
-  - Sous la rangée : la proposition et sa raison (« Proposée par l'IA : 2 · … »).
+  - Le niveau actuel est rempli de sa couleur.
   - Toucher un chiffre enregistre le choix, replie la rangée et réordonne la liste.
-  - **Revenir à la proposition** apparaît quand le niveau a été choisi à la main.
+  - La raison de la priorité n'est plus affichée à l'écran : elle reste dans l'infobulle du
+    bouton et dans le libellé lu par les lecteurs d'écran.
 - Pendant le calcul des résumés : « Mise à jour des résumés 2/5 ».
-- **Document complet** : génère la transmission de relève de tout le service (voir §7).
 
 ### Les priorités
 
@@ -124,7 +124,10 @@ données), et à l'ouverture de l'app.
 
 ## 7. Document complet (transmission de relève)
 
-Bouton **Document complet** dans Tous :
+> Le bouton **Document complet** a été retiré de l'écran Tous à la demande de l'équipe. Le module
+> (`js/document.js`, testé) et les actions de l'app restent en place pour le remettre au besoin.
+
+Ce qu'il fait quand il est branché :
 
 - synthétise chaque patient qui a des CR (plusieurs en parallèle, avec l'avancement affiché) ;
 - assemble un document daté avec :
@@ -214,7 +217,7 @@ pour plus tard :
 | L'IA ne décide rien                     | Priorité proposée, modifiable d'un toucher ; résumés à relire avant la relève        |
 | Zéro information inventée               | Chaque puce cite un extrait exact d'un CR, sinon elle est écartée ; auteur et heure affichés |
 | Des questions, pas des verdicts         | Un R (résultat) manquant devient une question dans le document                        |
-| Priorité = suggestion explicable        | Raison factuelle affichée sous la rangée 1 à 4 ; le choix manuel prime                |
+| Priorité = suggestion explicable        | Raison factuelle calculée et gardée dans l'infobulle du bouton ; le choix manuel prime |
 | Données 100 % fictives                  | 11 patients et 3 soignants inventés                                                   |
 | Aucune clé dans le repo                 | Clé API saisie dans le navigateur seulement ; `scripts/check-secrets.mjs` avant commit |
 
