@@ -3,7 +3,7 @@ const KEY = 'bino-settings';
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 export const DEFAULT_FHIR = './mock-fhir';
 
-export const settings = { apiKey: '', model: DEFAULT_MODEL, fhirBase: DEFAULT_FHIR };
+export const settings = { apiKey: '', model: DEFAULT_MODEL, fhirBase: DEFAULT_FHIR, name: '' };
 
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem(KEY) || '{}'));

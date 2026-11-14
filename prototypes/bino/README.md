@@ -2,7 +2,7 @@
 
 Démo du hackathon IA santé ARS × AdoptAI (novembre 2026), défi Hôpital Foch « infirmier augmenté ».
 
-Bino transforme ce que l'infirmier dit en transmissions ciblées **DAR**, prépare la **relève** pour l'équipe suivante, calcule le **NEWS2** et récupère les constantes depuis le **DPI** (FHIR). L'infirmier valide toujours : rien n'est inventé, chaque ligne renvoie à la phrase dite.
+Bino, en deux onglets. **Patients** : la liste triée par NEWS2 ; une fiche par patient avec ses données en déroulant, un micro et une zone de saisie pour les **comptes rendus**. **Transmission finale** : pour chaque patient, la synthèse DAR de ce que **toute l'équipe** a écrit dans la journée, chaque phrase reliée au compte rendu d'origine. Rien n'est inventé ; ce qui n'a pas été dit reste une question.
 
 > **Données entièrement fictives.** Ne jamais saisir de données réelles de patients : la démo n'est ni hébergée HDS ni conforme RGPD pour des données de santé.
 
@@ -17,11 +17,11 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 **Parcours de démo conseillé (2 minutes)**
 
 1. **Patients** : la chambre 12 est en tête, NEWS2 7 (critique). Touchez-la.
-2. Bouton **Constantes ▾** › **Récupérer depuis le DPI** : comparez les valeurs, importez, le score passe à 9.
-3. **Dicter une transmission** › exemple « Hélène Durand se dégrade » › **Structurer** : 2 cibles DAR, les résultats manquants sont signalés sans être inventés.
-4. Complétez un R à la voix ou au clavier, puis **Valider**. Les R restés vides deviennent des relances dans **Alertes**.
-5. **Alertes** › NEWS2 critique › **Préparer l'appel SAED** : message prêt à lire au médecin.
-6. **Relève** : synthèse par priorité, ce qui a changé depuis 8h, tâches, **Écouter**, questions à Bino, addendum après 19h45.
+2. **Données du patient ▾** : constantes et détail du NEWS2, allergies, dispositifs. **Constantes ▾** › **Récupérer depuis le DPI** : le score passe à 9.
+3. **Compte rendu** : dictez au micro (ou au clavier), ou touchez l'exemple « Hélène Durand se dégrade », puis **Enregistrer**.
+4. **Transmission finale** › **Tout synthétiser** : une synthèse DAR par patient, fusionnant les comptes rendus de Sophie, Karim et le vôtre. **Sources ›** montre qui a dit quoi.
+5. **Valider** la synthèse. Si quelqu'un ajoute ou supprime un compte rendu ensuite, Bino propose **Mettre à jour**.
+6. **Écouter** ou **Copier** la transmission finale pour la relève.
 
 Le bouton ⚙ (en haut à droite) donne accès aux réglages et à la réinitialisation de la démo.
 
@@ -31,22 +31,23 @@ Le bouton ⚙ (en haut à droite) donne accès aux réglages et à la réinitial
 
 | Écran | Ce qu'on peut faire |
 | --- | --- |
-| Patients | Liste triée par NEWS2, synchronisation de tout le service avec le DPI, fiche patient avec détail du score |
-| Constantes ▾ | **Récupérer depuis le DPI** (FHIR R4), **saisie manuelle** avec score recalculé en direct, **dicter les constantes** (« FR 22, sat 95, tension 120 sur 70 ») |
-| Transmission | Dictée ou saisie, structuration en cibles DAR, source de chaque ligne (« Entendu › »), correction d'un appui, constantes dictées qui mettent à jour le NEWS2 |
-| Relève | Compteurs, contrôle avant transmission, points clés par priorité, différences depuis le matin, tâches, lecture à voix haute, questions, addendum |
-| Alertes | NEWS2 élevé ou critique, nouvelle prescription, dispositif à J4, relance des résultats non réévalués, appel SAED |
+| Patients | Liste triée par NEWS2, nombre de comptes rendus du jour, synchronisation de tout le service avec le DPI |
+| Fiche patient | **Données du patient** en déroulant (constantes, NEWS2 détaillé, motif, ATCD, allergies, dispositifs, prescription), menu **Constantes ▾** (DPI ou saisie manuelle), **compte rendu** au micro ou au clavier, comptes rendus du jour signés |
+| Transmission finale | Synthèse DAR par patient à partir des comptes rendus de toute l'équipe, sources par phrase, « à faire », soins faits, validation signée, alerte si des comptes rendus ont changé, écoute et copie |
 
 ### Ce qui marche où
 
-| | Dans Claude (lien artifact) | En local / hébergé |
+| | Dans Claude (lien artifact) | Cloudflare / local |
 | --- | --- | --- |
-| Structuration et questions par IA | Oui, fournie par Claude | Avec une clé API Anthropic saisie dans ⚙ ; sinon règles locales |
+| Comptes rendus | **Partagés en temps réel** entre tous ceux qui ouvrent le lien (signés avec leur compte) | Sur cet appareil seulement (prénom saisi dans ⚙) |
+| Synthèse par IA | Oui, fournie par Claude | Avec une clé API Anthropic saisie dans ⚙ ; sinon règles locales |
 | Dictée vocale | Chrome ordinateur | Chrome (Android, ordinateur), Safari iOS ; sinon micro du clavier |
-| Lecture de la relève | Chrome ordinateur | Navigateurs avec synthèse vocale (la plupart) |
+| Lecture à voix haute | Chrome ordinateur | La plupart des navigateurs |
 | Import DPI | DPI simulé | DPI simulé ou vrai serveur FHIR (⚙) |
 
-Les deux dictées d'exemple (chambres 12 et 8) donnent toujours le même résultat, même sans IA : c'est la valeur sûre pour une présentation.
+Dans Claude, pour que l'équipe puisse écrire, partagez le lien en **Contributeur** (les Lecteurs voient sans écrire).
+
+
 
 ---
 
@@ -84,7 +85,10 @@ Aucune étape de build : HTML, CSS et modules JavaScript natifs.
 ```
 index.html               page unique, barre d'onglets
 css/styles.css           identité visuelle Bino (Plus Jakarta Sans, Nunito, magenta, bleu ciel, bleu nuit)
-js/app.js                écrans, feuilles, actions
+js/app.js                état, actions, feuilles (constantes, DPI, réglages)
+js/views.js              rendu : Patients, fiche patient, Transmission finale
+js/store.js              comptes rendus, synthèses, constantes : base partagée (Claude) ou localStorage
+js/synthesis.js          transmission finale : prompt IA, règles locales, vérification des sources
 js/news2.js              calcul NEWS2 (échelle SpO2 n°1)
 js/structure.js          dictée → DAR : prompt IA, règles locales de secours, extraction des constantes
 js/data.js               patients et dictées d'exemple (fictifs)
@@ -118,7 +122,7 @@ La clé saisie dans ⚙ reste dans le navigateur du testeur et sert à appeler d
 - **L'humain valide tout.** Les propositions se corrigent d'un appui ; rien n'est versé au dossier sans validation.
 - **Aucun geste en plus.** On parle comme à la relève ; l'outil range.
 - **Le DPI reste la source de vérité.** L'import montre l'écart avant d'écraser.
-- **Le bon format au bon moment.** DAR pour les transmissions (méthode IFSI), SAED pour l'appel au médecin (HAS).
+- **Une seule vérité pour la relève.** Chacun écrit ses comptes rendus ; la transmission finale les fusionne et garde la trace de qui a dit quoi.
 
 ## Pistes suivantes
 

@@ -37,7 +37,12 @@ const FAMILIES = [
   ['Chute', /chute|tombé/i],
   ['Élimination', /urin|diurèse|selles|transit|globe/i],
   ['Alimentation', /mangé|repas|aliment|à jeun|appétit/i],
+  ['Famille / entourage', /\b(fille|fils|famille|épou|mari|proche|enfants?)\b/i],
   ['Psychologique', /angoiss|anxi|pleur|inquiet/i],
+  [
+    'Surveillance des constantes',
+    /\b(FR|sat|spo2|tension|TA|pouls|FC|température)\b\s*(à|de|:)?\s*\d/i,
+  ],
 ];
 
 export function localStructure(text) {
@@ -46,9 +51,11 @@ export function localStructure(text) {
     /j'ai |j’ai |on a |appelé|administré|donné|posé|reposé|mis en place|prévenu|prélev|installé/i;
   const res = /après|réévalu|amélior|soulag|calmé|résolu|efficace|toléré|diminu/i;
   const todo = /à faire|à prévoir|à contrôler|à surveiller|il passe|prévu|demain|cette nuit/i;
+  // « M. Petit » n'est pas une fin de phrase : on protège l'abréviation le temps du découpage.
   const parts = text
+    .replace(/\bM\.\s/g, 'M\u00a0')
     .split(/(?<=[.!?;])\s+/)
-    .map((s) => s.trim())
+    .map((s) => s.replace(/M\u00a0/g, 'M. ').trim())
     .filter(Boolean);
   const cib = {},
     order = [],
@@ -66,6 +73,11 @@ export function localStructure(text) {
       return;
     }
     const f = FAMILIES.find((f) => f[1].test(s));
+    // Une phrase « à faire » sans problème identifié va seulement dans les tâches.
+    if (!f && todo.test(s)) {
+      td.push({ t: s, s });
+      return;
+    }
     const key = f ? f[0] : cur || 'Observation';
     if (!cib[key]) {
       cib[key] = { c: key, D: '', A: '', R: '', sD: '', sA: '', sR: '' };
@@ -91,9 +103,11 @@ export function localStructure(text) {
         sR: c.sR,
       };
     })
-    .filter((c) => c.D || c.A);
+    .filter((c) => c.D || c.A || c.R);
+  // Une cible sans Données mais avec une Action : l'action sert de Données.
+  // Une cible avec seulement un Résultat est gardée : elle complète une cible d'un autre compte rendu.
   cibles.forEach((c) => {
-    if (!c.D) {
+    if (!c.D && c.A) {
       c.D = c.A;
       c.sD = c.sA;
       c.A = null;

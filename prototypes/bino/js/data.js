@@ -312,3 +312,48 @@ export const EXAMPLES = [
     },
   },
 ];
+
+// Comptes rendus de départ (mode local uniquement). Soignants et patients fictifs.
+// En mode partagé (Claude), la base de l'artifact est remplie une fois, côté serveur.
+export const SEED_CR = [
+  {
+    id: 'seed-12a',
+    pid: 'p12',
+    at: '2026-11-14T08:10:00+01:00',
+    t: '8h10',
+    byName: 'Sophie · IDE',
+    text: "Chambre 12, Mme Durand. Nuit calme selon l'équipe de nuit. Douleur abdominale à 4 sur 10 au réveil, j'ai donné le paracétamol à 8h. Pansement du drain sec. FR 18, sat 97, tension 125 sur 74, pouls 84, température 37,4.",
+  },
+  {
+    id: 'seed-12b',
+    pid: 'p12',
+    at: '2026-11-14T14:05:00+01:00',
+    t: '14h05',
+    byName: 'Karim · IDE',
+    text: "Chambre 12. Douleur réévaluée à 2 sur 10 à 9h après le paracétamol. Elle a peu mangé à midi. Sa fille a appelé à 14h, inquiète, je l'ai rassurée.",
+  },
+  {
+    id: 'seed-15a',
+    pid: 'p15',
+    at: '2026-11-14T15:20:00+01:00',
+    t: '15h20',
+    byName: 'Sophie · IDE',
+    text: 'Chambre 15, Mme Laurent. Température 38,2 avec frissons. Hémocultures prélevées, médecin prévenu. Frissons calmés à 16h, température 38,0.',
+  },
+  {
+    id: 'seed-3a',
+    pid: 'p3',
+    at: '2026-11-14T16:00:00+01:00',
+    t: '16h00',
+    byName: 'Karim · IDE',
+    text: 'Chambre 3, Mme Keller. Premier lever au fauteuil reporté, elle était fatiguée. Température 38,1. Lever à prévoir demain matin.',
+  },
+  {
+    id: 'seed-19a',
+    pid: 'p19',
+    at: '2026-11-14T11:30:00+01:00',
+    t: '11h30',
+    byName: 'Sophie · IDE',
+    text: 'Chambre 19, M. Petit. Bonne journée, il mange normalement, douleur à 1 sur 10. Sortie prévue demain, ordonnance à préparer.',
+  },
+];
