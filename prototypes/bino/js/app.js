@@ -1,7 +1,7 @@
 // Bino — le binôme des infirmiers. Démo hackathon IA santé (Hôpital Foch), données fictives.
 // Parcours des maquettes papier : Patients → popup patient → Valider → « Compte rendu fait » → Patients.
 // Onglet Transmissions : les comptes rendus de l'équipe, « Mes CR » ou « Tous », filtre par soignant.
-import { findStaff } from './auth.js';
+import { findStaff, staffName } from './auth.js';
 import { EXAMPLES, seed } from './data.js';
 import { buildModel, DOC_CSS, docFile, docHtml, docText } from './document.js';
 import { news2 } from './news2.js';
@@ -17,6 +17,7 @@ import {
   ic,
   levelOf,
   PRIO,
+  room,
   V,
   vDone,
   vHeader,
@@ -52,6 +53,11 @@ let docModel = null;
 const P = (id) => S.patients.find((p) => p.id === id);
 const signedIn = () => !!settings.matricule;
 
+function alignSession() {
+  const name = staffName(settings.matricule);
+  if (name && name !== settings.name) saveSettings({ name });
+}
+
 function loginError(msg) {
   U.loginError = msg;
   let el = document.querySelector('.login-err');
@@ -66,6 +72,7 @@ function loginError(msg) {
 
 /* ---------- rendu ---------- */
 function render() {
+  if (signedIn()) alignSession();
   const gate = !signedIn() || U.justIn;
   document.body.classList.toggle('locked', gate);
   if (gate) {
@@ -151,7 +158,7 @@ function vitalsForm(id) {
   const v = V(p);
   const inp = (k, l, step) =>
     `<div><label class="l" for="v-${k}">${l}</label><input class="f" type="number" inputmode="decimal" step="${step || 1}" id="v-${k}" data-vit="${k}" value="${v[k]}"></div>`;
-  sheet(`<h1 style="margin-top:0">Constantes</h1><p class="sub">${esc(p.nom)} · ch${esc(p.ch)} · le score se recalcule en direct</p>
+  sheet(`<h1 style="margin-top:0">Constantes</h1><p class="sub">${esc(p.nom)} · ${room(p)} · le score se recalcule en direct</p>
   <div class="card"><div class="grid2">${inp('fr', 'FR (/min)')}${inp('spo2', 'SpO2 (%)')}${inp('pas', 'TA systolique')}${inp('pad', 'TA diastolique')}${inp('fc', 'FC (/min)')}${inp('temp', 'Température (°C)', '0.1')}
     <div><label class="l" for="v-o2">Oxygène</label><select class="f" id="v-o2" data-vit="o2"><option value="0" ${!v.o2 ? 'selected' : ''}>Air ambiant</option><option value="1" ${v.o2 ? 'selected' : ''}>Sous O2</option></select></div>
     <div><label class="l" for="v-cons">Conscience</label><select class="f" id="v-cons" data-vit="cons"><option value="A" ${v.cons === 'A' ? 'selected' : ''}>Alerte</option><option value="C" ${v.cons !== 'A' ? 'selected' : ''}>Confusion / altérée</option></select></div></div></div>

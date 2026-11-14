@@ -50,7 +50,7 @@ function patientHtml(r, authorOf) {
       ${syn?.todo?.length ? `<div class="doc-todo"><b>À faire</b><ul>${syn.todo.map((t) => `<li>${esc(t.t)}</li>`).join('')}</ul></div>` : ''}
       <p class="doc-src">Comptes rendus : ${crs.map((c) => `${esc(authorOf(c))} (${esc(c.t || '')})`).join(', ')}</p>`;
   return `<section class="doc-p" style="border-left-color:${LV[lv].bar}">
-    <div class="doc-ph"><span class="doc-room">ch${esc(p.ch)}</span><b>${esc(p.nom)}</b><span class="doc-lv" style="background:${LV[lv].bg};color:${LV[lv].fg}">Priorité ${PRIO[lv]}</span></div>
+    <div class="doc-ph"><span class="doc-room">CHAMB ${esc(p.ch)}</span><b>${esc(p.nom)}</b><span class="doc-lv" style="background:${LV[lv].bg};color:${LV[lv].fg}">Priorité ${PRIO[lv]}</span></div>
     <p class="doc-meta">${p.age} ans · ${esc(p.motif)}${flags ? `<br>${flags}` : ''}<br>NEWS2 ${n.total} · ${vitShort(v)} (${esc(v.at)})</p>
     ${body}
   </section>`;
@@ -86,7 +86,7 @@ export function docHtml(m) {
   <div class="doc-sum"><span>${m.rows.length} patients</span><span>${m.crCount} comptes rendus</span><span>${m.nurses.length} soignants : ${esc(m.nurses.join(', '))}</span></div>
   ${
     m.attention.length
-      ? `<div class="doc-att"><b>Priorités</b><ul>${m.attention.map((r) => `<li>Priorité ${PRIO[r.lv]} · ch${esc(r.p.ch)} · ${esc(r.p.nom)} (NEWS2 ${r.n.total})</li>`).join('')}</ul></div>`
+      ? `<div class="doc-att"><b>Priorités</b><ul>${m.attention.map((r) => `<li>Priorité ${PRIO[r.lv]} · CHAMB ${esc(r.p.ch)} · ${esc(r.p.nom)} (NEWS2 ${r.n.total})</li>`).join('')}</ul></div>`
       : ''
   }
   ${m.rows.map((r) => patientHtml(r, m.authorOf)).join('')}
@@ -104,12 +104,12 @@ export function docText(m) {
   if (m.attention.length) {
     lines.push('PRIORITÉS');
     for (const r of m.attention)
-      lines.push(`- Priorité ${PRIO[r.lv]} · ch${r.p.ch} ${r.p.nom} (NEWS2 ${r.n.total})`);
+      lines.push(`- Priorité ${PRIO[r.lv]} · CHAMB ${r.p.ch} ${r.p.nom} (NEWS2 ${r.n.total})`);
     lines.push('');
   }
   for (const r of m.rows) {
     lines.push(
-      `ch${r.p.ch} · ${r.p.nom}, ${r.p.age} ans · ${r.p.motif} · NEWS2 ${r.n.total} (${LV[r.n.level].l})`,
+      `CHAMB ${r.p.ch} · ${r.p.nom}, ${r.p.age} ans · ${r.p.motif} · NEWS2 ${r.n.total} (${LV[r.n.level].l})`,
     );
     if (r.p.allergies !== 'Aucune connue') lines.push(`Allergie : ${r.p.allergies}`);
     if (!r.crs.length) lines.push("Aucun compte rendu aujourd'hui.");

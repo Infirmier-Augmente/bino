@@ -73,7 +73,7 @@ export const sorted = (patients, by = 'chambre') =>
   by === 'prio' ? byPriority(patients) : [...patients].sort((SORTS[by] || SORTS.chambre).f);
 // Tri de Transmissions › Tous : par priorité (défaut), chambre ou nom.
 export const TR_SORTS = { prio: { l: 'Priorité' }, ...SORTS };
-export const room = (p) => `ch${esc(p?.ch ?? '')}`;
+export const room = (p) => `CHAMB ${esc(p?.ch ?? '')}`;
 
 // Menu « Trier » partagé par le dashboard et Transmissions › Tous.
 function sortMenu(opts, cur, act) {
@@ -127,19 +127,28 @@ export function vHeader() {
   const who = esc(firstName(Store.displayName()));
   return `<div class="hello">
     <img class="hello-logo" src="assets/bino/salue-bust.png" width="52" height="52" alt="">
-    <div><div class="hello-t">Bonjour ${who}</div><div class="hello-d">Date : ${date}</div></div>
+    <div><div class="hello-t">${who}</div><div class="hello-d">Date : ${date}</div></div>
     <button type="button" class="hello-out" data-act="logout">Déconnexion</button>
   </div>`;
 }
 
 /* ---------- onglet 1 : patients ---------- */
+// Code couleur de Transmissions › Tous : rouge (1 et 2), jaune (3), vert (4).
+const TRAFFIC = {
+  critique: { bg: '#DC0000', fg: '#fff', ink: '#DC0000', bar: '#DC0000' },
+  eleve: { bg: '#DC0000', fg: '#fff', ink: '#DC0000', bar: '#DC0000' },
+  moyen: { bg: '#F5B700', fg: '#1A1A1A', ink: '#8A6500', bar: '#F5B700' },
+  faible: { bg: '#1B8A4A', fg: '#fff', ink: '#1B8A4A', bar: '#1B8A4A' },
+};
+const trafficStyle = (lv) => `--c:${TRAFFIC[lv].bg};--f:${TRAFFIC[lv].fg};--ink:${TRAFFIC[lv].ink}`;
+
 // Bouton « Priorité n » : un toucher déplie, dans la carte, la rangée 1 2 3 4.
 export const prioBtn = (p, open = false) => {
   const lv = levelOf(p);
   const why = Store.manualLevels()[p.id]
     ? 'choisie par un soignant'
     : Store.prioAI()?.order?.find((x) => x.id === p.id)?.raison || `NEWS2 ${news2(V(p)).total}`;
-  return `<button type="button" class="lvl sm ${open ? 'open' : ''}" style="--c:${LV[lv].bg};--f:${LV[lv].fg}" data-act="pickLevel" data-arg="${p.id}" aria-expanded="${open}" title="${esc(why)}" aria-label="${esc(p.nom)} : ${prioTag(lv)} (${esc(why)}). Changer la priorité">${prioTag(lv)} ${ic('chev', 14)}</button>`;
+  return `<button type="button" class="lvl sm ${open ? 'open' : ''}" style="${trafficStyle(lv)}" data-act="pickLevel" data-arg="${p.id}" aria-expanded="${open}" title="${esc(why)}" aria-label="${esc(p.nom)} : ${prioTag(lv)} (${esc(why)}). Changer la priorité">${prioTag(lv)} ${ic('chev', 14)}</button>`;
 };
 
 export function vPatients(S, U) {
@@ -164,7 +173,7 @@ function levelRow(p) {
   return `<div class="lvl-pick">
     <div class="lvl-row" role="group" aria-label="Priorité de ${esc(p.nom)}">${LEVELS.map(
       (l) =>
-        `<button type="button" class="lvl-n ${cur === l ? 'on' : ''}" style="--c:${LV[l].bg};--f:${LV[l].fg}" data-act="setLevel" data-arg="${p.id}:${l}" aria-pressed="${cur === l}" aria-label="${prioTag(l)}">${PRIO[l]}</button>`,
+        `<button type="button" class="lvl-n ${cur === l ? 'on' : ''}" style="${trafficStyle(l)}" data-act="setLevel" data-arg="${p.id}:${l}" aria-pressed="${cur === l}" aria-label="${prioTag(l)}">${PRIO[l]}</button>`,
     ).join('')}</div>
   </div>`;
 }
@@ -273,7 +282,7 @@ function summaryCard(p, open) {
     body = `<ul class="pts">${chrono(s.points || [], crs)
       .map((pt) => `<li>${esc(pt.t)} ${srcLine(pt, crs)}</li>`)
       .join('')}</ul>`;
-  return `<div class="card sum" style="--bar:${LV[lv].bar}">
+  return `<div class="card sum" style="--bar:${TRAFFIC[lv].bar}">
     <div class="between"><span class="cr-who">${esc(p.nom)} <span class="room-chip sm">${room(p)}</span></span>${prioBtn(p, open)}</div>
     ${open ? levelRow(p) : ''}
     ${body}

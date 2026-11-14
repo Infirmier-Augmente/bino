@@ -41,7 +41,7 @@ test('les priorités reprennent les NEWS2 critiques et élevés', () => {
 
 test('le texte copié contient les patients, les sources et rien d’inventé', () => {
   const t = docText(model());
-  assert.match(t, /ch12 · M\. Jean Dupond/);
+  assert.match(t, /CHAMB 12 · M\. Jean Dupond/);
   assert.match(t, /Aucun compte rendu aujourd'hui\./); // Mme Berger, ch10
   assert.match(t, /Sortie prévue demain/);
 });

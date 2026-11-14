@@ -1827,10 +1827,10 @@ h2 .count {
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1.5px solid var(--line);
+  border: 1.5px solid var(--ink, var(--c, var(--line)));
   border-radius: 50%;
   background: var(--white);
-  color: var(--navy);
+  color: var(--ink, var(--navy));
   font: inherit;
   font-size: 13px;
   font-weight: 700;
