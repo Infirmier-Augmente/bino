@@ -1,31 +1,36 @@
-import { formatClock } from '@infirmier/domain';
+import { formatClock, localParts, type Nurse, type PatientSummary } from '@infirmier/domain';
 
-const TZ = 'Europe/Paris';
-
-/** "16h05" */
-export function clock(iso: string): string {
-  return formatClock(iso, TZ);
+/** « 16h05 » en heure locale du service. */
+export function clock(iso: string, timeZone: string): string {
+  return formatClock(iso, timeZone);
 }
 
-/** "il y a 5 min", "il y a 2 h", ou l'heure si plus ancien. */
-export function relative(iso: string, now: Date): string {
-  const minutes = Math.round((now.getTime() - Date.parse(iso)) / 60000);
-  if (minutes < 1) return 'à l’instant';
-  if (minutes < 60) return `il y a ${minutes} min`;
-  if (minutes < 6 * 60) return `il y a ${Math.floor(minutes / 60)} h`;
-  return clock(iso);
+/** « 14/11/2026 » : date du serveur dans le fuseau du service (jamais l'horloge de l'appareil). */
+export function dateFr(iso: string, timeZone: string): string {
+  const p = localParts(new Date(iso), timeZone);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(p.day)}/${pad(p.month)}/${p.year}`;
 }
 
-export function plural(n: number, singular: string, pluralForm = `${singular}s`): string {
-  return `${n} ${n > 1 ? pluralForm : singular}`;
+/** « M. Jean Dupond », « Mme Claire Laurent ». */
+export function patientFullName(p: Pick<PatientSummary, 'sex' | 'firstName' | 'lastName'>): string {
+  return `${p.sex === 'F' ? 'Mme' : 'M.'} ${p.firstName} ${p.lastName}`;
 }
 
-export function initials(firstName: string, lastName: string): string {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+/** « 68 ans · Colectomie, J2 ». */
+export function patientSubline(
+  p: Pick<PatientSummary, 'age' | 'admissionReason' | 'dayOfStay'>,
+): string {
+  const reason = p.admissionReason.trim();
+  return reason ? `${p.age} ans · ${reason}, ${p.dayOfStay}` : `${p.age} ans · ${p.dayOfStay}`;
 }
 
-/** "0:42" */
-export function duration(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+/** Pastille chambre : « CHAMB 12 ». */
+export function roomChipLabel(room: string): string {
+  return `CHAMB ${room}`;
+}
+
+/** « Martine Dubois · IDE » (écran « Connexion réussie »). */
+export function nurseFullName(n: Pick<Nurse, 'firstName' | 'lastName' | 'role'>): string {
+  return `${n.firstName} ${n.lastName} · ${n.role}`;
 }

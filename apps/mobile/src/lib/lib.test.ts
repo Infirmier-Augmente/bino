@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveApiUrl } from './api-url';
 import { chooseDictationEngine } from './dictation-engine';
-import { duration, plural, relative } from './format';
-import { highlightSegments } from './highlight';
 
 describe('resolveApiUrl', () => {
   const none = { override: null, envUrl: undefined, webHostname: null, expoHostUri: null };
@@ -39,39 +37,5 @@ describe('chooseDictationEngine', () => {
     expect(chooseDictationEngine({ serverSttReady: false, webSpeechAvailable: false })).toBe(
       'keyboard',
     );
-  });
-});
-
-describe('format', () => {
-  it('durées et pluriels', () => {
-    expect(duration(42_500)).toBe('0:42');
-    expect(plural(1, 'question')).toBe('1 question');
-    expect(plural(3, 'question')).toBe('3 questions');
-  });
-  it('temps relatif', () => {
-    const now = new Date('2026-11-14T16:00:00+01:00');
-    expect(relative('2026-11-14T15:55:00+01:00', now)).toBe('il y a 5 min');
-    expect(relative('2026-11-14T13:30:00+01:00', now)).toBe('il y a 2 h');
-    expect(relative('2026-11-14T08:05:00+01:00', now)).toBe('8h05');
-  });
-});
-
-describe('highlightSegments', () => {
-  it('marque les extraits cités et l’extrait actif', () => {
-    const segs = highlightSegments(
-      'abcdefghij',
-      [
-        { start: 2, end: 5 },
-        { start: 7, end: 9 },
-      ],
-      { start: 7, end: 9 },
-    );
-    expect(segs).toEqual([
-      { text: 'ab', mark: null },
-      { text: 'cde', mark: 'source' },
-      { text: 'fg', mark: null },
-      { text: 'hi', mark: 'active' },
-      { text: 'j', mark: null },
-    ]);
   });
 });

@@ -9,13 +9,13 @@ import { useCallback, useState } from 'react';
 import { Platform } from 'react-native';
 import { currentApiUrl } from '@/features/api/client';
 
-interface TranscriptionResponse {
-  text: string;
-  durationSec: number | null;
-  engine: string;
-}
+export const MIC_REFUSED = 'Micro refusé : tu peux taper le texte.';
+export const DICTATION_UNAVAILABLE = 'Dictée indisponible ici : utilise le micro du clavier.';
 
-async function upload(uri: string): Promise<TranscriptionResponse> {
+/** Résultat d'une transcription : le texte, ou un message lisible pour l'IDE. */
+export type SttOutcome = { ok: true; text: string } | { ok: false; error: string };
+
+async function upload(uri: string): Promise<string> {
   const form = new FormData();
   if (Platform.OS === 'web') {
     const blob = await (await fetch(uri)).blob();
@@ -55,71 +55,67 @@ async function upload(uri: string): Promise<TranscriptionResponse> {
         : `Transcription impossible (erreur ${res.status}).`;
     throw new Error(message);
   }
-  return json as TranscriptionResponse;
+  const { text } = json as { text: unknown };
+  return typeof text === 'string' ? text : '';
 }
 
 /**
  * Enregistrement audio + transcription par le serveur (STT configuré côté API :
- * Whisper, Groq, serveur auto-hébergé…). Utilisé quand le navigateur ne sait pas
- * transcrire lui-même (application native notamment).
+ * Whisper, Groq, serveur auto-hébergé…). Le texte arrive à la fin de l'enregistrement.
  */
 export function useServerDictation() {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const state = useAudioRecorderState(recorder, 250);
   const [transcribing, setTranscribing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   /** Dernier enregistrement non transcrit : on peut réessayer sans redicter. */
   const [pendingUri, setPendingUri] = useState<string | null>(null);
 
-  const start = useCallback(async () => {
-    setError(null);
-    const perm = await requestRecordingPermissionsAsync();
-    if (!perm.granted) {
-      setError('Micro refusé : autorise-le dans les réglages du téléphone.');
-      return false;
+  /** Démarre l'enregistrement ; renvoie un message d'erreur, ou null si tout va bien. */
+  const start = useCallback(async (): Promise<string | null> => {
+    try {
+      const perm = await requestRecordingPermissionsAsync();
+      if (!perm.granted) return MIC_REFUSED;
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      return null;
+    } catch {
+      return DICTATION_UNAVAILABLE;
     }
-    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-    await recorder.prepareToRecordAsync();
-    recorder.record();
-    return true;
   }, [recorder]);
 
-  const send = useCallback(async (uri: string): Promise<TranscriptionResponse | null> => {
+  const send = useCallback(async (uri: string): Promise<SttOutcome> => {
     setTranscribing(true);
-    setError(null);
     try {
-      const r = await upload(uri);
+      const text = await upload(uri);
       setPendingUri(null);
-      return r;
+      return { ok: true, text };
     } catch (e) {
       setPendingUri(uri);
-      setError(e instanceof Error ? e.message : 'Transcription impossible.');
-      return null;
+      return { ok: false, error: e instanceof Error ? e.message : 'Transcription impossible.' };
     } finally {
       setTranscribing(false);
     }
   }, []);
 
-  const stop = useCallback(async (): Promise<TranscriptionResponse | null> => {
+  const stop = useCallback(async (): Promise<SttOutcome> => {
     await recorder.stop();
     const uri = recorder.uri;
-    if (!uri) {
-      setError('Enregistrement vide.');
-      return null;
-    }
-    return send(uri);
+    return uri ? send(uri) : { ok: false, error: 'Enregistrement vide.' };
   }, [recorder, send]);
 
-  const retry = useCallback(async () => (pendingUri ? send(pendingUri) : null), [pendingUri, send]);
+  const retry = useCallback(
+    async (): Promise<SttOutcome> =>
+      pendingUri ? send(pendingUri) : { ok: false, error: 'Rien à renvoyer.' },
+    [pendingUri, send],
+  );
 
   return {
-    canRetry: pendingUri !== null,
-    retry,
     recording: state.isRecording,
-    durationMs: state.durationMillis,
     transcribing,
-    error,
+    canRetry: pendingUri !== null,
     start,
     stop,
+    retry,
   };
 }

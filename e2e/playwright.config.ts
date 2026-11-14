@@ -25,12 +25,13 @@ export default defineConfig({
     {
       name: 'telephone',
       use: { ...devices['Pixel 7'], browserName: 'chromium' },
-      testIgnore: /releve-pc/,
+      testIgnore: /bureau/,
     },
     {
+      // Même app sur ordinateur : une colonne centrée, pas de vue « PC » distincte.
       name: 'poste-de-soins',
       use: { viewport: { width: 1440, height: 900 } },
-      testMatch: /releve-pc/,
+      testMatch: /bureau/,
     },
   ],
   webServer: [

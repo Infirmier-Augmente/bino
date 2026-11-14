@@ -1,56 +1,88 @@
+import type { LoginResult } from '@infirmier/domain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import type { PatientSort, SummarySort } from '@/lib/sort';
 
-export type ThemePreference = 'system' | 'light' | 'dark';
+/** Identité du soignant connecté (affichage : prénom, « Connexion réussie »). */
+export interface SessionNurse {
+  id: string;
+  matricule: string;
+  firstName: string;
+  lastName: string;
+  role: 'IDE' | 'AS' | 'cadre';
+}
+
+/** Service du soignant : le fuseau sert à afficher la date et les heures. */
+export interface SessionUnit {
+  id: string;
+  name: string;
+  timeZone: string;
+}
 
 interface SessionState {
-  unitId: string | null;
-  nurseId: string | null;
-  /** Surcharge manuelle de l'adresse de l'API (réglages). */
+  nurse: SessionNurse | null;
+  unit: SessionUnit | null;
+  /** Surcharge manuelle de l'adresse de l'API (écran /serveur). */
   apiUrl: string | null;
-  theme: ThemePreference;
-  /** Affiche les dictées d'exemple (démo sans micro). */
-  demoMode: boolean;
-  /** Mode réunion : vue relève en grand, sans navigation. */
-  meetingMode: boolean;
+  patientSort: PatientSort;
+  summarySort: SummarySort;
   hydrated: boolean;
-  signIn(unitId: string, nurseId: string): void;
+  signIn(result: LoginResult): void;
   signOut(): void;
   setApiUrl(url: string | null): void;
-  setTheme(theme: ThemePreference): void;
-  setDemoMode(on: boolean): void;
-  setMeetingMode(on: boolean): void;
+  setPatientSort(sort: PatientSort): void;
+  setSummarySort(sort: SummarySort): void;
 }
+
+type Persisted = Pick<SessionState, 'nurse' | 'unit' | 'apiUrl' | 'patientSort' | 'summarySort'>;
 
 /** Préférences de l'appareil (persistées localement, aucune donnée patient). */
 export const useSession = create<SessionState>()(
   persist(
     (set) => ({
-      unitId: null,
-      nurseId: null,
+      nurse: null,
+      unit: null,
       apiUrl: null,
-      theme: 'system',
-      demoMode: true,
-      meetingMode: false,
+      patientSort: 'chambre',
+      summarySort: 'prio',
       hydrated: false,
-      signIn: (unitId, nurseId) => set({ unitId, nurseId }),
-      signOut: () => set({ unitId: null, nurseId: null }),
+      signIn: ({ nurse, unit }) =>
+        set({
+          nurse: {
+            id: nurse.id,
+            matricule: nurse.matricule,
+            firstName: nurse.firstName,
+            lastName: nurse.lastName,
+            role: nurse.role,
+          },
+          unit: { id: unit.id, name: unit.name, timeZone: unit.timeZone },
+        }),
+      // Les tris restent (préférence de l'appareil, comme dans le prototype).
+      signOut: () => set({ nurse: null, unit: null }),
       setApiUrl: (apiUrl) => set({ apiUrl }),
-      setTheme: (theme) => set({ theme }),
-      setDemoMode: (demoMode) => set({ demoMode }),
-      setMeetingMode: (meetingMode) => set({ meetingMode }),
+      setPatientSort: (patientSort) => set({ patientSort }),
+      setSummarySort: (summarySort) => set({ summarySort }),
     }),
     {
       name: 'infirmier-augmente/session',
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: ({ unitId, nurseId, apiUrl, theme, demoMode }) => ({
-        unitId,
-        nurseId,
+      partialize: ({ nurse, unit, apiUrl, patientSort, summarySort }): Persisted => ({
+        nurse,
+        unit,
         apiUrl,
-        theme,
-        demoMode,
+        patientSort,
+        summarySort,
       }),
+      // v1 (choix du soignant sans mot de passe) : on garde l'adresse de l'API, on redemande la connexion.
+      migrate: (old) => {
+        const apiUrl =
+          old && typeof old === 'object' && 'apiUrl' in old && typeof old.apiUrl === 'string'
+            ? old.apiUrl
+            : null;
+        return { nurse: null, unit: null, apiUrl, patientSort: 'chambre', summarySort: 'prio' };
+      },
       onRehydrateStorage: () => () => {
         useSession.setState({ hydrated: true });
       },
@@ -58,9 +90,12 @@ export const useSession = create<SessionState>()(
   ),
 );
 
-/** Session obligatoire (écrans après connexion). */
-export function useRequiredSession(): { unitId: string; nurseId: string } {
-  const unitId = useSession((s) => s.unitId);
-  const nurseId = useSession((s) => s.nurseId);
-  return { unitId: unitId ?? '', nurseId: nurseId ?? '' };
+const NO_NURSE: SessionNurse = { id: '', matricule: '', firstName: '', lastName: '', role: 'IDE' };
+const NO_UNIT: SessionUnit = { id: '', name: '', timeZone: 'Europe/Paris' };
+
+/** Session obligatoire (écrans derrière la connexion, protégés par le layout `(app)`). */
+export function useRequiredSession(): { nurse: SessionNurse; unit: SessionUnit } {
+  const nurse = useSession((s) => s.nurse);
+  const unit = useSession((s) => s.unit);
+  return { nurse: nurse ?? NO_NURSE, unit: unit ?? NO_UNIT };
 }

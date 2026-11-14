@@ -38,40 +38,32 @@ function getCtor(): RecognitionCtor | null {
 
 export const webSpeechSupported = (): boolean => getCtor() !== null;
 
-const ERRORS: Record<string, string> = {
-  'not-allowed': 'Micro refusé : autorise-le dans le navigateur.',
-  'no-speech': 'Rien entendu. Réessaie un peu plus près du micro.',
-  network: 'Reconnaissance vocale indisponible (réseau).',
-  'audio-capture': 'Aucun micro détecté.',
-};
+export interface WebSpeechHandlers {
+  /** Un morceau de phrase reconnu définitivement (à ajouter à la fin du texte). */
+  onFinal(text: string): void;
+  onError(kind: 'not-allowed' | 'other'): void;
+}
 
 /**
- * Reconnaissance vocale du navigateur : le texte s'affiche PENDANT la dictée
- * ("dicter et voir en direct ce qui est écrit").
+ * Reconnaissance vocale du navigateur : la transcription partielle s'affiche pendant la
+ * dictée, chaque phrase reconnue est transmise à `onFinal`.
  */
 export function useWebSpeech(lang = 'fr-FR') {
   const recRef = useRef<Recognition | null>(null);
-  const finalRef = useRef('');
   const [listening, setListening] = useState(false);
-  const [finalText, setFinalText] = useState('');
   const [interim, setInterim] = useState('');
-  const [error, setError] = useState<string | null>(null);
 
   const stop = useCallback(() => {
     recRef.current?.stop();
   }, []);
 
   const start = useCallback(
-    (initial = '') => {
+    (handlers: WebSpeechHandlers) => {
       const Ctor = getCtor();
       if (!Ctor) {
-        setError('Reconnaissance vocale non disponible dans ce navigateur.');
+        handlers.onError('other');
         return;
       }
-      finalRef.current = initial ? `${initial.trim()} ` : '';
-      setFinalText(finalRef.current);
-      setInterim('');
-      setError(null);
       const rec = new Ctor();
       rec.lang = lang;
       rec.continuous = true;
@@ -81,33 +73,35 @@ export function useWebSpeech(lang = 'fr-FR') {
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const r = e.results[i];
           const text = r?.[0]?.transcript ?? '';
-          if (r?.isFinal) finalRef.current += `${text.trim()} `;
-          else pending += text;
+          if (r?.isFinal) {
+            if (text.trim()) handlers.onFinal(text.trim());
+          } else pending += text;
         }
-        setFinalText(finalRef.current);
         setInterim(pending);
       };
-      rec.onerror = (e) => setError(ERRORS[e.error] ?? `Erreur de reconnaissance (${e.error}).`);
+      rec.onerror = (e) => {
+        if (e.error === 'aborted' || e.error === 'no-speech') return;
+        handlers.onError(
+          e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'not-allowed' : 'other',
+        );
+      };
       rec.onend = () => {
         setListening(false);
         setInterim('');
+        recRef.current = null;
       };
       recRef.current = rec;
-      rec.start();
-      setListening(true);
+      try {
+        rec.start();
+        setListening(true);
+      } catch {
+        handlers.onError('other');
+      }
     },
     [lang],
   );
 
   useEffect(() => () => recRef.current?.abort(), []);
 
-  return {
-    listening,
-    text: `${finalText}${interim}`.trim(),
-    finalText: finalText.trim(),
-    interim,
-    error,
-    start,
-    stop,
-  };
+  return { listening, interim, start, stop };
 }

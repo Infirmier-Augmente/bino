@@ -1,8 +1,8 @@
 import { Redirect } from 'expo-router';
 import { useSession } from '@/features/session/store';
 
-/** Point d'entrée : sans soignant choisi → écran de prise de poste. */
+/** Point d'entrée : déjà connecté → Patients ; sinon → Connexion. */
 export default function Index() {
-  const nurseId = useSession((s) => s.nurseId);
-  return <Redirect href={nurseId ? '/patients' : '/bienvenue'} />;
+  const nurse = useSession((s) => s.nurse);
+  return <Redirect href={nurse ? '/patients' : '/connexion'} />;
 }

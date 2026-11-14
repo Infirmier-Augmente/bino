@@ -1,54 +1,52 @@
-import type { PriorityLevel } from '@infirmier/domain';
-import { PRIORITY_LABELS } from '@infirmier/domain';
-import { ChevronRight, Star } from 'lucide-react-native';
-import type { ReactNode } from 'react';
-import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
-import { Text } from './primitives';
-import { useTheme } from './ThemeProvider';
-import { MIN_TOUCH, radius, space, type } from './theme';
+import { Check, ChevronDown } from 'lucide-react-native';
+import { type ComponentRef, type Ref, useRef, useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  Text as RNText,
+  StyleSheet,
+  TextInput,
+  type TextInputProps,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { pressedA11y } from './a11y';
+import { Button } from './primitives';
+import { colors, MIN_TOUCH, radius, space, type } from './theme';
 
-/** Sélecteur segmenté (2 à 4 options courtes). */
+interface Option<T extends string> {
+  value: T;
+  label: string;
+}
+
+/** Contrôle segmenté bordé magenta (« Mes CR » | « Tous »). */
 export function Segmented<T extends string>({
   value,
   options,
   onChange,
-  accessibilityLabel,
+  label,
+  testIDPrefix,
 }: {
   value: T;
-  options: readonly { value: T; label: string }[];
+  options: readonly Option<T>[];
   onChange: (v: T) => void;
-  accessibilityLabel: string;
+  label: string;
+  testIDPrefix?: string;
 }) {
-  const { colors } = useTheme();
   return (
-    <View
-      accessibilityRole="tablist"
-      accessibilityLabel={accessibilityLabel}
-      style={[styles.segmented, { backgroundColor: colors.surfaceMuted }]}
-    >
+    <View style={styles.seg} role="group" accessibilityLabel={label}>
       {options.map((o) => {
-        const selected = o.value === value;
+        const on = o.value === value;
         return (
           <Pressable
             key={o.value}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
+            accessibilityRole="button"
+            {...pressedA11y(on)}
             onPress={() => onChange(o.value)}
-            style={[
-              styles.segment,
-              selected && { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
+            testID={testIDPrefix ? `${testIDPrefix}-${o.value}` : undefined}
+            style={[styles.segItem, on && { backgroundColor: colors.magenta }]}
           >
-            <RNText
-              numberOfLines={1}
-              style={[
-                type.label,
-                {
-                  color: selected ? colors.ink : colors.inkMuted,
-                  fontFamily: selected ? type.bodyStrong.fontFamily : type.label.fontFamily,
-                },
-              ]}
-            >
+            <RNText style={[type.button, { color: on ? colors.white : colors.magentaPress }]}>
               {o.label}
             </RNText>
           </Pressable>
@@ -59,160 +57,219 @@ export function Segmented<T extends string>({
 }
 
 /**
- * Badge de triage : couleur + LIBELLÉ (jamais la couleur seule, daltonisme),
- * pastille carrée pour se distinguer des badges d'état.
+ * Menu « Trier : X ▾ » : un popover sous le bouton, une option par ligne, coche sur l'option
+ * courante. Rendu dans une Modal transparente : toucher à côté le ferme (Échap aussi sur le web).
  */
-export function PriorityBadge({
-  level,
-  origin,
-  compact,
+export function SortMenu<T extends string>({
+  value,
+  options,
+  onChange,
+  align = 'right',
+  testID,
 }: {
-  level: PriorityLevel;
-  origin?: 'manuelle' | 'suggeree';
-  compact?: boolean;
+  value: T;
+  options: readonly Option<T>[];
+  onChange: (v: T) => void;
+  /** Bord du bouton sur lequel s'aligne le menu. */
+  align?: 'left' | 'right';
+  testID?: string;
 }) {
-  const { colors } = useTheme();
-  const t = colors.triage[level];
+  const anchor = useRef<ComponentRef<typeof View>>(null);
+  const window = useWindowDimensions();
+  const [pos, setPos] = useState<{ top: number; left: number; right: number } | null>(null);
+  const current = options.find((o) => o.value === value)?.label ?? '';
+
+  const open = () => {
+    anchor.current?.measureInWindow((x, y, w, h) => {
+      setPos({ top: y + h + 6, left: x, right: window.width - (x + w) });
+    });
+  };
+  const close = () => setPos(null);
+
   return (
-    <View
-      style={[styles.priority, { backgroundColor: t.bg }]}
-      accessibilityLabel={`Priorité ${PRIORITY_LABELS[level]}${origin === 'manuelle' ? ', choisie par l’IDE' : ', suggérée'}`}
-    >
-      <View style={[styles.swatch, { backgroundColor: t.swatch }]} />
-      {!compact ? (
-        <RNText style={[type.label, { color: t.fg, fontFamily: type.bodyStrong.fontFamily }]}>
-          {PRIORITY_LABELS[level]}
-        </RNText>
-      ) : null}
+    <View ref={anchor} collapsable={false}>
+      <Button
+        label={`Trier : ${current}`}
+        kind="secondary"
+        size="sm"
+        onPress={open}
+        accessibilityState={{ expanded: pos !== null }}
+        testID={testID}
+        trailing={
+          <ChevronDown
+            size={16}
+            color={colors.navy}
+            strokeWidth={2}
+            style={pos ? styles.flipped : undefined}
+          />
+        }
+      />
+      <Modal transparent visible={pos !== null} animationType="none" onRequestClose={close}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Fermer" />
+        {pos ? (
+          <View
+            style={[
+              styles.pop,
+              { top: pos.top },
+              align === 'right' ? { right: pos.right } : { left: pos.left },
+            ]}
+            accessibilityRole="menu"
+          >
+            {options.map((o) => (
+              <Pressable
+                key={o.value}
+                accessibilityRole="button"
+                {...pressedA11y(o.value === value)}
+                onPress={() => {
+                  onChange(o.value);
+                  close();
+                }}
+                style={({ pressed }) => [
+                  styles.option,
+                  pressed && { backgroundColor: colors.pressed },
+                ]}
+              >
+                <RNText style={[type.bodyStrong, { color: colors.navy }]}>{o.label}</RNText>
+                {o.value === value ? <Check size={18} color={colors.navy} strokeWidth={2} /> : null}
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </Modal>
     </View>
   );
 }
 
-export function StarToggle({
-  starred,
-  onToggle,
-  size = 24,
-}: {
-  starred: boolean;
-  onToggle?: () => void;
-  size?: number;
-}) {
-  const { colors } = useTheme();
-  const icon = (
-    <Star
-      size={size}
-      color={starred ? colors.question : colors.inkSubtle}
-      fill={starred ? colors.question : 'transparent'}
-      strokeWidth={2}
-    />
-  );
-  if (!onToggle) return starred ? icon : null;
+/** Champ de saisie avec libellé (contour bleu clair au focus). */
+export function Field({
+  label,
+  style,
+  ref,
+  ...rest
+}: TextInputProps & { label: string; ref?: Ref<ComponentRef<typeof TextInput>> }) {
+  const [focused, setFocused] = useState(false);
   return (
-    <Pressable
-      accessibilityRole="switch"
-      accessibilityState={{ checked: starred }}
-      accessibilityLabel={
-        starred ? 'Retirer l’étoile' : 'Mettre une étoile (remonter en tête de relève)'
-      }
-      onPress={onToggle}
-      hitSlop={8}
-      style={styles.star}
-    >
-      {icon}
-    </Pressable>
+    <View style={styles.field}>
+      <RNText style={[type.label, { color: colors.sec }]}>{label}</RNText>
+      <TextInput
+        ref={ref}
+        accessibilityLabel={label}
+        placeholderTextColor={colors.sec}
+        {...rest}
+        onFocus={(e) => {
+          setFocused(true);
+          rest.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          rest.onBlur?.(e);
+        }}
+        style={[type.field, styles.input, focused && styles.focused, style]}
+      />
+    </View>
   );
 }
 
-/** Ligne de liste cliquable (navigation). */
-export function ListRow({
-  onPress,
-  leading,
-  children,
-  trailing,
-  testID,
-  accessibilityLabel,
-  selected,
-  chevron = true,
+/** Choix entre deux valeurs (oxygène, conscience) : remplace la liste déroulante du web. */
+export function ChoiceField<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  testIDPrefix,
 }: {
-  chevron?: boolean;
-  onPress?: () => void;
-  leading?: ReactNode;
-  children: ReactNode;
-  trailing?: ReactNode;
-  testID?: string;
-  accessibilityLabel?: string;
-  selected?: boolean;
+  label: string;
+  value: T;
+  options: readonly Option<T>[];
+  onChange: (v: T) => void;
+  testIDPrefix?: string;
 }) {
-  const { colors } = useTheme();
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      testID={testID}
-      accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [
-        styles.row,
-        {
-          backgroundColor: selected
-            ? colors.accentSoft
-            : pressed
-              ? colors.surfacePressed
-              : 'transparent',
-        },
-      ]}
-    >
-      {leading}
-      <View style={styles.rowBody}>{children}</View>
-      {trailing}
-      {onPress && chevron ? <ChevronRight size={20} color={colors.inkSubtle} /> : null}
-    </Pressable>
-  );
-}
-
-/** Numéro de box/chambre en gros chiffres (repère principal en relève). */
-export function RoomNumber({ prefix, room }: { prefix: string; room: string }) {
-  return (
-    <View style={styles.room}>
-      <Text variant="caption" tone="subtle">
-        {prefix}
-      </Text>
-      <Text variant="monoLarge">{room}</Text>
+    <View style={styles.field}>
+      <RNText style={[type.label, { color: colors.sec }]}>{label}</RNText>
+      <View style={styles.choice} accessibilityRole="radiogroup" accessibilityLabel={label}>
+        {options.map((o) => {
+          const on = o.value === value;
+          return (
+            <Pressable
+              key={o.value}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: on }}
+              onPress={() => onChange(o.value)}
+              testID={testIDPrefix ? `${testIDPrefix}-${o.value}` : undefined}
+              style={[styles.choiceItem, on && styles.choiceOn]}
+            >
+              <RNText style={[type.buttonSm, { color: on ? colors.white : colors.navy }]}>
+                {o.label}
+              </RNText>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  segmented: { flexDirection: 'row', borderRadius: radius.md, padding: 3, gap: 3 },
-  segment: {
+  seg: {
+    flexDirection: 'row',
+    borderWidth: 1.5,
+    borderColor: colors.magenta,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.white,
+    marginVertical: space[3],
+  },
+  segItem: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
+  flipped: { transform: [{ rotate: '180deg' }] },
+  pop: {
+    position: 'absolute',
+    minWidth: 200,
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    padding: 6,
+    boxShadow: '0 10px 30px rgba(0,34,68,0.18)',
+  },
+  option: {
+    minHeight: 48,
+    padding: 10,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[3],
+  },
+  field: { gap: 6, flex: 1 },
+  input: {
+    minHeight: MIN_TOUCH,
+    borderWidth: 1,
+    borderColor: colors.fieldBorder,
+    borderRadius: 10,
+    paddingVertical: space[2],
+    paddingHorizontal: 10,
+    color: colors.navy,
+    backgroundColor: colors.white,
+  },
+  focused: {
+    outlineWidth: 3,
+    outlineStyle: 'solid',
+    outlineColor: colors.focus,
+    outlineOffset: 1,
+  },
+  choice: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: colors.fieldBorder,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  choiceItem: {
     flex: 1,
-    minHeight: 40,
+    minHeight: MIN_TOUCH,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.sm,
-    paddingHorizontal: space.sm,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    paddingHorizontal: space[2],
+    backgroundColor: colors.white,
   },
-  priority: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.xs + 2,
-    paddingHorizontal: space.sm,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    alignSelf: 'flex-start',
-  },
-  swatch: { width: 10, height: 10, borderRadius: 2 },
-  star: { width: MIN_TOUCH, height: MIN_TOUCH, alignItems: 'center', justifyContent: 'center' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    minHeight: MIN_TOUCH + 16,
-    paddingVertical: space.md,
-    paddingHorizontal: space.lg,
-  },
-  rowBody: { flex: 1, gap: 2 },
-  room: { width: 52, alignItems: 'center' },
+  choiceOn: { backgroundColor: colors.navy },
 });
