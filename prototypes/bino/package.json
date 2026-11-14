@@ -1,0 +1,15 @@
+{
+  "name": "bino",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Bino, le binôme des infirmiers : transmissions DAR dictées, relève, NEWS2 et import DPI (FHIR). Démo hackathon IA santé, données fictives.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve -l 8080 .",
+    "test": "node --test tests/*.test.mjs",
+    "mock-fhir": "node scripts/generate-mock-fhir.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

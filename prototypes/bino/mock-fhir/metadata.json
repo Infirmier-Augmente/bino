@@ -1,0 +1,10 @@
+{
+  "resourceType": "CapabilityStatement",
+  "status": "active",
+  "kind": "instance",
+  "fhirVersion": "4.0.1",
+  "software": {
+    "name": "Bino — DPI simulé (données fictives)"
+  },
+  "format": ["json"]
+}
