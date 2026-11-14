@@ -1,4 +1,4 @@
-/** Moteur qui transforme la voix en texte sur l'écran Dictée. */
+/** Moteur qui transforme la voix en texte dans la fiche « Nouveau compte rendu ». */
 export type DictationEngine = 'server' | 'web-speech' | 'keyboard';
 
 export interface DictationEngineInputs {

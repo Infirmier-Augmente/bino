@@ -5,6 +5,7 @@ import { api, errorMessage } from '@/features/api/client';
 import { useScenarios, useSimulationActions, useSimulationStatus } from '@/features/api/hooks';
 import { useSession } from '@/features/session/store';
 import { clock } from '@/lib/format';
+import { isSessionStillValid } from '@/lib/session';
 import { Button, Text } from '@/ui/primitives';
 import { Card } from '@/ui/surfaces';
 import { space } from '@/ui/theme';
@@ -24,6 +25,7 @@ export default function SimulateurScreen() {
   const toast = useToast();
   const qc = useQueryClient();
   const nurse = useSession((s) => s.nurse);
+  const unit = useSession((s) => s.unit);
   const signOut = useSession((s) => s.signOut);
   const busy = sim.load.isPending || sim.step.isPending;
   const st = status.data;
@@ -33,9 +35,10 @@ export default function SimulateurScreen() {
       { scenarioId, until },
       {
         onSuccess: async () => {
-          // Le scénario remplace tout l'hôpital : si le soignant connecté n'existe plus, on le déconnecte.
+          // Le scénario remplace tout l'hôpital : si le soignant connecté n'existe plus dans son
+          // service, on le déconnecte.
           const info = await api.session();
-          if (nurse && !info.nurses.some((n) => n.id === nurse.id)) {
+          if (nurse && unit && !isSessionStillValid({ nurseId: nurse.id, unitId: unit.id }, info)) {
             signOut();
             qc.clear();
           }
