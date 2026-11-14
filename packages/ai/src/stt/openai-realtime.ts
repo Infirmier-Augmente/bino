@@ -1,86 +1,36 @@
-import { z } from 'zod';
 import type { LiveSttOptions, LiveSttPort, LiveSttSession } from './live-port';
+import {
+  nativeRealtimeSocket,
+  parseRealtimeEvent,
+  type RealtimeSocket,
+  type RealtimeSocketFactory,
+  realtimeTranscriptionUrl,
+} from './openai-realtime-events';
+
+export {
+  nativeRealtimeSocket,
+  type RealtimeSocket,
+  type RealtimeSocketFactory,
+  type RealtimeSocketHandlers,
+  realtimeTranscriptionUrl,
+} from './openai-realtime-events';
 
 /**
  * TRANSCRIPTION EN DIRECT via l'API Realtime d'OpenAI (session de type « transcription »).
  * Le son est relayé par NOTRE serveur : la clé ne quitte jamais l'API.
- * Mesures et choix : `gpt-live-transcribe` streame le texte pendant l'envoi (sans VAD serveur,
- * `turn_detection: null` obligatoire) ; `input_audio_buffer.commit` à la fin pour le dernier mot.
+ * Mesuré (nov. 2026) : `gpt-live-transcribe` streame le texte pendant l'envoi (sans VAD serveur,
+ * `turn_detection: null` obligatoire). Chaque `input_audio_buffer.commit` clôt un élément
+ * (`input_audio_buffer.committed`, dans l'ordre) ; les deltas portent l'`item_id` de l'élément,
+ * déjà connu avant son commit. Segment n = n-ième commit.
  */
 
-const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const SAMPLE_RATE = 24_000;
-/** En dessous, OpenAI refuse le commit (« buffer too small ») : on ne le demande pas. */
+/** En dessous, OpenAI refuse le commit (« buffer too small ») : on complète par du silence. */
 const MIN_COMMIT_BYTES = (SAMPLE_RATE * 2) / 10;
 /** Taille max d'un `input_audio_buffer.append` (la limite OpenAI est de 15 Mio en base64). */
 const MAX_APPEND_BYTES = 512 * 1024;
 const DEFAULT_FINISH_TIMEOUT_MS = 5_000;
-
-// ─── Socket injectable (WebSocket natif de Node par défaut, faux en test) ──────────────────
-
-export interface RealtimeSocketHandlers {
-  onOpen(): void;
-  onMessage(data: string): void;
-  onError(error: Error): void;
-  onClose(code: number, reason: string): void;
-}
-
-export interface RealtimeSocket {
-  send(data: string): void;
-  close(): void;
-}
-
-/** Les rappels ne doivent pas être appelés pendant la construction (toujours plus tard). */
-export type RealtimeSocketFactory = (
-  url: string,
-  headers: Record<string, string>,
-  handlers: RealtimeSocketHandlers,
-) => RealtimeSocket;
-
-export const nativeRealtimeSocket: RealtimeSocketFactory = (url, headers, handlers) => {
-  // Node ≥ 22 : le WebSocket natif (undici) accepte des en-têtes, contrairement au navigateur.
-  const ws = new WebSocket(url, { headers });
-  ws.onopen = () => handlers.onOpen();
-  ws.onmessage = (ev) => {
-    if (typeof ev.data === 'string') handlers.onMessage(ev.data);
-  };
-  ws.onerror = (ev) => {
-    const message = 'message' in ev && typeof ev.message === 'string' ? ev.message : '';
-    handlers.onError(new Error(`WebSocket fournisseur : ${message || 'connexion impossible'}`));
-  };
-  ws.onclose = (ev) => handlers.onClose(ev.code, ev.reason);
-  return {
-    send: (data) => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(data);
-    },
-    close: () => {
-      if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN) ws.close();
-    },
-  };
-};
-
-// ─── Évènements du fournisseur (frontière : validés avec zod) ──────────────────────────────
-
-const ProviderEvent = z.object({ type: z.string() });
-const DeltaEvent = z.object({ delta: z.string() });
-const CompletedEvent = z.object({ transcript: z.string() });
-const ErrorEvent = z.object({
-  error: z.object({ message: z.string().optional(), code: z.string().nullish() }).nullish(),
-});
-
-const EVENT = {
-  delta: 'conversation.item.input_audio_transcription.delta',
-  completed: 'conversation.item.input_audio_transcription.completed',
-  failed: 'conversation.item.input_audio_transcription.failed',
-  error: 'error',
-} as const;
-
-function providerError(raw: unknown, fallback: string): Error {
-  const parsed = ErrorEvent.safeParse(raw);
-  const e = parsed.success ? parsed.data.error : null;
-  const detail = [e?.code, e?.message].filter(Boolean).join(' : ');
-  return new Error(detail ? `${fallback} (${detail})` : fallback);
-}
+const CUT = 'cut';
 
 function toBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64');
@@ -94,12 +44,6 @@ function concat(chunks: readonly Uint8Array[], total: number): Uint8Array {
     offset += c.byteLength;
   }
   return out;
-}
-
-/** URL WebSocket Realtime (transcription) à partir de l'URL HTTP de l'API (`STT_BASE_URL`). */
-export function realtimeTranscriptionUrl(baseUrl: string | null): string {
-  const base = (baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '').replace(/^http/, 'ws');
-  return `${base}/realtime?intent=transcription`;
 }
 
 export interface OpenAiRealtimeConfig {
@@ -123,12 +67,8 @@ export class OpenAiRealtimeLiveStt implements LiveSttPort {
   }
 
   open(options: LiveSttOptions): LiveSttSession {
-    return new RealtimeSession(
-      this.cfg,
-      options,
-      this.socketFactory,
-      Math.max(2, Math.round((SAMPLE_RATE * 2 * this.batchMs) / 1000)),
-    );
+    const batchBytes = Math.max(2, Math.round((SAMPLE_RATE * 2 * this.batchMs) / 1000));
+    return new RealtimeSession(this.cfg, options, this.socketFactory, batchBytes);
   }
 }
 
@@ -137,12 +77,19 @@ type State = 'connecting' | 'open' | 'failed' | 'closed';
 class RealtimeSession implements LiveSttSession {
   private state: State = 'connecting';
   private readonly socket: RealtimeSocket;
+  /** Avant l'ouverture : son et coupures, dans l'ordre. */
+  private queued: (Uint8Array | typeof CUT)[] = [];
   private pending: Uint8Array[] = [];
   private pendingBytes = 0;
-  private sentBytes = 0;
+  /** Octets envoyés dans le segment en cours (depuis le dernier commit). */
+  private sentInSegment = 0;
+  private commits = 0;
+  private committedSeen = 0;
+  private readonly segmentOfItem = new Map<string, number>();
+  private readonly completed = new Set<number>();
   private finishing = false;
-  private committed = false;
-  private completed = false;
+  /** Segment dont on attend la fin pour résoudre `finish`. */
+  private lastSegment: number | null = null;
   private waiters: (() => void)[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -165,22 +112,29 @@ class RealtimeSession implements LiveSttSession {
   }
 
   append(pcm16le: Uint8Array): void {
-    if (this.finishing || this.state === 'failed' || this.state === 'closed') return;
-    if (pcm16le.byteLength === 0) return;
+    if (!this.accepting() || pcm16le.byteLength === 0) return;
+    if (this.state === 'connecting') {
+      this.queued.push(pcm16le);
+      return;
+    }
     this.pending.push(pcm16le);
     this.pendingBytes += pcm16le.byteLength;
-    if (this.state === 'open' && this.pendingBytes >= this.batchBytes) this.flush();
+    if (this.pendingBytes >= this.batchBytes) this.flush();
+  }
+
+  cut(): void {
+    if (!this.accepting()) return;
+    if (this.state === 'connecting') this.queued.push(CUT);
+    else this.commit();
   }
 
   finish(timeoutMs = DEFAULT_FINISH_TIMEOUT_MS): Promise<void> {
-    if (this.state === 'failed' || this.state === 'closed' || this.completed) {
-      return Promise.resolve();
-    }
+    if (this.state === 'failed' || this.state === 'closed') return Promise.resolve();
     const done = new Promise<void>((resolve) => this.waiters.push(resolve));
     if (!this.finishing) {
       this.finishing = true;
       this.timer = setTimeout(() => this.settle(), timeoutMs);
-      if (this.state === 'open') this.commit();
+      if (this.state === 'open') this.finalCommit();
     }
     return done;
   }
@@ -189,6 +143,7 @@ class RealtimeSession implements LiveSttSession {
     if (this.state === 'closed') return;
     const wasActive = this.state !== 'failed';
     this.state = 'closed';
+    this.queued = [];
     this.pending = [];
     this.pendingBytes = 0;
     this.settle();
@@ -196,6 +151,10 @@ class RealtimeSession implements LiveSttSession {
   }
 
   // ─── Interne ───────────────────────────────────────────────────────────────────────────
+
+  private accepting(): boolean {
+    return !this.finishing && (this.state === 'connecting' || this.state === 'open');
+  }
 
   private handleOpen(): void {
     if (this.state !== 'connecting') return;
@@ -220,49 +179,60 @@ class RealtimeSession implements LiveSttSession {
         },
       }),
     );
+    const queued = this.queued;
+    this.queued = [];
+    for (const op of queued) {
+      if (op === CUT) this.commit();
+      else {
+        this.pending.push(op);
+        this.pendingBytes += op.byteLength;
+      }
+    }
     this.flush();
     this.options.onReady?.();
-    if (this.finishing && this.state === 'open') this.commit();
+    if (this.finishing && this.state === 'open') this.finalCommit();
   }
 
   private handleMessage(data: string): void {
     if (this.state !== 'open') return;
-    let raw: unknown;
-    try {
-      raw = JSON.parse(data);
-    } catch {
-      this.fail(new Error('Message illisible du fournisseur de transcription en direct.'));
-      return;
-    }
-    const event = ProviderEvent.safeParse(raw);
-    if (!event.success) return;
-    switch (event.data.type) {
-      case EVENT.delta: {
-        const delta = DeltaEvent.safeParse(raw);
-        if (delta.success && delta.data.delta) this.options.onDelta(delta.data.delta);
+    const event = parseRealtimeEvent(data);
+    switch (event.kind) {
+      case 'delta':
+        this.options.onDelta(event.text, this.segmentOf(event.itemId));
+        return;
+      case 'committed':
+        this.segmentOf(event.itemId);
+        this.committedSeen += 1;
+        return;
+      case 'completed': {
+        const segment = this.segmentOf(event.itemId);
+        this.completed.add(segment);
+        if (this.lastSegment !== null && this.completed.has(this.lastSegment)) this.settle();
         return;
       }
-      case EVENT.completed: {
-        if (CompletedEvent.safeParse(raw).success && this.committed) {
-          this.completed = true;
-          this.settle();
-        }
+      case 'failure':
+        this.fail(event.error);
         return;
-      }
-      case EVENT.failed:
-        this.fail(providerError(raw, 'Transcription en direct échouée'));
+      case 'ignored':
         return;
-      case EVENT.error:
-        this.fail(providerError(raw, 'Erreur du fournisseur de transcription en direct'));
-        return;
-      default:
-        return; // session.created, session.updated, input_audio_buffer.committed…
     }
+  }
+
+  /**
+   * Segment d'un élément du fournisseur. Un élément encore inconnu est forcément le premier
+   * pas encore confirmé par `committed` (les éléments sont clos dans l'ordre des commits).
+   */
+  private segmentOf(itemId: string | null): number {
+    if (itemId === null) return this.committedSeen;
+    const known = this.segmentOfItem.get(itemId);
+    if (known !== undefined) return known;
+    this.segmentOfItem.set(itemId, this.committedSeen);
+    return this.committedSeen;
   }
 
   private handleClose(code: number, reason: string): void {
     if (this.state === 'failed' || this.state === 'closed') return;
-    if (this.completed) {
+    if (this.lastSegment !== null && this.completed.has(this.lastSegment)) {
       this.state = 'closed';
       return;
     }
@@ -275,30 +245,42 @@ class RealtimeSession implements LiveSttSession {
     const all = concat(this.pending, this.pendingBytes);
     const even = all.byteLength - (all.byteLength % 2);
     for (let offset = 0; offset < even; offset += MAX_APPEND_BYTES) {
-      const part = all.subarray(offset, Math.min(even, offset + MAX_APPEND_BYTES));
-      this.socket.send(
-        JSON.stringify({ type: 'input_audio_buffer.append', audio: toBase64(part) }),
-      );
+      this.sendAudio(all.subarray(offset, Math.min(even, offset + MAX_APPEND_BYTES)));
     }
-    this.sentBytes += even;
     const rest = all.subarray(even);
     this.pending = rest.byteLength > 0 ? [rest] : [];
     this.pendingBytes = rest.byteLength;
   }
 
+  private sendAudio(bytes: Uint8Array): void {
+    this.socket.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: toBase64(bytes) }));
+    this.sentInSegment += bytes.byteLength;
+  }
+
+  /** Clôt le segment en cours (complété par du silence s'il est trop court pour le fournisseur). */
   private commit(): void {
     this.flush();
-    if (this.sentBytes < MIN_COMMIT_BYTES) {
-      this.settle();
-      return;
+    if (this.state !== 'open') return;
+    if (this.sentInSegment < MIN_COMMIT_BYTES) {
+      this.sendAudio(new Uint8Array(MIN_COMMIT_BYTES - this.sentInSegment));
     }
-    this.committed = true;
     this.socket.send(JSON.stringify({ type: 'input_audio_buffer.commit' }));
+    this.commits += 1;
+    this.sentInSegment = 0;
+  }
+
+  /** Dernier segment : clos s'il a du son, puis on attend son texte. */
+  private finalCommit(): void {
+    this.flush();
+    if (this.sentInSegment > 0) this.commit();
+    this.lastSegment = this.commits - 1;
+    if (this.lastSegment < 0 || this.completed.has(this.lastSegment)) this.settle();
   }
 
   private fail(error: Error): void {
     if (this.state === 'failed' || this.state === 'closed') return;
     this.state = 'failed';
+    this.queued = [];
     this.pending = [];
     this.pendingBytes = 0;
     this.settle();

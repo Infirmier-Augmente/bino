@@ -4,7 +4,7 @@ Serveur Hono (Node) : composition des services métier, store JSON, pipeline IA,
 
 - `src/http/` : contrat appliqué (`contract-adapter.ts`), handlers (`routes.ts`), upload audio,
   dictée en direct (`live-transcription.ts`, WebSocket hors contrat ; logique dans
-  `src/services/live-dictation.ts`).
+  `src/services/live-dictation.ts`, finalisation des segments dans `segment-finalizer.ts`).
 - `src/server.ts` : serveur Node avec WebSocket (`ws`), utilisé par `main.ts` et les tests de la dictée en direct.
 - `src/services/` : cas d'usage (`hospital-service.ts`), simulateur, horloge.
 - `src/store/` : état de l'hôpital (JSON validé zod).

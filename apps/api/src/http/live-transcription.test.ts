@@ -3,6 +3,7 @@ import type { AiOverrides } from '@infirmier/ai';
 import { LIVE_TRANSCRIPTION_PATH, LiveServerMessage } from '@infirmier/domain';
 import { afterEach, describe, expect, it } from 'vitest';
 import { startServer } from '../server';
+import { bytesOf, frames, pcm, quiet, voice } from '../testing/fake-audio';
 import { FakeLiveStt, fakeFileStt } from '../testing/fake-live';
 import { createTestApp } from '../testing/test-app';
 
@@ -69,8 +70,13 @@ async function connect(url: string): Promise<Client> {
   return { ws, messages, closed, waitFor };
 }
 
-/** 100 ms de son PCM16 24 kHz mono. */
-const frame = (fill = 1) => new Uint8Array(4800).fill(fill);
+const STOP = JSON.stringify({ type: 'stop' });
+/**
+ * Deux phrases séparées d'une pause d'1 s : segment 0 = 4,2 s (au-delà du minimum de 3 s, coupé
+ * 0,7 s après le début de la pause), segment 1 = 2,3 s (le dernier peut être plus court).
+ */
+const FIRST = pcm(voice(3500), quiet(1000));
+const SECOND = pcm(voice(2000));
 
 async function until(cond: () => boolean): Promise<void> {
   const t0 = Date.now();
@@ -80,39 +86,49 @@ async function until(cond: () => boolean): Promise<void> {
   }
 }
 
+const send = (client: Client, audio: Uint8Array) => {
+  for (const f of frames(audio)) client.ws.send(f);
+};
+
 describe('GET /transcriptions/live (WebSocket)', () => {
-  it('relaie le texte provisoire, puis remplace par la transcription de tout le son', async () => {
+  it('provisoire par segment, segment définitif PENDANT la dictée, puis final', async () => {
     const live = new FakeLiveStt();
     const stt = fakeFileStt();
     const client = await connect(await serveApp({ liveStt: live, stt }));
     // Le son part tout de suite, sans attendre « ready » (il est gardé côté serveur).
-    for (let i = 0; i < 3; i++) client.ws.send(frame(i + 1));
+    send(client, FIRST);
     expect(await client.waitFor('ready')).toEqual({ type: 'ready', engine: 'fake-live' });
-    await until(() => client.messages.filter((m) => m.type === 'delta').length === 3);
-    expect(client.messages.filter((m) => m.type === 'delta').map((m) => m.text)).toEqual([
-      ' mot1',
-      ' mot2',
-      ' mot3',
-    ]);
-
-    client.ws.send(JSON.stringify({ type: 'stop' }));
+    expect(await client.waitFor('segment')).toEqual({
+      type: 'segment',
+      segment: 0,
+      text: `[${bytesOf(4200)} octets]`,
+      engine: 'fake-stt',
+    });
+    send(client, SECOND);
+    await until(() => client.messages.filter((m) => m.type === 'delta').length === 65);
+    client.ws.send(STOP);
     expect(await client.waitFor('final')).toEqual({
       type: 'final',
-      text: 'Texte final (14400 octets de son)',
-      durationSec: 0.3,
+      text: `[${bytesOf(4200)} octets] [${bytesOf(2300)} octets]`,
+      durationSec: 6.5,
       engine: 'fake-stt',
     });
     expect(await client.closed).toEqual({ code: 1000, reason: 'final' });
 
-    const req = stt.requests[0];
+    const bySegment = (n: number) =>
+      client.messages.filter((m) => m.type === 'delta' && m.segment === n).length;
+    expect([bySegment(0), bySegment(1)]).toEqual([42, 23]);
+    expect(client.messages.filter((m) => m.type === 'segment').map((m) => m.segment)).toEqual([
+      0, 1,
+    ]);
+    const req = stt.requests[1];
     expect(req?.mimeType).toBe('audio/wav');
     expect(req?.language).toBe('fr');
-    expect(req?.prompt).toMatch(/^Transmissions infirmières\. Vocabulaire : /);
-    const wav = req?.audio ?? new Uint8Array();
-    expect(String.fromCharCode(...wav.subarray(0, 4))).toBe('RIFF');
-    expect([wav[44], wav[44 + 4800], wav[44 + 9600]]).toEqual([1, 2, 3]);
-    const session = live.sessions[0];
-    expect(session).toMatchObject({ bytes: 14400, finished: true, closed: true });
+    expect(req?.prompt).toMatch(
+      /^Transmissions infirmières\. Vocabulaire : .*\n\n\[201600 octets\]$/s,
+    );
+    expect(String.fromCharCode(...(req?.audio ?? new Uint8Array()).subarray(0, 4))).toBe('RIFF');
+    expect(live.sessions[0]).toMatchObject({ cuts: 1, finished: true, closed: true });
   });
 
   it('sans direct configuré : « error » puis fermeture (l’app repasse par POST /transcriptions)', async () => {
@@ -124,37 +140,46 @@ describe('GET /transcriptions/live (WebSocket)', () => {
     expect(stt.requests).toHaveLength(0);
   });
 
-  it('panne du direct en cours de dictée : le son est gardé, « final » arrive quand même', async () => {
+  it('panne du direct en cours de dictée : les segments sont quand même finalisés', async () => {
     const live = new FakeLiveStt(4800);
     const stt = fakeFileStt();
     const client = await connect(await serveApp({ liveStt: live, stt }));
-    for (let i = 0; i < 4; i++) client.ws.send(frame());
-    client.ws.send(JSON.stringify({ type: 'stop' }));
+    send(client, FIRST);
+    send(client, SECOND);
+    client.ws.send(STOP);
     const final = await client.waitFor('final');
-    expect(final).toMatchObject({ text: 'Texte final (19200 octets de son)', engine: 'fake-stt' });
+    expect(final).toMatchObject({
+      text: `[${bytesOf(4200)} octets] [${bytesOf(2300)} octets]`,
+      engine: 'fake-stt',
+    });
     expect(client.messages.filter((m) => m.type === 'delta')).toHaveLength(1);
     expect(client.messages.some((m) => m.type === 'error')).toBe(false);
     expect(live.sessions[0]?.bytes).toBe(4800);
   });
 
-  it('message texte inconnu ignoré ; échec de la transcription finale → « error »', async () => {
-    const stt = fakeFileStt({ fail: true });
+  it('message texte inconnu ignoré ; transcription en échec → texte provisoire, pas d’erreur', async () => {
+    const stt = fakeFileStt({ fail: () => true });
     const client = await connect(await serveApp({ liveStt: new FakeLiveStt(), stt }));
-    client.ws.send(frame());
+    send(client, pcm(voice(300)));
     client.ws.send('{"type":"pause"}');
     client.ws.send('pas du json');
-    client.ws.send(JSON.stringify({ type: 'stop' }));
-    const error = await client.waitFor('error');
-    expect(error).toMatchObject({ message: expect.stringMatching(/texte provisoire/) });
-    expect((await client.closed).code).toBe(1011);
-    expect(stt.requests).toHaveLength(1);
+    client.ws.send(STOP);
+    expect(await client.waitFor('segment')).toEqual({
+      type: 'segment',
+      segment: 0,
+      text: 'mot1 mot2 mot3',
+      engine: 'fake-live',
+    });
+    expect(await client.waitFor('final')).toMatchObject({ text: 'mot1 mot2 mot3' });
+    expect((await client.closed).code).toBe(1000);
+    expect(stt.requests).toHaveLength(2);
   });
 
   it('l’app se déconnecte avant l’arrêt : tout est libéré, rien n’est transcrit', async () => {
     const live = new FakeLiveStt();
     const stt = fakeFileStt();
     const client = await connect(await serveApp({ liveStt: live, stt }));
-    client.ws.send(frame());
+    send(client, pcm(voice(100)));
     await client.waitFor('delta');
     client.ws.close();
     await until(() => live.sessions[0]?.closed === true);

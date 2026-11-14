@@ -47,24 +47,29 @@ function setup(batchMs = 100) {
     batchMs,
   );
   const deltas: string[] = [];
+  const tagged: [number, string][] = [];
   const errors: Error[] = [];
   const onReady = vi.fn();
   const options: LiveSttOptions = {
     language: 'fr',
     prompt: 'Transmissions infirmières.',
     onReady,
-    onDelta: (t) => deltas.push(t),
+    onDelta: (t, segment) => {
+      deltas.push(t);
+      tagged.push([segment, t]);
+    },
     onError: (e) => errors.push(e),
   };
   const session = port.open(options);
   const socket = sockets[0];
   if (!socket) throw new Error('socket non créé');
-  return { port, session, socket, deltas, errors, onReady };
+  return { port, session, socket, deltas, tagged, errors, onReady };
 }
 
 const bytes = (n: number, fill = 1) => new Uint8Array(n).fill(fill);
 const DELTA = 'conversation.item.input_audio_transcription.delta';
 const COMPLETED = 'conversation.item.input_audio_transcription.completed';
+const COMMITTED = 'input_audio_buffer.committed';
 
 function sentAudio(socket: FakeSocket): number {
   return socket.sent
@@ -162,6 +167,7 @@ describe('OpenAiRealtimeLiveStt', () => {
     ]);
     await Promise.resolve();
     expect(done).toBe(false);
+    socket.emit({ type: COMMITTED, item_id: 'i1', previous_item_id: null });
     socket.emit({ type: COMPLETED, item_id: 'i1', transcript: 'Chambre 12, FR 24.' });
     await finished;
     expect(done).toBe(true);
@@ -179,16 +185,92 @@ describe('OpenAiRealtimeLiveStt', () => {
       'input_audio_buffer.append',
       'input_audio_buffer.commit',
     ]);
-    socket.emit({ type: COMPLETED, transcript: 'ok' });
+    socket.emit({ type: COMMITTED, item_id: 'x' });
+    socket.emit({ type: COMPLETED, item_id: 'x', transcript: 'ok' });
     await finished;
   });
 
-  it('finish sans assez de son : pas de commit (refusé par le fournisseur), résolu tout de suite', async () => {
+  it('finish sans son : pas de commit, résolu tout de suite', async () => {
+    const { session, socket } = setup();
+    socket.handlers.onOpen();
+    await session.finish();
+    expect(socket.sent.some((m) => m.type === 'input_audio_buffer.commit')).toBe(false);
+  });
+
+  it('segment trop court pour le fournisseur : complété par du silence avant le commit', () => {
     const { session, socket } = setup();
     socket.handlers.onOpen();
     session.append(bytes(100));
-    await session.finish();
-    expect(socket.sent.some((m) => m.type === 'input_audio_buffer.commit')).toBe(false);
+    session.cut();
+    expect(socket.sent.slice(1).map((m) => m.type)).toEqual([
+      'input_audio_buffer.append',
+      'input_audio_buffer.append',
+      'input_audio_buffer.commit',
+    ]);
+    expect(sentAudio(socket)).toBe(4800);
+  });
+
+  it('cut : un commit par segment ; deltas rattachés au bon segment, même en retard', () => {
+    const { session, socket, tagged } = setup(0);
+    socket.handlers.onOpen();
+    session.append(bytes(9600));
+    socket.emit({ type: DELTA, item_id: 'a', delta: 'Chambre 12.' });
+    session.cut();
+    session.append(bytes(9600));
+    socket.emit({ type: DELTA, item_id: 'a', delta: ' Monsieur' }); // avant « committed »
+    socket.emit({ type: COMMITTED, item_id: 'a' });
+    socket.emit({ type: DELTA, item_id: 'b', delta: 'FR 24,' });
+    session.cut();
+    socket.emit({ type: DELTA, item_id: 'a', delta: ' Dupont.' }); // en retard
+    socket.emit({ type: COMMITTED, item_id: 'b' });
+    session.append(bytes(9600));
+    socket.emit({ type: DELTA, item_id: 'c', delta: 'pouls 108.' });
+    socket.emit({ type: DELTA, item_id: 'b', delta: ' sat 94.' }); // en retard
+    expect(tagged).toEqual([
+      [0, 'Chambre 12.'],
+      [0, ' Monsieur'],
+      [1, 'FR 24,'],
+      [0, ' Dupont.'],
+      [2, 'pouls 108.'],
+      [1, ' sat 94.'],
+    ]);
+    expect(socket.sent.filter((m) => m.type === 'input_audio_buffer.commit')).toHaveLength(2);
+  });
+
+  it('coupures reçues avant l’ouverture : rejouées dans l’ordre', () => {
+    const { session, socket } = setup(0);
+    session.append(bytes(4800));
+    session.cut();
+    session.append(bytes(6000));
+    socket.handlers.onOpen();
+    const types = socket.sent.map((m) => m.type);
+    expect(types).toEqual([
+      'session.update',
+      'input_audio_buffer.append',
+      'input_audio_buffer.commit',
+      'input_audio_buffer.append',
+    ]);
+    expect(Buffer.from(socket.sent[3]?.audio ?? '', 'base64').byteLength).toBe(6000);
+  });
+
+  it('finish attend le texte du DERNIER segment', async () => {
+    const { session, socket } = setup(0);
+    socket.handlers.onOpen();
+    session.append(bytes(9600));
+    session.cut();
+    session.append(bytes(9600));
+    let done = false;
+    const finished = session.finish().then(() => {
+      done = true;
+    });
+    socket.emit({ type: COMMITTED, item_id: 'a' });
+    socket.emit({ type: COMPLETED, item_id: 'a', transcript: 'un' });
+    await Promise.resolve();
+    expect(done).toBe(false);
+    socket.emit({ type: COMMITTED, item_id: 'b' });
+    socket.emit({ type: COMPLETED, item_id: 'b', transcript: 'deux' });
+    await finished;
+    expect(done).toBe(true);
   });
 
   it('finish se résout au bout du délai si la fin n’arrive jamais', async () => {

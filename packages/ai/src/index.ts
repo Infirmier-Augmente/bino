@@ -22,4 +22,5 @@ export * from './stt/live-port';
 export * from './stt/openai-compatible';
 export * from './stt/openai-realtime';
 export * from './stt/port';
+export * from './stt/segmenter';
 export * from './stt/wav';

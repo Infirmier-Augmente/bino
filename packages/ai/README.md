@@ -4,7 +4,8 @@ Couche IA **indépendante des fournisseurs**, côté serveur uniquement. Voir `d
 
 - `src/llm/` : `LlmPort` + adaptateur AI SDK + registre des fournisseurs.
 - `src/stt/` : `SttPort` (AI SDK, serveur compatible OpenAI, aucun) ; `LiveSttPort` (texte provisoire
-  pendant la dictée : OpenAI Realtime, aucun) ; `pcm16ToWav`.
+  par segment pendant la dictée : OpenAI Realtime, aucun) ; `PcmSegmenter` (découpage aux pauses
+  de la voix, pur) ; `pcm16ToWav`.
 - `src/classifier/` : `ClassifierPort` (Jev, LLM, règles).
 - `src/engine/` : moteurs de structuration (LLM, heuristique) → format brut `{ text, quote }`.
 - `src/pipeline/` : prompts, ancrage (`assemble`), repli (`structure`), patient, gravité.
