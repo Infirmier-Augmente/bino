@@ -35,7 +35,13 @@ export function normalizeSynth(raw, crs) {
       R: groundField(c?.R, crs),
     }))
     .filter((c) => c.D);
-  return { resume: groundField(r.resume, crs), cibles, todo: list(r.todo), soins: list(r.soins) };
+  return {
+    resume: groundField(r.resume, crs),
+    points: list(r.points).slice(0, 6),
+    cibles,
+    todo: list(r.todo),
+    soins: list(r.soins),
+  };
 }
 
 // Identifiants courts pour le prompt (cr1, cr2…), remappés ensuite vers les vrais.
@@ -52,12 +58,13 @@ Produis une synthèse en transmissions ciblées DAR (Données, Actions, Résulta
 - Une cible par problème ; fusionne ce qui concerne le même problème ; garde l'information la plus récente.
 - N'invente rien. Chaque élément cite au moins un extrait EXACT et court d'un compte rendu (champ "src" : [{"cr":"cr2","q":"extrait exact"}]).
 - R (résultat, réévaluation) : null s'il n'est pas dit. Ne le déduis jamais.
+- "points" : 3 à 5 puces courtes qui résument la journée du patient pour la relève (une idée par puce, la plus importante d'abord), chacune sourcée.
 - "resume" : 1 phrase « à retenir » pour l'équipe suivante, sourcée, ou null.
 - "todo" : ce qui reste à faire pour l'équipe suivante, seulement si c'est dit.
 - "soins" : soins de routine faits (pansement, repas…), sans cible.
 - Style transmission infirmière : phrases courtes, abréviations usuelles (FR, SpO2, TA, FC, T), unités.
 Réponds uniquement avec ce JSON :
-{"resume":{"t":"…","src":[]}|null,"cibles":[{"c":"…","D":{"t":"…","src":[]},"A":{"t":"…","src":[]}|null,"R":{"t":"…","src":[]}|null}],"todo":[{"t":"…","src":[]}],"soins":[{"t":"…","src":[]}]}`;
+{"points":[{"t":"…","src":[]}],"resume":{"t":"…","src":[]}|null,"cibles":[{"c":"…","D":{"t":"…","src":[]},"A":{"t":"…","src":[]}|null,"R":{"t":"…","src":[]}|null}],"todo":[{"t":"…","src":[]}],"soins":[{"t":"…","src":[]}]}`;
 }
 
 // Remplace cr1, cr2… par les identifiants réels avant la vérification des sources.
@@ -70,6 +77,7 @@ export function remapIds(raw, crs) {
   const r = raw || {};
   return {
     resume: fix(r.resume),
+    points: (r.points || []).map(fix),
     cibles: (r.cibles || []).map((c) => ({ ...c, D: fix(c.D), A: fix(c.A), R: fix(c.R) })),
     todo: (r.todo || []).map(fix),
     soins: (r.soins || []).map(fix),
@@ -104,5 +112,16 @@ export function localSynth(crs) {
     for (const d of r.diag) soins.push({ t: d.t, src: [{ cr: cr.id, q: d.s || d.t }] });
     for (const d of r.todo) todo.push({ t: d.t, src: [{ cr: cr.id, q: d.s || d.t }] });
   }
-  return normalizeSynth({ resume: null, cibles: [...cib.values()], todo, soins }, crs);
+  // Puces sans IA : une par cible (données, action, résultat), puis les tâches.
+  const points = [...cib.values()]
+    .filter((c) => c.D)
+    .map((c) => ({
+      t: `${c.c} : ${[c.D, c.A, c.R]
+        .filter(Boolean)
+        .map((f) => f.t)
+        .join(' ')}`,
+      src: [c.D, c.A, c.R].filter(Boolean).flatMap((f) => f.src),
+    }));
+  for (const t of todo) points.push({ t: `À faire : ${t.t}`, src: t.src });
+  return normalizeSynth({ resume: null, points, cibles: [...cib.values()], todo, soins }, crs);
 }

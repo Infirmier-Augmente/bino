@@ -1,15 +1,16 @@
 // Bino — le binôme des infirmiers. Démo hackathon IA santé (Hôpital Foch), données fictives.
 // Parcours des maquettes papier : Patients → popup patient → Valider → « Compte rendu fait » → Patients.
 // Onglet Transmissions : les comptes rendus de l'équipe, « Mes CR » ou « Tous », filtre par soignant.
-import { EXAMPLES, NURSES, seed } from './data.js';
+import { EXAMPLES, seed } from './data.js';
 import { buildModel, DOC_CSS, docFile, docHtml, docText } from './document.js';
 import { LV, news2 } from './news2.js';
 import * as AI from './services/ai.js';
 import * as FHIR from './services/fhir.js';
 import * as Voice from './services/voice.js';
-import { DEFAULT_FHIR, saveSettings, settings } from './settings.js';
+import { saveSettings, settings } from './settings.js';
 import * as Store from './store.js';
 import { localSynth, normalizeSynth, remapIds, synthPrompt } from './synthesis.js';
+import { localTriage, normalizeTriage, triagePrompt } from './triage.js';
 import { esc, fmtVital, hhmm, VITAL_KEYS, VITAL_LABELS } from './util.js';
 import {
   ic,
@@ -17,6 +18,7 @@ import {
   V,
   vDone,
   vHeader,
+  vLevelPicker,
   vPatientPopup,
   vPatients,
   vTransmissions,
@@ -33,15 +35,19 @@ const U = {
   saving: false,
   syncing: false,
   trScope: 'mine',
-  trWho: '',
   docBusy: '',
+  sumBusy: '',
+  triBusy: false,
+  sortMode: settings.sortMode === 'manuel' ? 'manuel' : 'auto',
 };
 let docModel = null;
 const P = (id) => S.patients.find((p) => p.id === id);
 
 /* ---------- rendu ---------- */
 function render() {
-  document.getElementById('top').innerHTML = vHeader();
+  const top = document.getElementById('top');
+  top.hidden = U.tab !== 'patients';
+  top.innerHTML = U.tab === 'patients' ? vHeader() : '';
   document.getElementById('app').innerHTML =
     U.tab === 'transmissions' ? vTransmissions(S, U) : vPatients(S, U);
   const tabs = [
@@ -84,7 +90,7 @@ function sheet(html, full = false) {
 
 function showPatient() {
   U.sub = null;
-  sheet(vPatientPopup(S, U, Voice, EXAMPLES), true);
+  sheet(vPatientPopup(S, U, EXAMPLES), true);
 }
 
 function closePatient() {
@@ -176,29 +182,6 @@ async function dpiImport(id) {
   }
 }
 
-function profileSheet() {
-  if (U.pid) U.sub = 'profile';
-  const me = Store.myName();
-  sheet(`<h1 style="margin-top:0">Profil</h1><p class="sub">${esc(me)} · tes comptes rendus sont signés à ce nom.</p>
-  <h2>Simuler un autre soignant</h2>
-  <div class="card nurse-list">${NURSES.map(
-    (n) =>
-      `<button type="button" class="nurse ${n === me ? 'on' : ''}" data-act="pickNurse" data-arg="${esc(n)}" aria-pressed="${n === me}"><span class="avatar sm">${esc(
-        n
-          .split(' ')
-          .slice(0, 2)
-          .map((w) => w[0])
-          .join(''),
-      )}</span><span>${esc(n)}</span>${n === me ? ic('check', 18) : ''}</button>`,
-  ).join('')}</div>
-  <p class="small muted">Pour la démo : chaque soignant retrouve « ses » comptes rendus dans Transmissions › Mes CR.${Store.storeMode() === 'shared' ? " Les comptes rendus sont partagés avec toute l'équipe qui ouvre ce lien." : ' Sur ce lien, les comptes rendus restent sur ce téléphone.'}</p>
-  <h2>Dossier patient (DPI)</h2>
-  <div class="card"><label class="l" for="s-fhir">Serveur FHIR R4</label><input class="f" id="s-fhir" value="${esc(settings.fhirBase)}" placeholder="${DEFAULT_FHIR}">
-    <p class="small muted" style="margin:8px 0 0"><code>${DEFAULT_FHIR}</code> = DPI simulé fourni avec l'app.</p></div>
-  <button type="button" class="btn" data-act="saveProfile" style="margin:6px 0 10px">Enregistrer</button>
-  ${Store.storeMode() === 'shared' ? '' : '<button type="button" class="btn sec" data-act="askReset">Réinitialiser les données de démo</button>'}`);
-}
-
 /* ---------- document de transmission global ---------- */
 async function synthFor(p, crs) {
   const saved = Store.synthFor(p.id);
@@ -222,6 +205,7 @@ async function synthFor(p, crs) {
   const full = {
     ...syn,
     engine,
+    ver: Store.SYNTH_VER,
     crIds: crs.map((c) => c.id),
     at: new Date().toISOString(),
     t: hhmm(),
@@ -235,7 +219,7 @@ async function synthFor(p, crs) {
 }
 
 async function genDoc() {
-  const ps = sorted(S.patients);
+  const ps = sorted(S.patients, U.sortMode);
   const todo = ps.filter((p) => Store.crFor(p.id).length);
   let done = 0;
   U.docBusy = `Synthèse 0/${todo.length}`;
@@ -306,6 +290,77 @@ async function downloadDoc() {
   toast('Document téléchargé.');
 }
 
+/* ---------- organisation par sévérité : automatique (IA) ---------- */
+let triRunning = false;
+async function runTriage() {
+  if (triRunning) return;
+  triRunning = true;
+  U.triBusy = true;
+  softRender();
+  const items = S.patients.map((p) => ({ p, v: V(p), crs: Store.crFor(p.id) }));
+  let order = null;
+  let engine = 'local';
+  if (AI.mode() !== 'off') {
+    try {
+      order = normalizeTriage(await AI.askJSON(triagePrompt(items), { tier: 'default' }), items);
+      engine = 'ai';
+    } catch {
+      order = null;
+    }
+  }
+  if (!order) order = localTriage(items);
+  try {
+    await Store.savePrioAI({
+      order,
+      engine,
+      at: new Date().toISOString(),
+      t: hhmm(),
+      sig: triageSig(),
+    });
+  } catch {
+    /* lecture seule : on garde l'organisation précédente */
+  }
+  triRunning = false;
+  U.triBusy = false;
+  softRender();
+}
+// Empreinte des données qui comptent pour le classement : on réorganise quand elles changent.
+const triageSig = () =>
+  `${Store.allCr().length}|${S.patients.map((p) => news2(V(p)).total).join(',')}`;
+function autoTriage() {
+  if (U.sortMode !== 'auto') return;
+  const ai = Store.prioAI();
+  if (!ai || ai.sig !== triageSig() || (ai.engine !== 'ai' && AI.mode() !== 'off')) runTriage();
+}
+
+/* ---------- « Tous » : résumé en puces par l'IA ---------- */
+let sumRunning = false;
+async function ensureSummaries() {
+  if (sumRunning || U.tab !== 'transmissions' || U.trScope !== 'all' || Store.isLoading()) return;
+  const todo = S.patients.filter((p) => {
+    const crs = Store.crFor(p.id);
+    return crs.length && Store.needsSynth(Store.synthFor(p.id), crs);
+  });
+  if (!todo.length) return;
+  sumRunning = true;
+  let done = 0;
+  U.sumBusy = `0/${todo.length}`;
+  softRender();
+  const queue = [...todo];
+  const worker = async () => {
+    while (queue.length) {
+      const p = queue.shift();
+      await synthFor(p, Store.crFor(p.id));
+      done++;
+      U.sumBusy = `${done}/${todo.length}`;
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  U.sumBusy = '';
+  sumRunning = false;
+  softRender();
+}
+
 /* ---------- comptes rendus ---------- */
 async function saveCr() {
   const el = document.getElementById('draft');
@@ -325,6 +380,7 @@ async function saveCr() {
     U.saving = false;
     closePatient();
     showDone();
+    autoTriage();
   } catch (e) {
     U.saving = false;
     U.draft = text;
@@ -338,6 +394,11 @@ async function saveCr() {
 
 /* ---------- dictée ---------- */
 function startMic(target) {
+  if (!Voice.canDictate()) {
+    document.getElementById(target)?.focus();
+    toast('Dictée indisponible ici : utilise le micro du clavier.');
+    return;
+  }
   if (U.listening) {
     const was = U.listening;
     Voice.stop();
@@ -384,39 +445,9 @@ function refreshMic() {
   for (const b of document.querySelectorAll('[data-act="mic"]')) {
     const on = b.dataset.arg === U.listening;
     b.classList.toggle('on', on);
-    b.innerHTML = ic(on ? 'stop' : 'mic', 24);
+    b.innerHTML = ic(on ? 'stop' : 'mic', 28);
     b.setAttribute('aria-label', on ? 'Arrêter la dictée' : 'Dicter');
   }
-}
-
-/* ---------- DPI : tout le service ---------- */
-async function syncAll() {
-  U.syncing = true;
-  render();
-  let ok = 0;
-  let changed = 0;
-  let fail = 0;
-  for (const p of S.patients) {
-    try {
-      const res = await FHIR.fetchVitals(p, settings.fhirBase);
-      const cur = V(p);
-      if (VITAL_KEYS.some((k) => k in res.v && res.v[k] !== cur[k])) {
-        const next = { ...cur, ...res.v, at: res.at || hhmm(), src: 'DPI' };
-        if (news2(next).total !== news2(cur).total) changed++;
-        await Store.saveVitals(p.id, next);
-      }
-      ok++;
-    } catch {
-      fail++;
-    }
-  }
-  U.syncing = false;
-  render();
-  toast(
-    fail === S.patients.length
-      ? "Le DPI n'a pas répondu. Vérifie l'adresse dans le profil."
-      : `${ok} patients synchronisés avec le DPI · ${changed} score(s) modifié(s).`,
-  );
 }
 
 /* ---------- actions ---------- */
@@ -435,6 +466,7 @@ const A = {
     U.tab = a;
     render();
     window.scrollTo(0, 0);
+    ensureSummaries();
   },
   openPatient: (a) => {
     U.pid = a;
@@ -463,12 +495,6 @@ const A = {
     else toast('Copie impossible ici.');
   },
   downloadDoc: () => downloadDoc(),
-  pickNurse: (a) => {
-    saveSettings({ name: a });
-    render();
-    profileSheet();
-    toast(`Tu es maintenant ${a}.`);
-  },
   useEx: (a) => {
     U.draft = EXAMPLES[+a].text;
     const el = document.getElementById('draft');
@@ -487,11 +513,25 @@ const A = {
   },
   trScope: (a) => {
     U.trScope = a;
-    U.trWho = '';
     render();
+    ensureSummaries();
   },
-  trWho: (a) => {
-    U.trWho = a;
+  sortMode: (a) => {
+    U.sortMode = a;
+    saveSettings({ sortMode: a });
+    render();
+    autoTriage();
+  },
+  aiSort: () => runTriage(),
+  pickLevel: (a) => sheet(vLevelPicker(P(a))),
+  setLevel: async (a) => {
+    const [pid, lv] = a.split(':');
+    try {
+      await Store.setManualLevel(pid, lv || null);
+    } catch {
+      toast('Modification impossible pour le moment.');
+    }
+    sheet('');
     render();
   },
   editVitals: (a) => vitalsForm(a),
@@ -506,6 +546,7 @@ const A = {
     showPatient();
     render();
     toast(`Constantes importées du DPI · NEWS2 ${n.total} (${LV[n.level].l}).`);
+    autoTriage();
   },
   saveVitals: async (a) => {
     const v = readVitals();
@@ -519,27 +560,7 @@ const A = {
     showPatient();
     render();
     toast(`Constantes enregistrées · NEWS2 ${n.total} (${LV[n.level].l}).`);
-  },
-  syncAll: () => syncAll(),
-  settings: () => profileSheet(),
-  saveProfile: () => {
-    const f = document.getElementById('s-fhir');
-    if (f) saveSettings({ fhirBase: (f.value || '').trim() || DEFAULT_FHIR });
-    render();
-    if (U.pid) showPatient();
-    else sheet('');
-    toast('Profil enregistré.');
-  },
-  askReset: () =>
-    sheet(
-      `<h1 style="margin-top:0">Réinitialiser la démo ?</h1><p class="sub">Les comptes rendus et constantes de cet appareil reviennent à l'état de départ.</p><div class="btns"><button type="button" class="btn sec" data-act="closeSheet">Annuler</button><button type="button" class="btn" data-act="reset">Réinitialiser</button></div>`,
-    ),
-  reset: () => {
-    Store.resetLocal();
-    U.tab = 'patients';
-    sheet('');
-    render();
-    toast('Démo réinitialisée.');
+    autoTriage();
   },
   closeSheet: () => {
     // Une feuille ouverte depuis la popup patient (constantes, DPI, profil) ramène à la popup.
@@ -589,8 +610,14 @@ const style = document.createElement('style');
 style.textContent = DOC_CSS;
 document.head.append(style);
 
-Store.onChange(softRender);
+Store.onChange(() => {
+  softRender();
+  ensureSummaries();
+});
 render();
 Voice.init().then(softRender);
-AI.init().then(softRender);
-Store.init().then(softRender);
+Promise.all([AI.init(), Store.init()]).then(() => {
+  softRender();
+  autoTriage();
+  ensureSummaries();
+});

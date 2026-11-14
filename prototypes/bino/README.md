@@ -2,7 +2,7 @@
 
 Démo du hackathon IA santé ARS × AdoptAI (novembre 2026), défi Hôpital Foch « infirmier augmenté ».
 
-Bino suit les maquettes papier de l'équipe. **Patients** : « Bonjour Martine » (l'infirmière simulée), la date, 11 patients avec la chambre à droite. Un toucher ouvre la **fiche patient** : **Dossier médical** et **Import DPI**, zone de compte rendu, **micro**, **Valider**, puis « ✓ Compte rendu fait ». Le compte rendu part dans **Transmissions › Mes CR**. Dans **Tous** : les comptes rendus de toute l'équipe, un filtre par soignant et la **génération d'un document de transmission global** (copier, télécharger).
+Bino suit les maquettes papier de l'équipe. **Patients** : « Bonjour Martine », la date, 11 patients organisés par sévérité, **Auto (IA)** (l'IA classe et explique, repli NEWS2) ou **Manuel** (l'infirmière choisit le niveau). Un toucher ouvre **Nouveau compte rendu** : **Dossier médical**, **Import DPI**, zone de texte, **micro**, **Valider**, puis « ✓ Compte rendu fait ». **Transmissions** : **Mes CR**, et **Tous** résumé en puces par l'IA, patient par patient, avec un **document complet** à copier ou télécharger.
 
 > **Données entièrement fictives.** Ne jamais saisir de données réelles de patients : la démo n'est ni hébergée HDS ni conforme RGPD pour des données de santé.
 
@@ -16,14 +16,11 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 
 **Parcours de démo conseillé (2 minutes)**
 
-1. **Patients** : « Bonjour Martine ». Touchez M. Jean Dupond (ch12).
-2. **Import DPI** : comparez les valeurs, importez, le NEWS2 passe à 9. **Dossier médical** montre le détail.
-3. Dictez au **micro** (ou écrivez, ou touchez l'exemple), puis **Valider** : « Compte rendu fait ».
-4. **Transmissions › Mes CR** : votre compte rendu, avec ceux de Martine plus tôt dans la journée.
-5. **Tous** › **Générer le document** : la transmission de tout le service, patient par patient, priorités en tête. **Copier** ou **Télécharger**.
-6. L'avatar permet de **devenir Sophie ou Karim** pour montrer que chacun a « ses » CR.
+1. **Patients** : « Bonjour Martine », liste organisée **Auto (IA)** avec la raison sous chaque nom. **Manuel** : touchez un niveau pour le changer (ex. M. Garnier en Critique).
+2. Touchez M. Jean Dupond (ch12) : **Nouveau compte rendu**. **Import DPI** : le NEWS2 passe à 9.
+3. Dictez au **micro** (ou écrivez, ou touchez l'exemple), puis **Valider** : « Compte rendu fait ». La liste se réorganise.
+4. **Transmissions › Mes CR** : vos comptes rendus. **Tous** : le résumé en puces de toute l'équipe ; **Document complet** pour la relève.
 
-L'avatar (en haut à droite) ouvre le profil : soignant simulé (Martine, Sophie, Karim), serveur DPI, réinitialisation de la démo.
 
 ---
 
@@ -31,9 +28,9 @@ L'avatar (en haut à droite) ouvre le profil : soignant simulé (Martine, Sophie
 
 | Écran | Ce qu'on peut faire |
 | --- | --- |
-| Patients | « Bonjour Martine » + date, 11 patients triés par NEWS2 (couleur à gauche), chambre à droite, synchronisation du service avec le DPI |
-| Fiche patient | Boutons **Dossier médical** (constantes, NEWS2 détaillé, motif, ATCD, allergies, dispositifs, prescription, saisie manuelle) et **Import DPI** ; compte rendu au **micro** ou au clavier ; **Valider** puis « Compte rendu fait » |
-| Transmissions | **Mes CR / Tous**, filtre par soignant, suppression de ses propres CR ; dans **Tous**, **document de transmission global** (synthèse DAR par patient à partir des CR de l'équipe, priorités, sources), à copier ou télécharger |
+| Patients | « Bonjour Martine » + date ; organisation par sévérité **Auto (IA)** (niveau + raison factuelle, jamais sous le NEWS2, repli NEWS2 sans IA, réorganisation à chaque compte rendu) ou **Manuel** (niveau choisi par patient) |
+| Nouveau compte rendu | **Dossier médical** (constantes, NEWS2 détaillé, infos, saisie manuelle) et **Import DPI** ; compte rendu au **micro** ou au clavier ; **Valider** puis « Compte rendu fait » |
+| Transmissions | **Mes CR** ; **Tous** : résumé en puces par patient, généré par l'IA, chaque puce avec son auteur et son heure ; **Document complet** (copier, télécharger) |
 
 ### Ce qui marche où
 
@@ -90,6 +87,7 @@ js/views.js              rendu : en-tête, Patients, popup patient, Transmission
 js/store.js              comptes rendus, synthèses, constantes : base partagée (Claude) ou localStorage
 js/synthesis.js          synthèse DAR multi-soignants : prompt IA, règles locales, vérification des sources
 js/document.js           document de transmission global (vue, texte à copier, fichier HTML)
+js/triage.js             organisation par sévérité : prompt IA, garde-fous, repli NEWS2
 js/news2.js              calcul NEWS2 (échelle SpO2 n°1)
 js/structure.js          dictée → DAR : prompt IA, règles locales de secours, extraction des constantes
 js/data.js               patients et dictées d'exemple (fictifs)

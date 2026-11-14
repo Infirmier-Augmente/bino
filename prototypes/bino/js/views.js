@@ -1,8 +1,10 @@
 // Rendu des écrans (HTML en chaînes), d'après les maquettes papier de l'équipe :
-// 1. Patients (Bonjour + date, liste) ; 2. Popup patient (dossier médical, compte rendu, Valider) ;
-// 3. Transmissions (Mes CR / Tous, filtre par soignant). Aucune écriture ici : les actions sont dans app.js.
+// 1. Patients (Bonjour + date, liste organisée par sévérité, auto par l'IA ou manuelle) ;
+// 2. Fiche « Nouveau compte rendu » (dossier médical, import DPI, micro, Valider) ;
+// 3. Transmissions (Mes CR / Tous en puces résumées). Aucune écriture ici : les actions sont dans app.js.
 import { LV, news2 } from './news2.js';
 import * as Store from './store.js';
+import { LEVELS, rank } from './triage.js';
 import { esc, num } from './util.js';
 
 /* ---------- briques ---------- */
@@ -25,6 +27,8 @@ const I = {
   cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13l2 2 4-4"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  spark:
+    '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
   folder: '<path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>',
 };
 export const ic = (n, s = 20) =>
@@ -34,60 +38,86 @@ export const badge = (lv) =>
   `<span class="badge" style="background:${LV[lv].bg};color:${LV[lv].fg}">${LV[lv].l}</span>`;
 
 export const V = (p) => Store.vitalsFor(p.id) || p.v;
-export const sorted = (patients) =>
-  [...patients].sort((a, b) => news2(V(b)).total - news2(V(a)).total);
+
+// Niveau affiché : en mode manuel, le choix de l'infirmière (sinon le NEWS2) ;
+// en mode auto, le classement de l'IA (sinon le NEWS2).
+export function levelOf(p, mode) {
+  if (mode === 'manuel') return Store.manualLevels()[p.id] || news2(V(p)).level;
+  const ai = Store.prioAI()?.order?.find((x) => x.id === p.id);
+  return ai?.niveau || news2(V(p)).level;
+}
+export function sorted(patients, mode = 'auto') {
+  const ai = Store.prioAI()?.order || [];
+  const pos = (p) => {
+    const i = ai.findIndex((x) => x.id === p.id);
+    return i < 0 ? 999 : i;
+  };
+  return [...patients].sort(
+    (a, b) =>
+      rank(levelOf(a, mode)) - rank(levelOf(b, mode)) ||
+      (mode === 'auto' ? pos(a) - pos(b) : 0) ||
+      news2(V(b)).total - news2(V(a)).total,
+  );
+}
 
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 const firstName = (s) => (s || '').split(/[·,]/)[0].trim().split(/\s+/)[0] || '';
-const initials = (s) =>
-  (s || '')
-    .split(/[·,]/)[0]
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0] || '')
-    .join('')
-    .toUpperCase() || '?';
 
-export const micBtn = (U, Voice, target) =>
-  Voice.canDictate()
-    ? `<button type="button" class="mic ${U.listening === target ? 'on' : ''}" data-act="mic" data-arg="${target}" aria-label="${U.listening === target ? 'Arrêter la dictée' : 'Dicter'}">${ic(U.listening === target ? 'stop' : 'mic', 24)}</button>`
-    : '';
+export const micBtn = (U, target) =>
+  `<button type="button" class="mic ${U.listening === target ? 'on' : ''}" data-act="mic" data-arg="${target}" aria-label="${U.listening === target ? 'Arrêter la dictée' : 'Dicter le compte rendu'}">${ic(U.listening === target ? 'stop' : 'mic', 28)}</button>`;
 
-/* ---------- en-tête : Bonjour + date + profil (maquette 1) ---------- */
+/* ---------- en-tête : Bonjour + date (maquette 1), page Patients seulement ---------- */
 export function vHeader() {
-  const name = Store.displayName();
   const date = new Date().toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
-  return `<div class="hello">
-    <div class="hello-t">Bonjour ${esc(firstName(name))}</div>
-    <div class="hello-d">${ic('cal', 16)} Date : ${date}</div>
-  </div>
-  <button type="button" class="avatar" data-act="settings" aria-label="Profil de ${esc(name)}">${esc(initials(name))}</button>`;
+  return `<div class="hello"><div class="hello-t">Bonjour ${esc(firstName(Store.displayName()))}</div><div class="hello-d">Date : ${date}</div></div>`;
 }
 
-/* ---------- onglet 1 : patients ---------- */
+/* ---------- onglet 1 : patients, organisés par sévérité ---------- */
 export function vPatients(S, U) {
-  const ps = sorted(S.patients);
-  return `<div class="list-head"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2></div>
+  const mode = U.sortMode;
+  const ps = sorted(S.patients, mode);
+  const ai = Store.prioAI();
+  const seg = (k, l) =>
+    `<button type="button" class="seg-b ${mode === k ? 'on' : ''}" data-act="sortMode" data-arg="${k}" aria-pressed="${mode === k}">${l}</button>`;
+  const status =
+    mode === 'manuel'
+      ? '<p class="sort-note">Touche le niveau d\'un patient pour le changer.</p>'
+      : `<div class="sort-note between"><span>${U.triBusy ? 'Organisation en cours…' : ai ? `Organisé ${ai.engine === 'ai' ? "par l'IA" : 'selon le NEWS2'} à ${esc(ai.t || '')}` : 'Organisé selon le NEWS2'}</span><button type="button" class="linkbtn" data-act="aiSort" ${U.triBusy ? 'disabled' : ''}>${U.triBusy ? '<span class="spin dark"></span>' : ic('spark', 14)} Réorganiser</button></div>`;
+  return `<div class="list-head"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2>
+    <div class="seg sm" role="group" aria-label="Organisation par sévérité">${seg('auto', 'Auto (IA)')}${seg('manuel', 'Manuel')}</div></div>
+  ${status}
   ${Store.isStale() ? '<p class="note">Les comptes rendus de l\'équipe ne sont pas encore joignables.</p>' : ''}
   ${ps
     .map((p) => {
-      const n = news2(V(p));
-      const k = Store.crFor(p.id).length;
-      return `<button type="button" class="card prow" style="--bar:${LV[n.level].bar}" data-act="openPatient" data-arg="${p.id}">
-        <span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${k ? plural(k, 'compte rendu', 'comptes rendus') : 'Aucun compte rendu'} · NEWS2 ${n.total} ${LV[n.level].l.toLowerCase()}</span></span>
-        <span class="room-chip">ch${esc(p.ch)}</span>
-      </button>`;
+      const lv = levelOf(p, mode);
+      const why =
+        mode === 'auto'
+          ? ai?.order?.find((x) => x.id === p.id)?.raison || `NEWS2 ${news2(V(p)).total}`
+          : `NEWS2 ${news2(V(p)).total}${Store.manualLevels()[p.id] ? ' · niveau choisi' : ''}`;
+      const lvTag =
+        mode === 'manuel'
+          ? `<button type="button" class="lvl" style="--c:${LV[lv].bg};--f:${LV[lv].fg}" data-act="pickLevel" data-arg="${p.id}" aria-label="Niveau de ${esc(p.nom)} : ${LV[lv].l}. Changer">${LV[lv].l} ${ic('chev', 14)}</button>`
+          : `<span class="lvl ro" style="--c:${LV[lv].bg};--f:${LV[lv].fg}">${LV[lv].l}</span>`;
+      return `<div class="card prow" style="--bar:${LV[lv].bar}">
+        <button type="button" class="prow-open" data-act="openPatient" data-arg="${p.id}"><span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${esc(why)}</span></span><span class="room-chip">ch${esc(p.ch)}</span></button>
+        ${lvTag}
+      </div>`;
     })
-    .join('')}
-  <p class="foot">Démo hackathon · données entièrement fictives.</p>`;
+    .join('')}`;
 }
 
-/* ---------- popup patient ---------- */
+export function vLevelPicker(p) {
+  const cur = Store.manualLevels()[p.id];
+  return `<h1 style="margin-top:0">Niveau de sévérité</h1><p class="sub">${esc(p.nom)} · ch${esc(p.ch)} · NEWS2 ${news2(V(p)).total}</p>
+  <div class="card level-list">${LEVELS.map((l) => `<button type="button" class="level-opt ${cur === l ? 'on' : ''}" data-act="setLevel" data-arg="${p.id}:${l}"><span class="lvl ro" style="--c:${LV[l].bg};--f:${LV[l].fg}">${LV[l].l}</span>${cur === l ? ic('check', 18) : ''}</button>`).join('')}</div>
+  <button type="button" class="btn sec" data-act="setLevel" data-arg="${p.id}:">Revenir au niveau du NEWS2</button>`;
+}
+
+/* ---------- fiche : nouveau compte rendu ---------- */
 function vtable(v) {
   const n = news2(v);
   const rows = [
@@ -104,14 +134,16 @@ function vtable(v) {
 
 const info = (k, v) => `<div class="info"><span>${k}</span><b>${esc(v)}</b></div>`;
 
-export function vPatientPopup(S, U, Voice, EXAMPLES) {
+export function vPatientPopup(S, U, EXAMPLES) {
   const p = S.patients.find((x) => x.id === U.pid);
   const v = V(p);
   const ex = EXAMPLES.find(
     (e) => e.pid === p.id && !Store.crFor(p.id).some((c) => c.text === e.text),
   );
   return `<div class="pp">
-  <div class="pp-head"><div><div class="pp-kicker">Nouveau compte rendu</div><h1 class="pp-name">${esc(p.nom)}</h1><div class="pp-sub">Chambre ${esc(p.ch)} · ${p.age} ans</div></div></div>
+  <h1 class="pp-title">Nouveau compte rendu</h1>
+  <div class="pp-name">${esc(p.nom)}</div>
+  <div class="pp-sub">Chambre ${esc(p.ch)} · ${p.age} ans</div>
 
   <div class="pp-actions">
     <button type="button" class="pill ${U.foldOpen ? 'on' : ''}" data-act="toggleDossier" aria-expanded="${U.foldOpen}">${ic('folder', 18)} Dossier médical ${ic('chev', 16)}</button>
@@ -133,12 +165,11 @@ export function vPatientPopup(S, U, Voice, EXAMPLES) {
   }
 
   <label class="sr" for="draft">Compte rendu</label>
-  <textarea id="draft" class="draft cr-box" data-model="draft" placeholder="Compte rendu : ce que tu as vu et fait, comme à la relève.">${esc(U.draft)}</textarea>
+  <textarea id="draft" class="draft cr-box" data-model="draft" placeholder="Ce que tu as vu et fait, comme à la relève.">${esc(U.draft)}</textarea>
   <div class="live" id="live" aria-live="polite"></div>
-  ${Voice.canDictate() ? `<div class="pp-mic">${micBtn(U, Voice, 'draft')}</div>` : ''}
-  ${ex ? `<button type="button" class="chip ex" data-act="useEx" data-arg="${EXAMPLES.indexOf(ex)}">${ic('play', 14)} Exemple : ${esc(ex.label)}</button>` : ''}
+  <div class="pp-mic">${micBtn(U, 'draft')}</div>
+  ${ex ? `<div class="pp-ex"><button type="button" class="chip ex" data-act="useEx" data-arg="${EXAMPLES.indexOf(ex)}">${ic('play', 14)} Exemple : ${esc(ex.label)}</button></div>` : ''}
   <button type="button" class="btn valider" data-act="saveCr" ${U.saving ? 'disabled' : ''}>${U.saving ? '<span class="spin"></span>' : ''} Valider</button>
-
   </div>`;
 }
 
@@ -146,41 +177,62 @@ export const vDone = () =>
   `<div class="done-wrap" data-act="closeDone"><div class="done-card" role="dialog" aria-modal="true" aria-labelledby="done-t"><button type="button" class="icon-btn done-x" data-act="closeDone" aria-label="Fermer">${ic('x', 22)}</button><div class="done-check">${ic('check', 56)}</div><div class="done-t" id="done-t">Compte rendu fait</div></div></div>`;
 
 /* ---------- onglet 2 : transmissions ---------- */
-function crItem(c, withPatient, S) {
-  const p = withPatient ? S.patients.find((x) => x.id === c.pid) : null;
+function crItem(c, S) {
+  const p = S.patients.find((x) => x.id === c.pid);
   return `<div class="cr-item">
-    <div class="between"><span class="cr-who">${p ? `${esc(p.nom)} <span class="room-chip sm">ch${esc(p.ch)}</span>` : esc(Store.authorOf(c))}</span><span class="small muted">${esc(c.t || '')}</span></div>
-    ${p ? `<div class="cr-by small muted">${esc(Store.authorOf(c))}</div>` : ''}
+    <div class="between"><span class="cr-who">${esc(p?.nom || '')} <span class="room-chip sm">ch${esc(p?.ch || '')}</span></span><span class="small muted">${esc(c.t || '')}</span></div>
     <p class="cr-text">${esc(c.text)}</p>
     ${Store.isMine(c) ? `<button type="button" class="linkbtn danger" data-act="delCr" data-arg="${esc(c.id)}">${ic('trash', 14)} Supprimer</button>` : ''}
   </div>`;
 }
 
+function srcLine(field, crs) {
+  if (!field?.src?.length) return '';
+  const byId = new Map(crs.map((c) => [c.id, c]));
+  const who = [
+    ...new Set(
+      field.src
+        .map((s) => byId.get(s.cr))
+        .filter(Boolean)
+        .map((c) => `${Store.authorOf(c).split(' ')[0]} ${c.t || ''}`.trim()),
+    ),
+  ];
+  return who.length ? `<span class="pt-src">${esc(who.join(' · '))}</span>` : '';
+}
+
+function summaryCard(p, U) {
+  const crs = Store.crFor(p.id);
+  const lv = levelOf(p, U.sortMode);
+  const s = Store.synthFor(p.id);
+  const fresh = s && !Store.needsSynth(s, crs);
+  let body;
+  if (!crs.length) body = '<p class="small muted">Aucun compte rendu aujourd\'hui.</p>';
+  else if (!fresh)
+    body = '<p class="small muted"><span class="spin dark"></span> Résumé en cours…</p>';
+  else
+    body = `<ul class="pts">${(s.points || []).map((pt) => `<li>${esc(pt.t)} ${srcLine(pt, crs)}</li>`).join('')}</ul>`;
+  return `<div class="card sum" style="--bar:${LV[lv].bar}">
+    <div class="between"><span class="cr-who">${esc(p.nom)} <span class="room-chip sm">ch${esc(p.ch)}</span></span><span class="lvl ro sm" style="--c:${LV[lv].bg};--f:${LV[lv].fg}">${LV[lv].l}</span></div>
+    ${body}
+  </div>`;
+}
+
 export function vTransmissions(S, U) {
-  const all = [...Store.allCr()].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-  const authors = [...new Set(all.map((c) => Store.authorOf(c)))];
-  let list = all;
-  if (U.trScope === 'mine') list = all.filter((c) => Store.isMine(c));
-  else if (U.trWho) list = all.filter((c) => Store.authorOf(c) === U.trWho);
   const seg = (k, l) =>
     `<button type="button" class="seg-b ${U.trScope === k ? 'on' : ''}" data-act="trScope" data-arg="${k}" aria-pressed="${U.trScope === k}">${l}</button>`;
-  return `<h1>Transmissions</h1>
-  <div class="seg" role="group" aria-label="Quels comptes rendus">${seg('mine', 'Mes CR')}${seg('all', 'Tous')}</div>
-  ${
-    U.trScope === 'all' && authors.length > 1
-      ? `<div class="chips who" role="group" aria-label="Filtrer par soignant"><button type="button" class="chip ${!U.trWho ? 'on' : ''}" data-act="trWho" data-arg="">Tout le monde</button>${authors.map((a) => `<button type="button" class="chip ${U.trWho === a ? 'on' : ''}" data-act="trWho" data-arg="${esc(a)}">${esc(a)}</button>`).join('')}</div>`
-      : ''
+  const head = `<h1 class="tr-title">Transmissions</h1><div class="seg" role="group" aria-label="Quels comptes rendus">${seg('mine', 'Mes CR')}${seg('all', 'Tous')}</div>`;
+  if (U.trScope === 'mine') {
+    const mine = Store.allCr()
+      .filter((c) => Store.isMine(c))
+      .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+    return `${head}<p class="sub">${plural(mine.length, 'compte rendu écrit', 'comptes rendus écrits')} par vous · aujourd'hui</p>
+    ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
   }
-  ${
-    U.trScope === 'all'
-      ? `<div class="card doc-card"><div class="doc-card-t">${ic('file', 24)}<div><b>Document de transmission</b><div class="small muted">Tous les patients, à partir des comptes rendus de toute l'équipe</div></div></div>
-    <button type="button" class="btn" data-act="genDoc" ${U.docBusy ? 'disabled' : ''}>${U.docBusy ? `<span class="spin"></span> ${esc(U.docBusy)}` : 'Générer le document'}</button></div>`
-      : ''
-  }
-  <p class="sub">${U.trScope === 'mine' ? `${plural(list.length, 'compte rendu écrit', 'comptes rendus écrits')} par vous` : `${plural(list.length, 'compte rendu', 'comptes rendus')}${U.trWho ? ` de ${esc(U.trWho)}` : " de toute l'équipe"}`} · aujourd'hui</p>
-  ${
-    list.length
-      ? `<div class="card cr-list">${list.map((c) => crItem(c, true, S)).join('')}</div>`
-      : `<div class="card empty">${U.trScope === 'mine' ? "Tu n'as pas encore écrit de compte rendu. Touche un patient dans l'onglet Patients." : 'Aucun compte rendu pour ce filtre.'}</div>`
-  }`;
+  const ps = sorted(S.patients, U.sortMode);
+  const engines = new Set(ps.map((p) => Store.synthFor(p.id)?.engine).filter(Boolean));
+  return `${head}
+  <div class="sum-head between"><span class="small muted">${U.sumBusy ? `Résumé par l'IA… ${esc(U.sumBusy)}` : `Résumé de l'équipe${engines.has('ai') ? " par l'IA" : engines.size ? ' · règles locales' : ''}`}</span>
+  <button type="button" class="linkbtn" data-act="genDoc" ${U.docBusy ? 'disabled' : ''}>${ic('file', 14)} ${U.docBusy ? esc(U.docBusy) : 'Document complet'}</button></div>
+  ${ps.map((p) => summaryCard(p, U)).join('')}
+  <p class="foot">Chaque puce vient des comptes rendus de l'équipe (auteur et heure à droite). À relire avant la relève.</p>`;
 }

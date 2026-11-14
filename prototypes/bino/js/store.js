@@ -5,8 +5,9 @@ import { SEED_CR } from './data.js';
 import { settings } from './settings.js';
 import { hhmm } from './util.js';
 
-const LKEY = 'bino-shared-v2';
-const cache = { cr: [], syn: {}, vit: {} };
+const LKEY = 'bino-shared-v3';
+export const SYNTH_VER = 2;
+const cache = { cr: [], syn: {}, vit: {}, prio: { ai: null, manual: {} } };
 const names = new Map();
 const listeners = [];
 let db = null;
@@ -56,6 +57,7 @@ export async function init() {
   cache.cr = [];
   cache.syn = {};
   cache.vit = {};
+  cache.prio = { ai: null, manual: {} };
   emit();
   subscribe();
 }
@@ -87,6 +89,14 @@ function subscribe() {
   db.collection('syntheses').onSnapshot(
     (s) => {
       cache.syn = Object.fromEntries(s.docs.map((x) => [x.id, x.data()]));
+      emit();
+    },
+    () => {},
+  );
+  db.collection('prio').onSnapshot(
+    (s) => {
+      const docs = Object.fromEntries(s.docs.map((x) => [x.id, x.data()]));
+      cache.prio = { ai: docs.ai || null, manual: docs.manual?.levels || {} };
       emit();
     },
     () => {},
@@ -131,7 +141,7 @@ export const synthFor = (pid) => cache.syn[pid] || null;
 export const vitalsFor = (pid) => cache.vit[pid] || null;
 // Une synthèse est à refaire si un compte rendu a été ajouté ou supprimé depuis.
 export function needsSynth(s, crs) {
-  if (!s) return true;
+  if (!s || s.ver !== SYNTH_VER) return true;
   const ids = s.crIds || [];
   return crs.some((c) => !ids.includes(c.id)) || ids.some((id) => !crs.some((c) => c.id === id));
 }
@@ -208,10 +218,38 @@ export async function saveVitals(pid, v) {
   emit();
 }
 
+/* ---------- organisation par sévérité ---------- */
+export const prioAI = () => cache.prio.ai;
+export const manualLevels = () => cache.prio.manual || {};
+
+export async function savePrioAI(obj) {
+  if (mode === 'shared') {
+    await db.doc('prio/ai').set(obj);
+    return;
+  }
+  cache.prio = { ...cache.prio, ai: obj };
+  saveLocal();
+  emit();
+}
+
+export async function setManualLevel(pid, level) {
+  const levels = { ...manualLevels() };
+  if (level) levels[pid] = level;
+  else delete levels[pid];
+  if (mode === 'shared') {
+    await db.doc('prio/manual').set({ levels });
+    return;
+  }
+  cache.prio = { ...cache.prio, manual: levels };
+  saveLocal();
+  emit();
+}
+
 export function resetLocal() {
   cache.cr = SEED_CR.map((c) => ({ ...c }));
   cache.syn = {};
   cache.vit = {};
+  cache.prio = { ai: null, manual: {} };
   saveLocal();
   emit();
 }
