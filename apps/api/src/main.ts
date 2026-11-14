@@ -28,13 +28,6 @@ if (!fresh && store.snapshot.clock.mode === 'simulated' && store.snapshot.clock.
 
 const { app, simulation } = createApp({ store, ai, logRequests: true });
 
-if (fresh) {
-  console.info(
-    `[sim] premier démarrage : scénario « ${scenario.title} » (${config.SIM_BOOT === 'end' ? 'rejoué jusqu’au bout' : 'au début'})…`,
-  );
-  await simulation.load(scenario.id, config.SIM_BOOT);
-}
-
 serve({ fetch: app.fetch, port: config.API_PORT, hostname: '0.0.0.0' }, (info) => {
   const status = ai.status(VERSION);
   const lan = Object.values(networkInterfaces())
@@ -51,6 +44,18 @@ serve({ fetch: app.fetch, port: config.API_PORT, hostname: '0.0.0.0' }, (info) =
   État       ${dataFile ?? 'mémoire seule'}
 `);
 });
+
+// Premier démarrage : la journée fictive est rejouée APRÈS l'ouverture du port
+// (avec un vrai LLM, compter ~2 s par dictée ; l'app affiche les données au fil de l'eau).
+if (fresh) {
+  console.info(
+    `[sim] premier démarrage : scénario « ${scenario.title} » (${config.SIM_BOOT === 'end' ? 'rejoué jusqu’au bout' : 'au début'})…`,
+  );
+  simulation
+    .load(scenario.id, config.SIM_BOOT)
+    .then(() => console.info('[sim] journée prête.'))
+    .catch((e: unknown) => console.error('[sim] échec du rejeu initial', e));
+}
 
 const shutdown = async () => {
   await store.flush();

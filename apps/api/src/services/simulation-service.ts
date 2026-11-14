@@ -28,6 +28,14 @@ export interface StepResult {
  */
 export class SimulationService {
   private log: SimulationStatus['log'] = [];
+  /** File d'attente : un seul chargement / rejeu à la fois (clics concurrents en démo). */
+  private queue: Promise<unknown> = Promise.resolve();
+
+  private exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(fn, fn);
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
   /** Observateurs (évaluation, CLI) : appelés après chaque événement joué. */
   onStep: ((r: StepResult) => void) | null = null;
 
@@ -69,7 +77,15 @@ export class SimulationService {
    * Réinitialise l'hôpital sur un scénario. `until` : 'start', 'end', ou une heure
    * (ex. 16h25 pour dicter l'exemple A en direct pendant la démo).
    */
-  async load(scenarioId: string, until: string): Promise<SimulationStatus> {
+  load(scenarioId: string, until: string): Promise<SimulationStatus> {
+    return this.exclusive(() => this.loadUnlocked(scenarioId, until));
+  }
+
+  step(count: number): Promise<SimulationStatus> {
+    return this.exclusive(() => this.stepUnlocked(count));
+  }
+
+  private async loadUnlocked(scenarioId: string, until: string): Promise<SimulationStatus> {
     const scenario = this.scenarios.find((s) => s.id === scenarioId);
     if (!scenario) throw notFound('Scénario', scenarioId);
     const state = initialState(scenario);
@@ -77,11 +93,11 @@ export class SimulationService {
     this.store.replace(state);
     this.log = [];
     if (until === 'end') {
-      await this.step(scenario.events.length);
+      await this.stepUnlocked(scenario.events.length);
     } else if (until !== 'start') {
       const limit = Date.parse(until);
       const before = scenario.events.filter((e) => Date.parse(e.at) < limit).length;
-      await this.step(before);
+      await this.stepUnlocked(before);
       this.store.update((s) => {
         s.clock = anchorClock(until, this.realNow());
       });
@@ -89,7 +105,7 @@ export class SimulationService {
     return this.status();
   }
 
-  async step(count: number): Promise<SimulationStatus> {
+  private async stepUnlocked(count: number): Promise<SimulationStatus> {
     const scenario = this.current();
     if (!scenario) throw new AppError(409, 'no-scenario', 'Aucun scénario chargé.');
     for (let i = 0; i < count; i++) {

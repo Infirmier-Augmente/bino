@@ -37,6 +37,20 @@ describe('simulateur', () => {
     expect(st.nextEvent?.label).toMatch(/exemple A/);
   });
 
+  it('deux rejeux simultanés ne se mélangent pas', async () => {
+    const { client } = createTestApp();
+    const [a, b] = await Promise.all([
+      client.loadScenario({ body: { scenarioId: 'rea-box12', until: 'end' } }),
+      client.loadScenario({ body: { scenarioId: 'rea-box12', until: 'end' } }),
+    ]);
+    expect(a.cursor).toBe(a.total);
+    expect(b.cursor).toBe(b.total);
+    const board = await client.unitBoard({ params: { unitId: 'rea' } });
+    const dictations = (await client.scenarios()).find((s) => s.id === 'rea-box12');
+    expect(dictations).toBeDefined();
+    expect(board.totals.total).toBe(6);
+  });
+
   it('horloge réelle / simulée', async () => {
     const { client } = createTestApp();
     const st = await client.setClock({
