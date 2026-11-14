@@ -19,6 +19,9 @@ blob-report/
 # local data (état simulé de l'hôpital)
 .data/
 
+# branches de référence consultées en local (git worktree), jamais versionnées
+.reference/
+
 # env & secrets : JAMAIS de clé dans le repo
 .env
 .env.*

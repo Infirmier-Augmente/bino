@@ -16,6 +16,7 @@
       "!**/playwright-report",
       "!**/test-results",
       "!**/.data",
+      "!.reference",
       "!**/expo-env.d.ts",
       "!**/*.gen.ts",
       "!**/*.md",
