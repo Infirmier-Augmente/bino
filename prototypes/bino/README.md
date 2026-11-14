@@ -18,7 +18,7 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 
 1. **Patients** : la chambre 12 est en tête, NEWS2 7 (critique). Touchez-la.
 2. Bouton **Constantes ▾** › **Récupérer depuis le DPI** : comparez les valeurs, importez, le score passe à 9.
-3. **Dicter une transmission** › exemple « Mme D. se dégrade » › **Structurer** : 2 cibles DAR, les résultats manquants sont signalés sans être inventés.
+3. **Dicter une transmission** › exemple « Hélène Durand se dégrade » › **Structurer** : 2 cibles DAR, les résultats manquants sont signalés sans être inventés.
 4. Complétez un R à la voix ou au clavier, puis **Valider**. Les R restés vides deviennent des relances dans **Alertes**.
 5. **Alertes** › NEWS2 critique › **Préparer l'appel SAED** : message prêt à lire au médecin.
 6. **Relève** : synthèse par priorité, ce qui a changé depuis 8h, tâches, **Écouter**, questions à Bino, addendum après 19h45.
@@ -83,7 +83,7 @@ Aucune étape de build : HTML, CSS et modules JavaScript natifs.
 
 ```
 index.html               page unique, barre d'onglets
-css/styles.css           identité visuelle Bino (Roboto, magenta, bleu ciel, bleu nuit)
+css/styles.css           identité visuelle Bino (Plus Jakarta Sans, Nunito, magenta, bleu ciel, bleu nuit)
 js/app.js                écrans, feuilles, actions
 js/news2.js              calcul NEWS2 (échelle SpO2 n°1)
 js/structure.js          dictée → DAR : prompt IA, règles locales de secours, extraction des constantes

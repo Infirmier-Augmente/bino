@@ -2,10 +2,10 @@
 // Démo hackathon : l'infirmier garde toujours le dernier mot.
 
 export const LV = {
-  faible: { l: 'Faible', bg: '#13804A', fg: '#fff', bar: '#1E9E5A' },
+  faible: { l: 'Faible', bg: '#22B573', fg: '#fff', bar: '#22B573' },
   moyen: { l: 'Moyen', bg: '#F5B700', fg: '#002244', bar: '#F5B700' },
-  eleve: { l: 'Élevé', bg: '#C2410C', fg: '#fff', bar: '#F07C00' },
-  critique: { l: 'Critique', bg: '#C8102E', fg: '#fff', bar: '#E00000' },
+  eleve: { l: 'Élevé', bg: '#F57C00', fg: '#fff', bar: '#F57C00' },
+  critique: { l: 'Critique', bg: '#DC0000', fg: '#fff', bar: '#DC0000' },
 };
 
 export function news2(v) {

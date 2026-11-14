@@ -17,7 +17,7 @@ import {
 } from './structure.js';
 import { esc, fmtVital, hhmm, num, VITAL_KEYS, VITAL_LABELS, vitLine } from './util.js';
 
-const STORE = 'bino-demo-v3';
+const STORE = 'bino-demo-v4';
 let S;
 try {
   S = JSON.parse(localStorage.getItem(STORE));
@@ -48,24 +48,9 @@ const U = {
   syncing: false,
 };
 
-/* ---------- Bino (mascotte en SVG) ---------- */
-function eyes(e) {
-  const n = '#002244';
-  if (e === 'content')
-    return `<path d="M23 31q4-6 8 0M33 31q4-6 8 0" fill="none" stroke="${n}" stroke-width="3" stroke-linecap="round"/>`;
-  if (e === 'clin')
-    return `<ellipse cx="27" cy="30" rx="3.2" ry="4.6" fill="${n}"/><path d="M33 31q4-4 8 0" fill="none" stroke="${n}" stroke-width="3" stroke-linecap="round"/>`;
-  if (e === 'alerte')
-    return `<ellipse cx="27" cy="30" rx="4" ry="5.6" fill="${n}"/><ellipse cx="37" cy="30" rx="4" ry="5.6" fill="${n}"/><circle cx="28.3" cy="28" r="1.2" fill="#fff"/><circle cx="38.3" cy="28" r="1.2" fill="#fff"/>`;
-  if (e === 'concentre')
-    return `<ellipse cx="28" cy="31" rx="3" ry="4.2" fill="${n}"/><ellipse cx="38" cy="31" rx="3" ry="4.2" fill="${n}"/>`;
-  return `<ellipse cx="27" cy="30" rx="3.4" ry="4.8" fill="${n}"/><ellipse cx="37" cy="30" rx="3.4" ry="4.8" fill="${n}"/><circle cx="28.2" cy="28.4" r="1" fill="#fff"/><circle cx="38.2" cy="28.4" r="1" fill="#fff"/>`;
-}
-export function bino(e, size = 48, bg) {
-  const face = `<rect x="7" y="20" width="9" height="22" rx="4.5" fill="#5BB8F0"/><rect x="48" y="20" width="9" height="22" rx="4.5" fill="#5BB8F0"/><rect x="12" y="10" width="40" height="42" rx="19" fill="#fff" stroke="#DCE3EA" stroke-width="1.2"/>${eyes(e)}`;
-  if (bg)
-    return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="${bg}"/><g transform="translate(6 7) scale(.82)">${face}</g></svg>`;
-  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="#F3F7FB"/>${face}</svg>`;
+/* Le logo est l'illustration finale (PNG). Un SVG redessiné à 36 px devenait flou. */
+export function bino(_mood, size = 44) {
+  return `<img class="mark" src="assets/logo.png" width="${size}" height="${size}" alt="" draggable="false">`;
 }
 
 /* ---------- icônes ---------- */
@@ -93,7 +78,7 @@ const I = {
   pulse: '<path d="M3 12h4l2-6 4 12 2-6h6"/>',
   dl: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   sync: '<path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/>',
 };
 const ic = (n, s = 20) =>
@@ -166,24 +151,6 @@ function alerts() {
 }
 const openCount = () => alerts().filter((a) => !S.ack[a.id]).length;
 
-function diffV(a, b) {
-  if (!a) return [];
-  const o = [];
-  [
-    ['fr', 'FR'],
-    ['spo2', 'SpO2'],
-    ['pas', 'TAS'],
-    ['fc', 'FC'],
-    ['temp', 'T'],
-  ].forEach(([x, l]) => {
-    if (a[x] !== b[x] && Math.abs(a[x] - b[x]) >= (x === 'temp' ? 0.5 : x === 'spo2' ? 2 : 6))
-      o.push(`${l} ${num(a[x])} → ${num(b[x])}`);
-  });
-  if (a.o2 !== b.o2) o.push(b.o2 ? 'Mis sous O2' : "Sevré de l'O2");
-  if (a.cons !== b.cons) o.push(b.cons === 'A' ? 'Conscience normale' : 'Conscience altérée');
-  return o;
-}
-
 /* ---------- rendu principal ---------- */
 function render() {
   const app = document.getElementById('app');
@@ -207,32 +174,55 @@ function render() {
 
 function modeChip() {
   const m = AI.mode();
-  const [col, txt] =
+  const on = m === 'claude' || m === 'api';
+  const txt =
     m === 'claude'
-      ? ['#13804A', 'IA : Claude']
+      ? 'IA : Claude'
       : m === 'api'
-        ? ['#13804A', 'IA : clé API']
-        : ['#9AA5B1', 'IA désactivée · règles locales'];
-  return `<button class="mode" data-act="settings" style="border:0;cursor:pointer"><i style="background:${col}"></i>${txt}</button>`;
+        ? 'IA : clé API'
+        : 'IA désactivée · règles locales';
+  return `<button class="mode" data-act="settings"><i class="${on ? 'on' : ''}"></i>${txt}</button>`;
+}
+
+/* Libellé court pour la carte seulement. Le motif complet reste sur p.motif (fiche). */
+function shortStay(motif) {
+  return motif
+    .replace('post-opératoire de ', '')
+    .replace('totale de ', 'de ')
+    .replace('inguinale', '')
+    .replace(/\s+,/g, ',')
+    .replace(/ {2,}/g, ' ')
+    .trim();
+}
+
+function idGrid(p, n) {
+  return `<div class="id-grid"><div class="id-copy"><div class="room">Chambre ${p.ch}</div><div class="pname">${esc(p.nom)}</div><div class="profile">${p.age} ans · ${esc(shortStay(p.motif))}</div></div><div class="score-col">${badge(n.level)}</div></div>`;
+}
+
+function handoverSentence(p) {
+  const last = [...S.trans].reverse().find((t) => t.pid === p.id);
+  if (!last) return "Pas de transmission ciblée aujourd'hui.";
+  const bits = last.cibles.map((c) => {
+    const d = c.D.replace(/\.\s*$/, '');
+    return c.R
+      ? `${c.c} : ${d}. ${c.R.replace(/\.\s*$/, '')}.`
+      : `${c.c} : ${d}. Résultat à réévaluer.`;
+  });
+  return `${last.at} · ${bits.join(' ')}`;
 }
 
 function vPatients() {
   const ps = sorted();
   const crit = ps.filter((p) => ['critique', 'eleve'].includes(news2(p.v).level)).length;
+  const attention = crit
+    ? `${crit} demande${crit > 1 ? 'nt' : ''} votre attention`
+    : 'tout est calme';
   return `<div class="between"><h1>Patients</h1><button class="btn sec sm" data-act="syncAll" ${U.syncing ? 'disabled' : ''}>${U.syncing ? '<span class="spin" style="border-color:rgba(0,34,68,.2);border-top-color:#002244"></span>' : ic('sync', 18)} DPI</button></div>
-  <p class="sub">Priorisation · ${ps.length} patients · triés par score NEWS2</p>
-  <div class="card bino-card">${bino(crit ? 'alerte' : 'content', 52)}<div><div class="t">${crit ? `${crit} patient${crit > 1 ? 's' : ''} demande${crit > 1 ? 'nt' : ''} votre attention` : "Tout est calme pour l'instant"}</div><div class="small muted">Touchez un patient pour ses constantes, ses transmissions et l'appel au médecin.</div></div></div>
+  <p class="sub">Priorisation · ${ps.length} patients · ${attention}</p>
   ${ps
     .map((p) => {
       const n = news2(p.v);
-      const lastT = [...S.trans].reverse().find((t) => t.pid === p.id);
-      return `<button class="card pcard" style="border-left-color:${LV[n.level].bar}" data-act="openPatient" data-arg="${p.id}">
-      <div class="between"><div><div class="small muted">Chambre ${p.ch}</div><div class="pname" ${n.level === 'critique' ? 'style="color:#C8102E"' : ''}>${esc(p.nom)}</div></div>
-      <div style="text-align:right"><div class="ntag">NEWS2</div><div class="nscore">${n.total}</div><div style="margin-top:4px">${badge(n.level)}</div></div></div>
-      <div class="vit">${vitLine(p.v)} · ${p.v.at} ${srcTag(p.v)}</div>
-      ${p.precautions || p.allergies !== 'Aucune connue' || p.rx ? `<div class="chips" style="margin-top:8px">${p.allergies !== 'Aucune connue' ? `<span class="chip">Allergie : ${esc(p.allergies)}</span>` : ''}${p.precautions ? `<span class="chip" style="background:var(--warn-l);color:var(--warn)">${esc(p.precautions)}</span>` : ''}${p.rx ? '<span class="chip" style="background:var(--sky-l)">Nouvelle prescription</span>' : ''}</div>` : ''}
-      ${lastT ? `<div class="small muted" style="margin-top:8px">Dernière transmission ${lastT.at} : ${esc(lastT.cibles.map((c) => c.c).join(', '))}</div>` : ''}
-    </button>`;
+      return `<button class="card pcard" style="--bar:${LV[n.level].bar}" data-act="openPatient" data-arg="${p.id}">${idGrid(p, n)}</button>`;
     })
     .join('')}
   <p class="foot">Démo hackathon · données entièrement fictives · NEWS2 calculé automatiquement, l'infirmier a toujours le dernier mot.</p>`;
@@ -265,7 +255,7 @@ function vTrans() {
       <div class="small muted" style="flex:1">${Voice.canDictate() ? 'Touchez le micro et parlez naturellement : abréviations, chiffres, langage oral.' : 'Astuce : utilisez le micro de votre clavier pour dicter.'}</div></div>
   </div>
   ${exs.length ? `<div class="small muted" style="margin:0 0 8px">Ou testez avec une dictée d'exemple :</div><div class="chips" style="margin-bottom:14px">${exs.map((e) => `<button class="chip" data-act="useEx" data-arg="${EXAMPLES.indexOf(e)}">${ic('play', 14)} ${esc(e.label)}</button>`).join('')}</div>` : '<p class="small muted" style="margin:0 0 14px">Exemples prêts pour les chambres 12 et 8.</p>'}
-  <button class="btn" data-act="structure" ${U.busy ? 'disabled' : ''}>${U.busy ? '<span class="spin"></span> Structuration…' : `${ic('spark')} Structurer avec Bino`}</button>`
+  <div class="dock"><button class="btn" data-act="structure" ${U.busy ? 'disabled' : ''}>${U.busy ? '<span class="spin"></span> Structuration…' : `${ic('spark')} Structurer avec Bino`}</button></div>`
   );
 }
 
@@ -283,7 +273,7 @@ function vResult(p) {
   ${r.cibles
     .map(
       (c, i) => `<div class="card">
-    <div class="between" style="margin-bottom:4px"><div class="ed" style="font-weight:700;font-size:17px" contenteditable="true" id="c-${i}-c" aria-label="Intitulé de la cible">${esc(c.c)}</div><span class="badge" style="background:var(--sky-l);color:var(--navy)">Cible</span></div>
+    <div class="between" style="margin-bottom:4px"><div class="ed target-title" contenteditable="true" id="c-${i}-c" aria-label="Intitulé de la cible">${esc(c.c)}</div><span class="badge" style="background:var(--sky-l);color:var(--navy)">Cible</span></div>
     ${['D', 'A', 'R']
       .map((k) => {
         if (c[k])
@@ -305,7 +295,8 @@ function vResult(p) {
 }
 
 function line(icn, txt, go) {
-  const col = icn === 'warn' ? 'var(--warn)' : icn === 'check' ? '#13804A' : 'var(--navy)';
+  const col =
+    icn === 'warn' ? 'var(--warn)' : icn === 'check' ? 'var(--news-faible)' : 'var(--navy)';
   return `<div class="row" style="padding:6px 0;font-size:14px"><span style="color:${col}">${ic(icn, 18)}</span><span style="flex:1">${txt}</span>${go ? `<button class="chip" data-act="tab" data-arg="${go}">Voir</button>` : ''}</div>`;
 }
 
@@ -321,7 +312,7 @@ function vReleve() {
   return `<h1>Relève</h1><p class="sub">Synthèse de fin de service · relève de 19h45</p>
   <div class="card bino-card">${bino('content', 52)}<div style="flex:1"><div class="t">${ps.length} patients</div><div class="small muted">Synthèse prête pour l'équipe de nuit</div></div>
   ${Voice.canSpeak() ? `<button class="btn sm navy" data-act="speak">${ic(U.speaking ? 'stop' : 'play', 16)} ${U.speaking ? 'Stop' : 'Écouter'}</button>` : ''}</div>
-  <div class="counters"><div class="counter"><b style="color:#C8102E">${c}</b><span>Critique</span></div><div class="counter"><b style="color:#C2410C">${w}</b><span>À surveiller</span></div><div class="counter"><b style="color:#13804A">${s}</b><span>Stables</span></div></div>
+  <div class="counters"><div class="counter"><b class="lv-critique">${c}</b><span>Critique</span></div><div class="counter"><b class="lv-moyen">${w}</b><span>À surveiller</span></div><div class="counter"><b class="lv-faible">${s}</b><span>Stables</span></div></div>
   <div class="card"><div class="dar-k" style="margin-bottom:6px">Avant de transmettre</div>
     ${line(pr.length ? 'warn' : 'check', pr.length ? `${pr.length} résultat${pr.length > 1 ? 's' : ''} non réévalué${pr.length > 1 ? 's' : ''}` : 'Toutes les cibles ont un résultat', pr.length ? 'alertes' : null)}
     ${line(rx.length ? 'warn' : 'check', rx.length ? `${rx.length} nouvelle${rx.length > 1 ? 's' : ''} prescription${rx.length > 1 ? 's' : ''} non vue${rx.length > 1 ? 's' : ''}` : 'Nouvelles prescriptions vues', rx.length ? 'alertes' : null)}
@@ -332,16 +323,11 @@ function vReleve() {
   ${ps
     .map((p) => {
       const n = news2(p.v);
-      const ts = S.trans.filter((t) => t.pid === p.id);
-      const last = ts[ts.length - 1];
-      const diffs = diffV(p.prev, p.v);
-      return `<div class="card" style="border-left:5px solid ${LV[n.level].bar}">
-      <div class="between"><div style="font-weight:700;font-size:16px">Ch. ${p.ch} · ${esc(p.nom)}</div><div class="row" style="gap:6px"><span class="small muted">NEWS2 ${n.total}</span>${badge(n.level)}</div></div>
-      <div class="small muted" style="margin:2px 0 6px">${p.age} ans · ${esc(p.motif)}</div>
-      ${last ? `<div style="font-size:14px;line-height:20px">${last.cibles.map((c) => `<b>${esc(c.c)}</b> : ${esc(c.D)}${c.A ? ` ${esc(c.A)}` : ''}${c.R ? ` ${esc(c.R)}` : ' <span style="color:var(--warn);font-weight:700">R manquant.</span>'}`).join('<br>')}</div>` : '<div class="small muted">Pas de transmission ciblée aujourd\'hui.</div>'}
-      ${diffs.length ? `<div class="small muted" style="margin:8px 0 4px">Changé depuis ${p.prev.at}</div><div class="chips">${diffs.map((d) => `<span class="diff">${d}</span>`).join('')}</div>` : ''}
-      ${p.taches.length ? `<div style="margin-top:8px">${p.taches.map((t, i) => `<label class="check ${t.done ? 'done' : ''}"><input type="checkbox" data-act="task" data-arg="${p.id}:${i}" ${t.done ? 'checked' : ''}><span>${esc(t.t)}</span></label>`).join('')}</div>` : ''}
-      <div class="chips" style="margin-top:6px"><span class="chip">Allergie : ${esc(p.allergies)}</span>${p.precautions ? `<span class="chip" style="background:var(--warn-l);color:var(--warn)">${esc(p.precautions)}</span>` : ''}${p.famille ? `<span class="chip">${esc(p.famille)}</span>` : ''}</div>
+      const said = handoverSentence(p);
+      const quiet = !S.trans.some((t) => t.pid === p.id);
+      return `<div class="card h-card" style="--bar:${LV[n.level].bar}">
+      ${idGrid(p, n)}
+      <p class="handover${quiet ? ' muted' : ''}">${esc(said)}</p>
     </div>`;
     })
     .join('')}
@@ -424,12 +410,13 @@ function openPatient(id) {
   const p = P(id),
     n = news2(p.v);
   const ts = S.trans.filter((t) => t.pid === id).reverse();
-  sheet(`<div class="small muted">Chambre ${p.ch} · ${p.age} ans</div><h1 style="margin-top:0">${esc(p.nom)}</h1><p class="sub">${esc(p.motif)} · ATCD : ${esc(p.atcd)}</p>
-  <div class="card bino-card" style="background:${n.level === 'critique' ? '#FFF1F2' : '#fff'}">${bino(n.level === 'critique' ? 'alerte' : 'neutre', 48)}<div class="nscore" style="font-size:34px;color:${LV[n.level].bg}">${n.total}</div><div><div class="ntag" style="color:${LV[n.level].bg};font-weight:700">NEWS2 · ${LV[n.level].l}</div><div class="small muted">Constantes de ${p.v.at} ${srcTag(p.v)}</div></div></div>
+  sheet(`<div class="small muted">Chambre ${p.ch} · ${p.v.at} · ${p.age} ans</div><h1 style="margin-top:0">${esc(p.nom)}</h1><p class="sub">${esc(p.motif)} · ATCD : ${esc(p.atcd)}</p>
+  <div class="card scoreline" style="background:${n.level === 'critique' ? '#FFF1F2' : '#fff'}"><div class="nscore" style="color:${LV[n.level].bg}">${n.total}</div><div><div class="ntag" style="color:${LV[n.level].bg}">NEWS2 · ${LV[n.level].l}</div><div class="small muted">Constantes de ${p.v.at} ${srcTag(p.v)}</div></div></div>
   <div class="card">${vtable(p.v)}</div>
   <div class="btns" style="margin-bottom:10px">${constantsMenu(id)}<button class="btn sm navy" data-act="saed" data-arg="${id}">${ic('phone', 16)} Appel SAED</button></div>
   <button class="btn" data-act="dictateFor" data-arg="${id}" style="margin-bottom:14px">${ic('mic')} Dicter une transmission</button>
   <div class="card"><div class="dar-k" style="margin-bottom:6px">Informations à ne pas perdre</div><div class="chips"><span class="chip">Allergie : ${esc(p.allergies)}</span>${p.precautions ? `<span class="chip" style="background:var(--warn-l);color:var(--warn)">${esc(p.precautions)}</span>` : ''}${p.disp.map((d) => `<span class="chip">${esc(d.l)} · J${d.j}</span>`).join('')}${p.famille ? `<span class="chip">${esc(p.famille)}</span>` : ''}</div></div>
+  ${p.taches.length ? `<h2>À transmettre</h2><div class="card">${p.taches.map((t, i) => `<label class="check${t.done ? ' done' : ''}"><input type="checkbox" data-act="task" data-arg="${p.id}:${i}" ${t.done ? 'checked' : ''}><span>${esc(t.t)}</span></label>`).join('')}</div>` : ''}
   <h2>Transmissions du jour</h2>
   ${ts.length ? ts.map((t) => `<div class="card"><div class="small muted" style="margin-bottom:4px">${t.at}</div>${t.cibles.map((c, i) => `<div style="margin-bottom:8px"><div style="font-weight:700">${esc(c.c)}</div><div class="small"><b>D</b> ${esc(c.D)}</div>${c.A ? `<div class="small"><b>A</b> ${esc(c.A)}</div>` : ''}${c.R ? `<div class="small"><b>R</b> ${esc(c.R)}</div>` : `<button class="chip" style="margin-top:6px;background:var(--warn-l);color:var(--warn)" data-act="openAlert" data-arg="r-${t.id}-${i}">R manquant · compléter</button>`}</div>`).join('')}${t.diag?.length ? `<div class="small muted">Diagramme : ${esc(t.diag.join(' '))}</div>` : ''}</div>`).join('') : '<p class="small muted">Aucune transmission ciblée aujourd\'hui.</p>'}`);
 }
@@ -532,7 +519,7 @@ function openAlert(aid) {
   if (a.kind === 'news') {
     const n = news2(p.v);
     sheet(`<div class="small muted">Ch. ${p.ch} · ${esc(p.nom)}</div><h1 style="margin-top:0">Alerte</h1><p class="sub">Détérioration des constantes</p>
-    <div class="card bino-card" style="background:#FFF1F2">${bino('alerte', 48)}<div class="nscore" style="font-size:40px;color:${LV[n.level].bg}">${n.total}</div><div><div class="ntag" style="color:${LV[n.level].bg};font-weight:700">NEWS2 · ${LV[n.level].l}</div><div class="small muted">Constantes de ${p.v.at} ${srcTag(p.v)}</div></div></div>
+    <div class="card scoreline" style="background:#FFF1F2"><div class="nscore" style="color:${LV[n.level].bg}">${n.total}</div><div><div class="ntag" style="color:${LV[n.level].bg}">NEWS2 · ${LV[n.level].l}</div><div class="small muted">Constantes de ${p.v.at} ${srcTag(p.v)}</div></div></div>
     <div class="card">${vtable(p.v)}</div><p class="small muted">Le calcul est automatique. L'infirmier a le dernier mot.</p>
     <button class="btn navy" data-act="saed" data-arg="${p.id}" style="margin-bottom:10px">${ic('phone', 18)} Préparer l'appel SAED</button>
     <div class="btns"><button class="btn" data-act="ack" data-arg="${aid}">Valider</button>${constantsMenu(p.id, 'Ajuster')}</div>`);
@@ -922,10 +909,11 @@ const A = {
     render();
     toast('Réévaluation tracée.');
   },
-  task: (a) => {
+  task: (a, el) => {
     const [pid, i] = a.split(':');
     const t = P(pid).taches[+i];
-    t.done = !t.done;
+    t.done = el.checked;
+    el.closest('.check')?.classList.toggle('done', t.done);
     save();
     render();
   },
@@ -963,9 +951,9 @@ const A = {
     out.textContent = 'Test en cours…';
     try {
       const r = await FHIR.fetchVitals(S.patients[0], base);
-      out.innerHTML = `<span style="color:#13804A">Connexion réussie : ${Object.keys(r.v).length} constantes lues pour la chambre ${S.patients[0].ch}.</span>`;
+      out.innerHTML = `<span class="ok">Connexion réussie : ${Object.keys(r.v).length} constantes lues pour la chambre ${S.patients[0].ch}.</span>`;
     } catch (e) {
-      out.innerHTML = `<span style="color:#C8102E">${esc(e.message)}</span>`;
+      out.innerHTML = `<span class="bad">${esc(e.message)}</span>`;
     }
   },
   closeSheet: () => sheet(''),
@@ -1033,7 +1021,6 @@ Voice.onSpeakingChange((s) => {
   U.speaking = s;
   if (U.tab === 'releve') render();
 });
-document.getElementById('logo').innerHTML = bino('neutre', 28, '#FF0066');
 render();
 AI.init().then(render);
 Voice.init().then(render);

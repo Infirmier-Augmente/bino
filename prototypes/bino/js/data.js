@@ -7,7 +7,7 @@ export function seed() {
         id: 'p12',
         fhirId: 'bino-p12',
         ch: '12',
-        nom: 'Mme D.',
+        nom: 'Mme Hélène Durand',
         age: 68,
         motif: 'J2 post-opératoire de chirurgie digestive',
         atcd: 'HTA',
@@ -51,7 +51,7 @@ export function seed() {
         id: 'p15',
         fhirId: 'bino-p15',
         ch: '15',
-        nom: 'Mme L.',
+        nom: 'Mme Claire Laurent',
         age: 74,
         motif: 'Cholécystectomie, J1',
         atcd: 'Diabète de type 2',
@@ -92,7 +92,7 @@ export function seed() {
         id: 'p8',
         fhirId: 'bino-p8',
         ch: '8',
-        nom: 'M. B.',
+        nom: 'M. Marc Berger',
         age: 59,
         motif: 'Cure de hernie inguinale, J1',
         atcd: 'Aucun',
@@ -130,7 +130,7 @@ export function seed() {
         id: 'p3',
         fhirId: 'bino-p3',
         ch: '3',
-        nom: 'Mme K.',
+        nom: 'Mme Jeanne Keller',
         age: 81,
         motif: 'Prothèse totale de hanche, J3',
         atcd: 'Ostéoporose',
@@ -168,7 +168,7 @@ export function seed() {
         id: 'p19',
         fhirId: 'bino-p19',
         ch: '19',
-        nom: 'M. P.',
+        nom: 'M. Antoine Petit',
         age: 45,
         motif: 'Appendicectomie, J2',
         atcd: 'Aucun',
@@ -242,8 +242,8 @@ export function seed() {
 export const EXAMPLES = [
   {
     pid: 'p12',
-    label: 'Mme D. se dégrade',
-    text: "Chambre 12, Mme D. Elle est plus essoufflée qu'à 14h, FR 24, sat 94 en air ambiant, tension 98 sur 62, pouls 108, température 38,2. Consciente, elle se plaint du ventre à 6 sur 10. J'ai appelé l'interne, il passe dans un quart d'heure. J'ai donné le paracétamol à 17h. Pansement du drain refait, propre.",
+    label: 'Hélène Durand se dégrade',
+    text: "Chambre 12, Mme Hélène Durand. Elle est plus essoufflée qu'à 14h, FR 24, sat 94 en air ambiant, tension 98 sur 62, pouls 108, température 38,2. Consciente, elle se plaint du ventre à 6 sur 10. J'ai appelé l'interne, il passe dans un quart d'heure. J'ai donné le paracétamol à 17h. Pansement du drain refait, propre.",
     out: {
       cibles: [
         {
@@ -278,8 +278,8 @@ export const EXAMPLES = [
   },
   {
     pid: 'p8',
-    label: 'M. B. journée calme',
-    text: "Chambre 8, M. B. Journée calme, il a bien mangé, premier lever avec aide ce matin, bien toléré. Douleur à 5 sur 10 à 11h, j'ai donné le tramadol prescrit, réévaluée à 1 sur 10 à midi. Le cathéter a 4 jours. Tension 112 sur 70, pouls 84, sat 97, température 36,9.",
+    label: 'Marc Berger, journée calme',
+    text: "Chambre 8, M. Marc Berger. Journée calme, il a bien mangé, premier lever avec aide ce matin, bien toléré. Douleur à 5 sur 10 à 11h, j'ai donné le tramadol prescrit, réévaluée à 1 sur 10 à midi. Le cathéter a 4 jours. Tension 112 sur 70, pouls 84, sat 97, température 36,9.",
     out: {
       cibles: [
         {
