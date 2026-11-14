@@ -1808,3 +1808,39 @@ h2 .count {
 .linkbtn {
   color: var(--magd);
 }
+
+/* ---------- v9 : priorité en rangée 1 à 4 dans la carte ---------- */
+.lvl.open svg {
+  transform: rotate(180deg);
+}
+.lvl-pick {
+  margin: 10px 0 4px;
+}
+.lvl-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.lvl-n {
+  min-height: 44px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--navy);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.lvl-n.on {
+  border-color: var(--c);
+  background: var(--c);
+  color: var(--f);
+}
+.lvl-why {
+  margin: 6px 0 0;
+}
+.lvl-why .linkbtn {
+  padding: 0;
+  font-size: 12px;
+}

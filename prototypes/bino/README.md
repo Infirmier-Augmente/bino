@@ -2,7 +2,9 @@
 
 Démo du hackathon IA santé ARS × AdoptAI (novembre 2026), défi Hôpital Foch « infirmier augmenté ».
 
-Bino suit les maquettes papier de l'équipe, aux couleurs du logo (rose Bino, bleu ciel). Connexion par matricule de démo. **Patients** : logo Bino, prénom du soignant, la date, 11 patients triables par **chambre** ou **nom** (pas de priorité sur le dashboard). Un patient ouvre **Nouveau compte rendu** : **Dossier médical**, grande zone de texte, **micro**, **Valider** en bas, puis « ✓ Compte rendu fait ». **Transmissions** : **Mes CR** du plus récent au plus ancien ; **Tous** : résumé en puces par patient, du plus récent au plus ancien, rangé par priorité 1 à 4 (proposée par l'IA, modifiable) ; **document complet** à copier ou télécharger.
+Bino suit les maquettes papier de l'équipe, aux couleurs du logo (rose Bino, bleu ciel). Connexion par matricule de démo. **Patients** : logo Bino, prénom du soignant, la date, 11 patients triables par **chambre** ou **nom** (pas de priorité sur le dashboard). Un patient ouvre **Nouveau compte rendu** : **Dossier médical**, grande zone de texte, **micro**, **Valider** en bas, puis « ✓ Compte rendu fait ». **Transmissions** : **Mes CR** du plus récent au plus ancien ; **Tous** : résumé en puces par patient, du plus récent au plus ancien, triable par priorité, chambre ou nom ; la priorité 1 à 4 (proposée par l'IA) se change dans la carte via une rangée 1 2 3 4 ; **document complet** à copier ou télécharger.
+
+Le détail de chaque écran, des règles (priorités, NEWS2, zéro information inventée) et du stockage est dans [`FONCTIONNEMENT.md`](FONCTIONNEMENT.md).
 
 > **Données entièrement fictives.** Ne jamais saisir de données réelles de patients : la démo n'est ni hébergée HDS ni conforme RGPD pour des données de santé.
 
@@ -19,7 +21,7 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 1. Connectez-vous (matricule 10401, mot de passe `bino`). **Patients** : rangés par chambre ; **Trier** : par chambre ou par nom.
 2. Touchez M. Jean Dupond (12) : **Nouveau compte rendu**. Ouvrez **Dossier médical** pour voir constantes et NEWS2.
 3. Dictez au **micro** (ou écrivez, ou touchez l'exemple), puis **Valider** : « Compte rendu fait ».
-4. **Transmissions › Mes CR** : vos comptes rendus, le plus récent en haut. **Tous** : le résumé en puces de toute l'équipe, le plus récent en haut ; touchez « Priorité 3 » de M. Garnier et passez-le en Priorité 1 ; **Document complet** pour la relève.
+4. **Transmissions › Mes CR** : vos comptes rendus, le plus récent en haut. **Tous** : le résumé en puces de toute l'équipe, le plus récent en haut ; touchez « Priorité 3 » de M. Garnier : la rangée 1 2 3 4 s'ouvre dans la carte, choisissez 1 ; **Document complet** pour la relève.
 
 ---
 
@@ -29,7 +31,7 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 | --- | --- |
 | Patients | Logo + prénom + date ; tri par **chambre** ou **nom** ; pas de priorité affichée |
 | Nouveau compte rendu | **Dossier médical** (constantes, NEWS2 détaillé, infos, saisie manuelle) ; compte rendu au **micro** ou au clavier ; **Valider** puis « Compte rendu fait » |
-| Transmissions | **Mes CR** du plus récent au plus ancien (pas de suppression) ; **Tous** : résumé en puces par patient, du plus récent au plus ancien, auteur et heure sous chaque puce ; patients rangés par **Priorité 1 à 4** proposée par l'IA (raison factuelle, jamais sous le NEWS2, repli NEWS2), modifiable d'un toucher ; **Document complet** (copier, télécharger) |
+| Transmissions | **Mes CR** du plus récent au plus ancien (pas de suppression) ; **Tous** : résumé en puces par patient, du plus récent au plus ancien, auteur et heure sous chaque puce ; **Trier** par priorité, chambre ou nom ; **Priorité 1 à 4** proposée par l'IA (raison factuelle, jamais sous le NEWS2, repli NEWS2), modifiable dans la carte (rangée 1 2 3 4) ; **Document complet** (copier, télécharger) |
 
 ### Ce qui marche où
 

@@ -71,6 +71,20 @@ export const SORTS = {
 export const byPriority = (patients) => [...patients].sort(byPrio);
 export const sorted = (patients, by = 'chambre') =>
   by === 'prio' ? byPriority(patients) : [...patients].sort((SORTS[by] || SORTS.chambre).f);
+// Tri de Transmissions › Tous : par priorité (défaut), chambre ou nom.
+export const TR_SORTS = { prio: { l: 'Priorité' }, ...SORTS };
+export const room = (p) => `ch${esc(p?.ch ?? '')}`;
+
+// Menu « Trier » partagé par le dashboard et Transmissions › Tous.
+function sortMenu(opts, cur, act) {
+  return `<details class="menu sort-menu"><summary class="btn sec sm" role="button">Trier : ${opts[cur]?.l || ''} ${ic('chev', 16)}</summary>
+      <div class="menu-pop right">${Object.entries(opts)
+        .map(
+          ([k, o]) =>
+            `<button type="button" data-act="${act}" data-arg="${k}" aria-pressed="${cur === k}"><span><b>${o.l}</b></span>${cur === k ? ic('check', 18) : ''}</button>`,
+        )
+        .join('')}</div></details>`;
+}
 
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 const firstName = (s) => (s || '').split(/[·,]/)[0].trim().split(/\s+/)[0] || '';
@@ -120,40 +134,41 @@ export function vHeader() {
 }
 
 /* ---------- onglet 1 : patients ---------- */
-export const prioBtn = (p, sm = false) => {
+// Bouton « Priorité n » : un toucher déplie, dans la carte, la rangée 1 2 3 4.
+export const prioBtn = (p, open = false) => {
   const lv = levelOf(p);
-  return `<button type="button" class="lvl ${sm ? 'sm' : ''}" style="--c:${LV[lv].bg};--f:${LV[lv].fg}" data-act="pickLevel" data-arg="${p.id}" aria-label="${esc(p.nom)} : ${prioTag(lv)}. Changer la priorité">${prioTag(lv)} ${ic('chev', 14)}</button>`;
+  return `<button type="button" class="lvl sm ${open ? 'open' : ''}" style="--c:${LV[lv].bg};--f:${LV[lv].fg}" data-act="pickLevel" data-arg="${p.id}" aria-expanded="${open}" aria-label="${esc(p.nom)} : ${prioTag(lv)}. Changer la priorité">${prioTag(lv)} ${ic('chev', 14)}</button>`;
 };
 
 export function vPatients(S, U) {
   const ps = sorted(S.patients, U.sortBy);
   return `<div class="list-head between"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2>
-    <details class="menu sort-menu"><summary class="btn sec sm" role="button">Trier : ${SORTS[U.sortBy]?.l || 'Chambre'} ${ic('chev', 16)}</summary>
-      <div class="menu-pop right">${Object.entries(SORTS)
-        .map(
-          ([k, o]) =>
-            `<button type="button" data-act="sortBy" data-arg="${k}" aria-pressed="${U.sortBy === k}"><span><b>${o.l}</b></span>${U.sortBy === k ? ic('check', 18) : ''}</button>`,
-        )
-        .join('')}</div></details></div>
+
+    ${sortMenu(SORTS, U.sortBy, 'sortBy')}</div>
   ${Store.isStale() ? '<p class="note">Les comptes rendus de l\'équipe ne sont pas encore joignables.</p>' : ''}
   ${ps
     .map((p) => {
       return `<div class="card prow">
-        <button type="button" class="prow-open" data-act="openPatient" data-arg="${p.id}"><span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${p.age} ans · ${esc(p.motif)}</span></span><span class="room-chip">${esc(p.ch)}</span></button>
+        <button type="button" class="prow-open" data-act="openPatient" data-arg="${p.id}"><span class="prow-main"><span class="prow-name">${esc(p.nom)}</span><span class="prow-sub">${p.age} ans · ${esc(p.motif)}</span></span><span class="room-chip">${room(p)}</span></button>
       </div>`;
     })
     .join('')}`;
 }
 
-export function vLevelPicker(p) {
+// Rangée horizontale 1 à 4, dépliée dans la carte du patient (pas de nouvelle fenêtre).
+// La proposition (IA ou NEWS2) reste visible avec sa raison ; le choix de l'infirmière prime.
+function levelRow(p) {
   const cur = levelOf(p);
   const manual = Store.manualLevels()[p.id];
   const ai = Store.prioAI()?.order?.find((x) => x.id === p.id);
-  const hint = ['la plus urgente', 'à voir rapidement', 'à surveiller', 'stable'];
-  return `<h1 style="margin-top:0">Priorité</h1><p class="sub">${esc(p.nom)} · ${esc(p.ch)} · NEWS2 ${news2(V(p)).total}</p>
-  ${ai ? `<p class="small muted">Proposée ${Store.prioAI()?.engine === 'ai' ? "par l'IA" : 'selon le NEWS2'} : ${prioTag(ai.niveau)} · ${esc(ai.raison)}</p>` : ''}
-  <div class="card level-list">${LEVELS.map((l, i) => `<button type="button" class="level-opt ${cur === l ? 'on' : ''}" data-act="setLevel" data-arg="${p.id}:${l}"><span class="lvl ro" style="--c:${LV[l].bg};--f:${LV[l].fg}">${prioTag(l)}</span><span class="small muted lo-hint">${hint[i]}</span>${cur === l ? ic('check', 18) : ''}</button>`).join('')}</div>
-  ${manual ? `<button type="button" class="btn sec" data-act="setLevel" data-arg="${p.id}:">Revenir à la priorité proposée</button>` : ''}`;
+  const by = Store.prioAI()?.engine === 'ai' ? "l'IA" : 'le NEWS2';
+  return `<div class="lvl-pick">
+    <div class="lvl-row" role="group" aria-label="Priorité de ${esc(p.nom)}">${LEVELS.map(
+      (l) =>
+        `<button type="button" class="lvl-n ${cur === l ? 'on' : ''}" style="--c:${LV[l].bg};--f:${LV[l].fg}" data-act="setLevel" data-arg="${p.id}:${l}" aria-pressed="${cur === l}" aria-label="${prioTag(l)}">${PRIO[l]}</button>`,
+    ).join('')}</div>
+    <p class="small muted lvl-why">${ai ? `Proposée par ${by} : ${PRIO[ai.niveau]} · ${esc(ai.raison)}` : `NEWS2 ${news2(V(p)).total}`}${manual ? ` · <button type="button" class="linkbtn" data-act="setLevel" data-arg="${p.id}:">Revenir à la proposition</button>` : ''}</p>
+  </div>`;
 }
 
 /* ---------- fiche : nouveau compte rendu ---------- */
@@ -220,7 +235,7 @@ export const vDone = () =>
 function crItem(c, S) {
   const p = S.patients.find((x) => x.id === c.pid);
   return `<div class="cr-item">
-    <div class="between"><span class="cr-who">${esc(p?.nom || '')} <span class="room-chip sm">${esc(p?.ch || '')}</span></span><span class="small muted">${esc(c.t || '')}</span></div>
+    <div class="between"><span class="cr-who">${esc(p?.nom || '')} <span class="room-chip sm">${room(p)}</span></span><span class="small muted">${esc(c.t || '')}</span></div>
     <p class="cr-text">${esc(c.text)}</p>
   </div>`;
 }
@@ -247,7 +262,7 @@ function chrono(points, crs) {
   return [...points].sort((a, b) => t(b) - t(a));
 }
 
-function summaryCard(p) {
+function summaryCard(p, open) {
   const crs = Store.crFor(p.id);
   const lv = levelOf(p);
   const s = Store.synthFor(p.id);
@@ -261,7 +276,8 @@ function summaryCard(p) {
       .map((pt) => `<li>${esc(pt.t)} ${srcLine(pt, crs)}</li>`)
       .join('')}</ul>`;
   return `<div class="card sum" style="--bar:${LV[lv].bar}">
-    <div class="between"><span class="cr-who">${esc(p.nom)} <span class="room-chip sm">${esc(p.ch)}</span></span>${prioBtn(p, true)}</div>
+    <div class="between"><span class="cr-who">${esc(p.nom)} <span class="room-chip sm">${room(p)}</span></span>${prioBtn(p, open)}</div>
+    ${open ? levelRow(p) : ''}
     ${body}
   </div>`;
 }
@@ -280,10 +296,11 @@ export function vTransmissions(S, U) {
     return `${head}<p class="sub">${plural(mine.length, 'compte rendu écrit', 'comptes rendus écrits')} par vous · aujourd'hui, du plus récent au plus ancien</p>
     ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
   }
-  const ps = byPriority(S.patients);
+  const ps = sorted(S.patients, U.trSort);
   return `${head}
-  <div class="sum-head">${U.sumBusy ? `<span class="small muted"><span class="spin dark"></span> ${esc(U.sumBusy)}</span>` : '<span></span>'}
+  <div class="sum-head">${sortMenu(TR_SORTS, U.trSort, 'trSort')}
   <button type="button" class="linkbtn" data-act="genDoc" ${U.docBusy ? 'disabled' : ''}>${ic('file', 14)} ${U.docBusy ? esc(U.docBusy) : 'Document complet'}</button></div>
-  ${ps.map((p) => summaryCard(p)).join('')}
+  ${U.sumBusy ? `<p class="small muted"><span class="spin dark"></span> Mise à jour des résumés ${esc(U.sumBusy)}</p>` : ''}
+  ${ps.map((p) => summaryCard(p, U.lvlOpen === p.id)).join('')}
   <p class="foot">Puces de la plus récente à la plus ancienne ; chacune vient d'un compte rendu (auteur et heure dessous). À relire avant la relève.</p>`;
 }

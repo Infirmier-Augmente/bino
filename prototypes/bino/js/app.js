@@ -20,7 +20,6 @@ import {
   V,
   vDone,
   vHeader,
-  vLevelPicker,
   vLogged,
   vLogin,
   vPatientPopup,
@@ -39,6 +38,8 @@ const U = {
   saving: false,
   syncing: false,
   trScope: 'mine',
+  trSort: ['prio', 'chambre', 'nom'].includes(settings.trSort) ? settings.trSort : 'prio',
+  lvlOpen: null, // patient dont la rangée de priorité 1 à 4 est dépliée (Transmissions › Tous)
   docBusy: '',
   sumBusy: '',
   triBusy: false,
@@ -150,7 +151,7 @@ function vitalsForm(id) {
   const v = V(p);
   const inp = (k, l, step) =>
     `<div><label class="l" for="v-${k}">${l}</label><input class="f" type="number" inputmode="decimal" step="${step || 1}" id="v-${k}" data-vit="${k}" value="${v[k]}"></div>`;
-  sheet(`<h1 style="margin-top:0">Constantes</h1><p class="sub">${esc(p.nom)} · ${p.ch} · le score se recalcule en direct</p>
+  sheet(`<h1 style="margin-top:0">Constantes</h1><p class="sub">${esc(p.nom)} · ch${esc(p.ch)} · le score se recalcule en direct</p>
   <div class="card"><div class="grid2">${inp('fr', 'FR (/min)')}${inp('spo2', 'SpO2 (%)')}${inp('pas', 'TA systolique')}${inp('pad', 'TA diastolique')}${inp('fc', 'FC (/min)')}${inp('temp', 'Température (°C)', '0.1')}
     <div><label class="l" for="v-o2">Oxygène</label><select class="f" id="v-o2" data-vit="o2"><option value="0" ${!v.o2 ? 'selected' : ''}>Air ambiant</option><option value="1" ${v.o2 ? 'selected' : ''}>Sous O2</option></select></div>
     <div><label class="l" for="v-cons">Conscience</label><select class="f" id="v-cons" data-vit="cons"><option value="A" ${v.cons === 'A' ? 'selected' : ''}>Alerte</option><option value="C" ${v.cons !== 'A' ? 'selected' : ''}>Confusion / altérée</option></select></div></div></div>
@@ -553,7 +554,15 @@ const A = {
     saveSettings({ sortBy: a });
     render();
   },
-  pickLevel: (a) => sheet(vLevelPicker(P(a))),
+  trSort: (a) => {
+    U.trSort = a;
+    saveSettings({ trSort: a });
+    render();
+  },
+  pickLevel: (a) => {
+    U.lvlOpen = U.lvlOpen === a ? null : a;
+    render();
+  },
   setLevel: async (a) => {
     const [pid, lv] = a.split(':');
     try {
@@ -561,7 +570,7 @@ const A = {
     } catch {
       toast('Modification impossible pour le moment.');
     }
-    sheet('');
+    U.lvlOpen = null;
     render();
     toast(lv ? `Priorité ${PRIO[lv]} enregistrée.` : 'Priorité proposée rétablie.');
   },
