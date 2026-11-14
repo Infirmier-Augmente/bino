@@ -12,13 +12,18 @@
   <a href="https://bino.noiseless-sunflower.workers.dev"><b>Essayer →</b></a>
 </p>
 
-Matricule `10482`, mot de passe `bino`. C'est Martine. Les patients sont fictifs.
+Matricule `10482`, mot de passe `bino`. Patients fictifs.
 
-Bino rassemble ce qui est éparpillé (dossier, prescriptions, transmissions, protocoles, pharmacie, statut infectieux), transcrit la voix, et propose une synthèse courte que l'infirmière valide.
+Rendre à Martine le temps que l'administratif prend aux patients.
 
-L'information est dispersée, l'infirmière perd du temps de soin à la chercher et à la transmettre. La relève est l'écran principal : un tap produit la passation du jour, triée par NEWS2, prête à lire.
-
-Chaque alerte montre pourquoi. Chaque sortie de l'IA est une proposition. L'infirmier a le dernier mot.
+<table>
+  <tr>
+    <td align="center" width="25%"><img src="docs/images/connexion.png" alt="Connexion" width="180"><br><sub>Connexion</sub></td>
+    <td align="center" width="25%"><img src="docs/images/patients.png" alt="Patients" width="180"><br><sub>Patients</sub></td>
+    <td align="center" width="25%"><img src="docs/images/compte-rendu.png" alt="Compte rendu" width="180"><br><sub>Compte rendu</sub></td>
+    <td align="center" width="25%"><img src="docs/images/transmissions.png" alt="Transmissions" width="180"><br><sub>Transmissions</sub></td>
+  </tr>
+</table>
 
 ## Lancer
 
