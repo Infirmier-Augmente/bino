@@ -164,10 +164,12 @@ dictées (FR, SpO2, TA, FC, température). Le résultat est moins fin mais reste
 `js/services/ai.js` choisit, dans cet ordre :
 
 1. **Dans Claude** (artefact) : l'IA de Claude, sans clé (capacité `sample`).
-2. **Hors Claude, avec une clé API Anthropic** saisie par le testeur : appel direct depuis le
+2. **Sur Cloudflare** : le Worker appelle Claude côté serveur (`/api/ai`) si le secret
+   `ANTHROPIC_API_KEY` est configuré. Limite de 400 appels par jour, prompts de taille limitée.
+3. **Ailleurs, avec une clé API Anthropic** saisie par le testeur : appel direct depuis le
    navigateur. La clé reste dans le navigateur, n'est jamais commitée ; utiliser une clé de test à
    budget limité.
-3. **Sinon** : pas d'IA, règles locales et NEWS2.
+4. **Sinon** : pas d'IA, règles locales et NEWS2.
 
 Le métier n'importe aucun SDK de fournisseur : tout passe par `ask()` / `askJSON()`. Une réponse
 qui n'est pas du JSON valide est ignorée et l'app retombe sur les règles locales.
@@ -182,19 +184,27 @@ qui n'est pas du JSON valide est ignorée et l'app retombe sur les règles local
 
 ## 11. Stockage et partage
 
-`js/store.js` gère deux modes :
+`js/store.js` gère trois modes :
 
-| Mode                  | Où                                 | Partage                                                      |
-| --------------------- | ---------------------------------- | ------------------------------------------------------------ |
-| **Partagé** (Claude)  | base de l'artefact                 | temps réel entre tous ceux qui ouvrent le lien (Contributeur) |
-| **Local** (hors Claude) | `localStorage` (`bino-shared-v3`) | cet appareil seulement                                       |
+| Mode                     | Où                                          | Partage                                                       |
+| ------------------------ | ------------------------------------------- | ------------------------------------------------------------- |
+| **Partagé** (Claude)     | base de l'artefact                          | temps réel entre tous ceux qui ouvrent le lien (Contributeur)  |
+| **Commun** (Cloudflare)  | Durable Object du Worker (`/api/state`, `/api/op`) | tous les téléphones qui ouvrent le lien public, relu toutes les 5 s |
+| **Local** (sans Worker)  | `localStorage` (`bino-shared-v3`)           | cet appareil seulement                                        |
+
+Sur Cloudflare, le Worker (`worker/index.js`) valide chaque écriture : identifiant de patient,
+taille des comptes rendus (2 000 caractères) et des résumés, 500 comptes rendus au plus. La remise à
+zéro (`{"op":"reset"}`) exige le code gardé en secret (`RESET_CODE`). La relecture s'arrête quand
+l'app n'est pas à l'écran.
 
 Collections : `cr` (comptes rendus), `syntheses` (résumés par patient), `vitals` (constantes
 modifiées), `prio` (proposition de l'IA + choix manuels).
 
 - Des **CR de démo** de Sophie, Karim et Martine sont présents au départ : chargés au premier
-  lancement en mode local, déjà versés dans la base partagée en mode Claude.
-- Si la base partagée ne répond pas en 10 s, un bandeau le signale.
+  lancement en mode local ou sur Cloudflare (une seule fois pour tout le service), déjà versés
+  dans la base partagée en mode Claude.
+- Si la base partagée ne répond pas (10 s dans Claude, une relecture ratée sur Cloudflare), un
+  bandeau le signale.
 - Une mise à jour venue d'un collègue ne coupe ni une saisie en cours ni un menu ouvert.
 
 Réglages par navigateur (`js/settings.js`, clé `bino-settings`) : matricule et nom du soignant,
@@ -238,6 +248,8 @@ js/synthesis.js                    résumé par patient : prompt, vérification 
 js/structure.js                    règles locales (sans IA) : thèmes, constantes dictées
 js/document.js                     document complet : HTML, texte, fichier
 js/services/ai.js, voice.js, fhir.js   IA, dictée, DPI FHIR
+worker/index.js                    Worker Cloudflare : app, stockage commun (Durable Object), IA serveur
+wrangler.jsonc, .assetsignore      configuration du déploiement Cloudflare
 js/settings.js, util.js            réglages, utilitaires (échappement, formats)
 mock-fhir/, scripts/               DPI simulé et son générateur
 tests/                             tests Node (node --test) : NEWS2, structure, FHIR, synthèse, document, triage

@@ -1,2 +1,10 @@
 node_modules
 .wrangler
+worker
+tests
+scripts
+wrangler.jsonc
+package.json
+.assetsignore
+.dev.vars
+.gitignore

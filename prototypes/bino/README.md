@@ -2,7 +2,7 @@
 
 Démo du hackathon IA santé ARS × AdoptAI (novembre 2026), défi Hôpital Foch « infirmier augmenté ».
 
-Bino suit les maquettes papier de l'équipe, aux couleurs du logo (rose Bino, bleu ciel). Connexion par matricule de démo. **Patients** : logo Bino, « Bonjour Prénom », la date, 11 patients triables par **chambre** ou **nom** (pas de priorité sur le dashboard). Un patient ouvre **Nouveau compte rendu** : **Dossier médical**, grande zone de texte, **micro**, **Valider** en bas, puis « ✓ Compte rendu fait ». **Transmissions** : **Mes CR** du plus récent au plus ancien ; **Tous** : résumé en puces par patient, du plus récent au plus ancien, rangé par priorité ; la priorité 1 à 4 (proposée par l'IA) se change dans la carte via de petits cercles 1 2 3 4.
+Bino suit les maquettes papier de l'équipe, aux couleurs du logo (rose Bino, bleu ciel). Connexion par matricule de démo. **Patients** : logo Bino, prénom du soignant, la date, 11 patients triables par **chambre** ou **nom** (pas de priorité sur le dashboard). Un patient ouvre **Nouveau compte rendu** : **Dossier médical**, grande zone de texte, **micro**, **Valider** en bas, puis « ✓ Compte rendu fait ». **Transmissions** : **Mes CR** du plus récent au plus ancien ; **Tous** : résumé en puces par patient, du plus récent au plus ancien, rangé par priorité ; la priorité 1 à 4 (proposée par l'IA) se change dans la carte via de petits cercles 1 2 3 4.
 
 Le détail de chaque écran, des règles (priorités, NEWS2, zéro information inventée) et du stockage est dans [`FONCTIONNEMENT.md`](FONCTIONNEMENT.md).
 
@@ -12,7 +12,7 @@ Le détail de chaque écran, des règles (priorités, NEWS2, zéro information i
 
 ## Tester en 30 secondes
 
-**Sur téléphone ou ordinateur :** ouvrez le lien de démo partagé par l'équipe (artifact Claude), ou lancez-le en local (voir plus bas).
+**Sur téléphone ou ordinateur :** ouvrez le lien Cloudflare de l'équipe (`https://bino.<sous-domaine>.workers.dev`, déployé à chaque push sur `demo`). Aucun compte ni installation : tous les téléphones partagent les mêmes comptes rendus et priorités. Autre option : le lien de l'artifact Claude, ou en local (voir plus bas).
 
 Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir comme une app.
 
@@ -35,12 +35,39 @@ Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir c
 
 ### Ce qui marche où
 
-| | Dans Claude (lien artifact) | Cloudflare / local |
-| --- | --- | --- |
-| Comptes rendus | **Partagés en temps réel** entre tous ceux qui ouvrent le lien | Sur cet appareil seulement |
-| Résumés en puces | Synthèse par l'IA de Claude | Règles locales (ou clé API Anthropic) |
-| « Bonjour … » | Martine par défaut, ou le soignant choisi | Idem |
-| Dictée vocale | Chrome ordinateur | Chrome (Android, ordinateur), Safari iOS ; sinon micro du clavier |
+| | Cloudflare (lien public) | Dans Claude (lien artifact) | Local (serveur statique) |
+| --- | --- | --- | --- |
+| Accès | N'importe quel téléphone, sans compte | Compte Claude, partage en **Contributeur** | Cet ordinateur |
+| Comptes rendus, priorités, résumés | **Partagés** entre tous les téléphones (mis à jour toutes les 5 s) | **Partagés en temps réel** | Sur cet appareil seulement |
+| Résumés et priorités | IA via le Worker si la clé est configurée, sinon règles locales + NEWS2 | IA de Claude | Règles locales (ou clé API Anthropic) |
+| Dictée vocale | Chrome (Android, ordinateur), Safari iOS ; sinon micro du clavier | Selon l'app Claude | Idem Cloudflare |
+
+### Cloudflare : stockage commun et IA
+
+Le Worker (`worker/index.js`) sert l'app et deux API :
+
+- `/api/state`, `/api/op` : un **Durable Object** (SQLite) garde les comptes rendus, priorités, constantes et résumés du service, communs à tous les téléphones. Les comptes rendus de démo sont versés au premier lancement.
+- `/api/ai` : appel à Claude **côté serveur**. La clé n'est jamais dans le code ni dans le navigateur.
+
+Pour activer l'IA et la remise à zéro, ajoutez dans GitHub › Settings › Secrets › Actions :
+
+| Secret GitHub | Rôle |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | clé API (de préférence une clé de test à budget limité) ; sans elle, règles locales |
+| `BINO_RESET_CODE` | code libre pour remettre la démo à zéro |
+
+Le prochain push sur `demo` les copie dans les secrets du Worker. Garde-fous : 400 appels IA par jour (`AI_DAILY_LIMIT` dans `wrangler.jsonc`), prompts et comptes rendus de taille limitée.
+
+Remettre la démo à zéro (avant le jury, par exemple) :
+
+```bash
+curl -X POST https://bino.<sous-domaine>.workers.dev/api/op \
+  -H 'content-type: application/json' -d '{"op":"reset","code":"<BINO_RESET_CODE>"}'
+```
+
+Le prochain téléphone qui ouvre l'app reverse les comptes rendus de démo.
+
+Tester le Worker en local : `npx wrangler@4 dev` (secrets de test dans `.dev.vars`, ignoré par git).
 
 Dans Claude, pour que l'équipe puisse écrire, partagez le lien en **Contributeur** (les Lecteurs voient sans écrire).
 

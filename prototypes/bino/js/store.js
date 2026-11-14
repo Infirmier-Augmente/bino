@@ -1,6 +1,7 @@
 // Données partagées par l'équipe : comptes rendus, synthèses finales, constantes.
 // Dans Claude (artifact) : base partagée en temps réel entre tous les soignants.
-// Ailleurs (Cloudflare, local) : ce navigateur seulement (localStorage), avec des exemples de départ.
+// Sur Cloudflare : stockage commun du Worker (/api/state, /api/op), relu toutes les 5 s.
+// Ailleurs (fichier local, serveur statique) : ce navigateur seulement (localStorage).
 import { SEED_CR } from './data.js';
 import { settings } from './settings.js';
 import { hhmm } from './util.js';
@@ -16,6 +17,8 @@ let me = null;
 let mode = 'local';
 let loading = false;
 let stale = false;
+let rev = -1;
+let pollTimer = null;
 
 export const onChange = (fn) => listeners.push(fn);
 const emit = () => {
@@ -43,7 +46,10 @@ function saveLocal() {
 export async function init() {
   loadLocal();
   emit();
-  if (!window.claude?.use) return;
+  if (!window.claude?.use) {
+    await initRemote();
+    return;
+  }
   const [d, u] = await Promise.all([
     window.claude.use('db').catch(() => null),
     window.claude.use('user').catch(() => null),
@@ -110,6 +116,87 @@ function subscribe() {
   );
 }
 
+/* ---------- Cloudflare : stockage commun du Worker ---------- */
+function applyRemote(st) {
+  if (!st || typeof st.rev !== 'number') return;
+  rev = st.rev;
+  cache.cr = st.cr || [];
+  cache.syn = st.syn || {};
+  cache.vit = st.vit || {};
+  cache.prio = { ai: st.prio?.ai || null, manual: st.prio?.manual || {} };
+  stale = false;
+  emit();
+}
+
+async function api(path, body) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(path, {
+      method: body ? 'POST' : 'GET',
+      headers: body ? { 'content-type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+      cache: 'no-store',
+    });
+    if (r.status === 204) return null;
+    const j = await r.json().catch(() => null);
+    if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+    return j;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function initRemote() {
+  let st = null;
+  try {
+    st = await api('/api/state');
+  } catch {
+    return; // pas de Worker (serveur statique, fichier local) : on reste sur ce navigateur
+  }
+  if (!st || typeof st.rev !== 'number') return;
+  mode = 'remote';
+  if (!st.seeded && !st.cr?.length) {
+    try {
+      st = await api('/api/op', { op: 'seed', cr: SEED_CR });
+    } catch {
+      /* un autre téléphone l'a peut-être déjà fait */
+    }
+  }
+  applyRemote(st);
+  startPolling();
+}
+
+async function poll() {
+  if (document.hidden) return;
+  try {
+    const st = await api(`/api/state?since=${rev}`);
+    if (st) applyRemote(st);
+    else if (stale) {
+      stale = false;
+      emit();
+    }
+  } catch {
+    if (!stale) {
+      stale = true;
+      emit();
+    }
+  }
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(poll, 5000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) poll();
+  });
+}
+
+async function remoteOp(body) {
+  applyRemote(await api('/api/op', body));
+}
+
 async function resolveNames() {
   if (!user) return;
   const ids = [
@@ -166,6 +253,7 @@ export async function addCr(pid, text) {
     await db.collection('cr').add({ ...doc, by: me, byName: myName() });
     return;
   }
+  if (mode === 'remote') return remoteOp({ op: 'addCr', pid, text, t: doc.t, byName: myName() });
   cache.cr.push({ id: `l${now.getTime()}`, ...doc, byName: myName() });
   saveLocal();
   emit();
@@ -176,6 +264,7 @@ export async function deleteCr(id) {
     await db.doc(`cr/${id}`).delete();
     return;
   }
+  if (mode === 'remote') return remoteOp({ op: 'deleteCr', id });
   cache.cr = cache.cr.filter((c) => c.id !== id);
   saveLocal();
   emit();
@@ -186,6 +275,7 @@ export async function saveSynth(pid, syn) {
     await db.doc(`syntheses/${pid}`).set(syn);
     return;
   }
+  if (mode === 'remote') return remoteOp({ op: 'saveSynth', pid, syn });
   cache.syn[pid] = syn;
   saveLocal();
   emit();
@@ -203,6 +293,8 @@ export async function validateSynth(pid) {
     await db.doc(`syntheses/${pid}`).update(patch);
     return;
   }
+  if (mode === 'remote')
+    return remoteOp({ op: 'validateSynth', pid, t: patch.validatedT, byName: myName() });
   cache.syn[pid] = { ...s, ...patch };
   saveLocal();
   emit();
@@ -213,6 +305,7 @@ export async function saveVitals(pid, v) {
     await db.doc(`vitals/${pid}`).set(v);
     return;
   }
+  if (mode === 'remote') return remoteOp({ op: 'saveVitals', pid, v });
   cache.vit[pid] = v;
   saveLocal();
   emit();
@@ -227,6 +320,7 @@ export async function savePrioAI(obj) {
     await db.doc('prio/ai').set(obj);
     return;
   }
+  if (mode === 'remote') return remoteOp({ op: 'savePrioAI', ai: obj });
   cache.prio = { ...cache.prio, ai: obj };
   saveLocal();
   emit();
@@ -240,6 +334,7 @@ export async function setManualLevel(pid, level) {
     await db.doc('prio/manual').set({ levels });
     return;
   }
+  if (mode === 'remote') return remoteOp({ op: 'setManualLevel', pid, level });
   cache.prio = { ...cache.prio, manual: levels };
   saveLocal();
   emit();
