@@ -9,7 +9,7 @@ leur auteur et leur heure, une priorité de 1 à 4.
 
 Ce document décrit ce que l'app affiche, écran par écran, puis ce qui se passe derrière. Lancer
 l'app : [README](../README.md). Script du jury : [DEMO.md](DEMO.md). Choix et raisons :
-[DECISIONS.md](DECISIONS.md) (P10 à P15, T20, T21).
+[DECISIONS.md](DECISIONS.md) (P10 à P16, T20, T21, T23).
 
 ## 1. Écran par écran
 
@@ -63,11 +63,22 @@ Patients. Pas de redirection automatique.
    - motif, antécédents, allergies (« Aucune connue » ou « Non renseignées » si inconnu), puis, s'ils
      existent : précautions, dispositifs avec leur jour de pose (« Drain abdominal (J2) »),
      nouvelle prescription, famille.
-3. Grande zone de texte : « Ce que tu as vu et fait, comme à la relève. »
-4. Sous la zone : texte en cours de reconnaissance (navigateur) ou « Transcription en cours… »
-   (serveur).
-5. **Micro** rond magenta : toucher pour dicter, toucher à nouveau pour arrêter. Le texte reconnu
-   s'ajoute **à la fin** de la zone, jamais à la place.
+3. Grande zone de texte (« Ce que tu as vu et fait, comme à la relève. »). Pendant la dictée, elle
+   n'est plus modifiable et prend une bordure magenta : le texte déjà écrit, puis le **texte
+   provisoire** en gris italique, mot à mot. Si la zone est encore vide : « Parle : le texte
+   s'affiche au fil de la dictée. » (ou « Parle : le texte s'affichera à l'arrêt. » quand le texte
+   n'arrive qu'à la fin).
+4. Sous la zone, la ligne d'état : « Enregistrement 0:07 » (durée écoulée), puis « Finalisation… »
+   (dictée en direct) ou « Transcription en cours… » (transcription à la fin).
+5. **Micro** rond magenta de 72 px (`features/report/MicButton.tsx`) : toucher pour dicter, toucher
+   à nouveau pour arrêter. Dès le toucher (4 à 12 ms mesurés), il passe à l'icône carré et
+   « Enregistrement » s'affiche, avant même l'accès au micro. Retour haptique au début et à l'arrêt
+   (sur le web : vibration du navigateur quand elle existe, pas sur Safari iOS). Pendant
+   l'enregistrement, un halo suit le niveau réel du micro (pas avec la reconnaissance du
+   navigateur) ; tant que personne ne parle, une onde lente montre qu'il écoute. Réglage « Réduire
+   les animations » : halo de taille fixe dont seule l'intensité suit la voix, pas d'onde. Après
+   l'arrêt : roue de chargement jusqu'au texte. Le texte reconnu s'ajoute **à la fin** de la zone,
+   jamais à la place.
 6. Puce **Exemple : …** sur deux patients (chambre 12 « M. Dupond se dégrade », chambre 10
    « Mme Berger, journée calme ») : remplit la zone avec un CR d'exemple. Elle disparaît une fois
    ce texte enregistré pour ce patient.
@@ -80,14 +91,15 @@ Confusion / altérée). Le **nouveau score NEWS2** se recalcule à chaque frappe
 enregistrées · NEWS2 5. », la feuille se ferme, le dossier se rouvre à jour. Valeur invalide :
 « Vérifie les valeurs saisies. ». Aucune borne physiologique n'est vérifiée.
 
-**Valider** : termine la dictée en cours (attend la transcription serveur), puis :
+**Valider** : termine la dictée en cours (attend le texte final ou la transcription), puis :
 
 - texte de moins de 3 caractères : toast « Dicte ou écris d'abord le compte rendu. » ;
 - sinon le CR est envoyé, la fiche se ferme et la popup **« Compte rendu fait »** s'affiche
   1,8 s ;
 - échec : toast « L'enregistrement a échoué. Réessaie dans un instant. », le texte reste.
 
-Le bouton est inactif pendant une transcription. Ce que « Valider » fait côté serveur : §2.6.
+Le bouton est inactif pendant « Finalisation… » et « Transcription en cours… ». Ce que « Valider »
+fait côté serveur : §2.6.
 
 ### Transmissions (`(app)/transmissions.tsx`)
 
@@ -108,9 +120,8 @@ qu'il a été écrit ou dicté**. Pas de suppression ni de modification.
 - la raison de la priorité n'est pas affichée à l'écran : elle est dans le libellé lu par le
   lecteur d'écran (« M. Jean Dupond : Priorité 1 (NEWS2 7 · FR 24, TA 98/62). Changer la
   priorité ») ;
-- les **puces** : « Thème : texte », puis l'auteur et l'heure (« Karim 14h05 · Sophie 8h10 »),
-  puis, s'il y en a une, la question ouverte en italique (« Résultat non renseigné pour
-  « Dyspnée » : quelle réévaluation (saturation, tolérance) ? ») ;
+- les **puces** : « Thème : texte », puis l'auteur et l'heure (« Karim 14h05 · Sophie 8h10 »).
+  Aucune question à l'IDE sous les puces : on ne remet pas en cause ce qu'elle a dit (P16) ;
 - 6 puces au plus, les plus récentes ; « Voir les 2 autres puces » (ou « Voir l'autre puce »)
   déplie le reste, « Afficher moins » replie ;
 - « Aucun compte rendu aujourd'hui. » si le patient n'a pas de CR sur le poste ;
@@ -142,7 +153,7 @@ Toutes les vues sont calculées par le serveur à la lecture, sans IA, par les r
 | Patients | `unitBoard` (GET `/units/:unitId/board`) | patients du service, date du serveur | toutes les 5 s |
 | Fiche | `patientDetail` (GET `/patients/:patientId`) | dossier, constantes, `news2`, dispositifs (`devices`, J+n), CR du patient | toutes les 5 s |
 | Fiche | `samples` (GET `/simulation/samples`) | CR d'exemple | à l'ouverture |
-| Fiche, micro | `config` (GET `/config`), POST `/transcriptions` | STT serveur prêt ou non ; texte transcrit | à l'ouverture ; à chaque arrêt du micro |
+| Fiche, micro | `config` (GET `/config`), WebSocket `/transcriptions/live`, POST `/transcriptions` | direct (`sttLive`) et STT serveur (`stt`) prêts ou non ; texte provisoire puis final ; texte transcrit | à l'ouverture ; pendant la dictée ; à l'arrêt du micro |
 | Fiche, Valider | `createTransmission` (POST `/transmissions`) | le CR enregistré (statut `draft`) | après écriture : tout se rafraîchit |
 | Constantes | `updateVitals` (PUT `/patients/:patientId/vitals`) | dossier recalculé | idem |
 | Mes CR | `nurseReports` (GET `/nurses/:nurseId/reports`) | CR du soignant sur le poste | toutes les 5 s |
@@ -231,8 +242,8 @@ l'équipe, tous statuts (à relire, validés, non relus) :
   d'autre n'est écrit ;
 - dessous, **qui et quand** : l'auteur de chaque CR cité et son heure, ou le soignant qui a saisi,
   du plus récent au plus ancien ;
-- la question **« R manquant »** encore ouverte s'affiche sous la puce de sa cible. Elle se ferme si
-  un CR plus récent du poste donne un résultat pour une cible de même libellé ;
+- **aucune question** (P16) : la puce n'a plus de champ `question`. Les questions (R manquant,
+  imprécisions) restent calculées sur les transmissions, dans l'API (§3) ;
 - puces triées de la plus récente à la plus ancienne ; le front en montre 6, puis « Voir les n
   autres puces ».
 
@@ -244,7 +255,7 @@ chiffres, sinon il est écarté (`rules/grounding.ts`).
 
 | Fait | Ne fait pas |
 | --- | --- |
-| `POST /transmissions` : `patientId` de la fiche (pas de recherche du patient dans le texte), `nurseId` du soignant, `mode: 'transmission'`, moyen de saisie (`keyboard`, `voice-server`, `voice-device` ou `simulation` pour un exemple) | Ne **valide** pas la transmission : `review.status` reste `draft` (« À relire »), jamais de validation automatique (P11) |
+| `POST /transmissions` : `patientId` de la fiche (pas de recherche du patient dans le texte), `nurseId` du soignant, `mode: 'transmission'`, moyen de saisie (`keyboard`, `voice-server` y compris la dictée en direct, `voice-device` ou `simulation` pour un exemple) | Ne **valide** pas la transmission : `review.status` reste `draft` (« À relire »), jamais de validation automatique (P11) |
 | Côté serveur : structuration DAR (LLM, repli moteur local), ancrage des sources, questions (R manquant…), gravité des cibles | N'écrit **rien dans le dossier** : les infos transverses extraites (allergies, précautions…) ne sont versées qu'à la validation (`applyTransverseUpdates`) |
 | CR signé (`nurseId`) et horodaté (`createdAt`, horloge du serveur) | N'envoie rien au DPI : l'export ne prend que les transmissions validées (T18) |
 | Le CR apparaît dans Mes CR (texte brut) et dans Tous (puces) | Ne ferme aucune question : elles restent ouvertes (répondables par l'API) |
@@ -254,17 +265,43 @@ Le bouton affiche un chargement pendant ce temps.
 
 ### 2.7 Dictée (`features/report/useReportDictation.ts`, `lib/dictation-engine.ts`)
 
-Ordre de choix du moteur :
+Ordre de choix du moteur, d'après `GET /config` :
 
-1. **Transcription serveur** si `GET /config` dit `stt.ready` (`STT_PROVIDER` = `openai`, `groq` ou
+1. **Dictée en direct** si `sttLive.ready` (`STT_PROVIDER=openai` avec `STT_API_KEY`,
+   `STT_LIVE_MODEL` différent de `none`) : au toucher, l'app ouvre le WebSocket
+   `/transcriptions/live` et le micro en même temps et envoie le son en continu (PCM 16 bits mono
+   24 kHz). Le texte provisoire (`gpt-live-transcribe`)
+   s'affiche mot à mot, environ 1,3 s derrière la voix, souvent avec les nombres en lettres. À
+   l'arrêt : « Finalisation… ». L'API retranscrit **tout l'enregistrement** avec `STT_MODEL`
+   (recommandé `gpt-transcribe` : nombres en chiffres, contexte complet). Ce texte final remplace
+   le provisoire en 1,1 à 1,7 s environ et s'ajoute à la zone (DECISIONS T23).
+2. Sinon, **transcription à la fin** si `stt.ready` (`STT_PROVIDER` = `openai`, `groq` ou
    `openai-compatible`) : l'app enregistre (`expo-audio`), envoie l'audio à `POST /transcriptions`
    à l'arrêt, le texte arrive **à la fin**. Si l'envoi échoue : « Réessayer l'envoi de la dictée ».
-2. Sinon, **reconnaissance vocale du navigateur** (web seulement, `fr-FR`) : texte partiel affiché
+3. Sinon, **reconnaissance vocale du navigateur** (web seulement, `fr-FR`) : texte partiel affiché
    pendant la dictée, chaque phrase reconnue ajoutée à la zone.
-3. Sinon, le micro place le curseur dans la zone et affiche « Dictée indisponible ici : utilise le
+4. Sinon, le micro place le curseur dans la zone et affiche « Dictée indisponible ici : utilise le
    micro du clavier. ».
 
+Replis de la dictée en direct (`features/dictation/useLiveDictation.ts`) :
+
+- connexion refusée ou pas ouverte en 4 s, ou direct non configuré côté API : l'app passe sans rien
+  dire à la transcription à la fin (moteur 2). Ce qui a été dit avant la bascule n'est pas repris ;
+- direct en panne pendant la dictée : l'API continue d'enregistrer, le texte final arrive quand même ;
+- texte final absent au bout de 20 s, ou en échec : le texte provisoire est ajouté, toast « Texte
+  définitif indisponible : le texte provisoire est gardé, relis-le. » (sans texte provisoire : un
+  message d'erreur) ;
+- 5 min au plus (`LIVE_MAX_SECONDS`) : l'API arrête et transcrit, toast « Dictée arrêtée après
+  5 minutes : le texte est ajouté. » ;
+- fiche fermée pendant la dictée : la dictée s'arrête, le texte final arrive quand même dans le
+  brouillon.
+
+Capture du son : `features/dictation/usePcmCapture.ts` sur iOS / Android (`useAudioStream`
+d'`expo-audio`, **implémenté mais pas encore testé sur un appareil**) ; `usePcmCapture.web.ts` dans
+le navigateur (Web Audio, son rééchantillonné en 24 kHz par `lib/pcm.ts`).
+
 Dans un navigateur de téléphone, le micro n'est autorisé qu'en **HTTPS** (voir [DEMO.md](DEMO.md)).
+Le WebSocket suit l'adresse de l'API (`https` → `wss`) et passe par un tunnel `cloudflared` (vérifié).
 
 ### 2.8 Brouillons et session
 
@@ -281,10 +318,10 @@ Dans un navigateur de téléphone, le micro n'est autorisé qu'en **HTTPS** (voi
 | --- | --- |
 | L'IA ne décide rien | « Valider » enregistre sans valider la structuration IA ; rien n'est versé au dossier ni exporté sans `validate`. La priorité manuelle prime. Limite : le front ne distingue pas à l'écran une priorité suggérée d'une priorité choisie (seulement dans le libellé du lecteur d'écran). |
 | Zéro information inventée | Puces faites d'éléments ancrés dans le texte des CR, auteur et heure dessous, aucune phrase générée par le résumé ; Mes CR montre le texte brut. Constantes horodatées et sourcées. |
-| Des questions, pas des verdicts | La question « R manquant » ouverte s'affiche sous sa puce. Les autres questions (imprécision, info transverse manquante, patient ambigu) restent dans l'API, pas à l'écran. NEWS2 est montré avec ses entrées. |
+| Des questions, pas des verdicts | Tenu **dans l'API seulement** : le front n'affiche aucune question (P16), on ne remet pas en cause ce que dit l'IDE. Les questions (R manquant, imprécision, info transverse manquante, patient ambigu) restent calculées sur les transmissions (§3). Aucun verdict à l'écran : NEWS2 est montré avec ses entrées. |
 | Priorité = suggestion explicable | Chaque raison est calculée (`suggestion.reasons`) et lue par le lecteur d'écran ; NEWS2 sert de plancher à la suggestion seulement. |
 | Données 100 % fictives | Scénario `chir-bino` inventé (11 patients, 3 IDE). |
-| Aucune clé dans le repo / indépendance fournisseur | Inchangé : les appels IA restent côté serveur, derrière les ports de `@infirmier/ai`. Le mobile ne dépend que de `@infirmier/domain`. |
+| Aucune clé dans le repo / indépendance fournisseur | Les appels IA restent côté serveur, derrière les ports de `@infirmier/ai`. La dictée en direct envoie le son à l'API (WebSocket), jamais au fournisseur. Le mobile ne dépend que de `@infirmier/domain`. |
 
 ## 3. Fonctions gardées dans le backend mais pas affichées
 
@@ -293,7 +330,7 @@ Retirées du front (P10), toujours dans l'API et testées (`apps/api/src/http/*.
 | Fonction | Endpoint(s) |
 | --- | --- |
 | Relecture d'une transmission : valider, « Plus tard » (non relue), corriger ou retirer une phrase | `reviewTransmission`, `editTransmission`, `getTransmission` |
-| Répondre à une question ou l'écarter (la réponse devient le R, sourcé par le soignant) | `answerFlag` |
+| Questions à l'IDE (R manquant, imprécisions…), calculées sur chaque transmission ; y répondre ou l'écarter (la réponse devient le R, sourcé par le soignant) | `getTransmission`, `answerFlag` |
 | Rattacher ou corriger le patient d'une dictée sans patient présélectionné | `assignPatient` |
 | Supprimer un brouillon | `deleteTransmission` |
 | Étoile ★, revenir à la suggestion (`manualLevel: null`) | `updatePriority` |

@@ -8,7 +8,7 @@ choix structurant (une PR qui change une décision met à jour ce fichier).
 | # | Décision | Pourquoi | Alternatives écartées / à revoir |
 | --- | --- | --- | --- |
 | P1 | **Push-to-talk**, pas d'écoute continue | Synthèse : confidentialité, bruit, mélange de patients, coût | Écoute ambiante, pin's : vision |
-| P2 | Le « challenge » de l'IA = **questions** (R manquant, imprécisions) | Biais d'automatisation (analogie Word), responsabilité, dispositif médical | IA qui juge le contenu clinique |
+| P2 | Le « challenge » de l'IA = **questions** (R manquant, imprécisions) | Biais d'automatisation (analogie Word), responsabilité, dispositif médical | IA qui juge le contenu clinique. Depuis P16 : questions calculées dans l'API, plus affichées dans le front |
 | P3 | **Priorité suggérée et expliquée**, couleur manuelle + ★ priment | « L'IA ne décide rien » ; adoption | Score opaque |
 | P4 | On **prépare** la relève orale, on ne la remplace pas | « La pizza » : moment collectif apprécié | Relève 100 % écrite |
 | P5 | Cible de démo : **réanimation** (kit Foch documenté) + un scénario **médecine** | Le kit décrit la réa, l'équipe imaginait un service : on montre les deux trames | Choisir une seule cible |
@@ -18,10 +18,11 @@ choix structurant (une PR qui change une décision met à jour ce fichier).
 | P9 | Données **100 % fictives**, hôpital simulé rejouable | Kit Foch, RGPD | — |
 | P10 | **Front « Bino »** (maquettes de l'équipe, branche `demo`) : 2 onglets Patients / Transmissions, fiche « Nouveau compte rendu », priorité 1 à 4 | Parcours validé par l'équipe sur maquettes papier ; un geste par compte rendu | Ancien front (relecture DAR, relève PC, recherche, DPI) : retiré du front, **gardé dans le backend** |
 | P11 | **« Valider » enregistre le compte rendu** (signé, horodaté) ; la structuration IA reste « À relire », jamais validée automatiquement | « L'IA ne décide rien » : valider d'un toucher signerait un contenu IA jamais vu et écrirait des allergies extraites dans le dossier | Créer + valider en un toucher |
-| P12 | Résumé « Tous » **sans IA générative** : une puce par thème faite d'éléments sourcés des CR, auteur et heure dessous ; une question (R manquant) s'affiche sous sa puce | Zéro information inventée, traçabilité « qui a dit quoi » | Synthèse LLM multi-CR (il faudrait un ancrage multi-sources) |
+| P12 | Résumé « Tous » **sans IA générative** : une puce par thème faite d'éléments sourcés des CR, auteur et heure dessous ; aucune question sous les puces (P16) | Zéro information inventée, traçabilité « qui a dit quoi » | Synthèse LLM multi-CR (il faudrait un ancrage multi-sources) ; question « R manquant » sous sa puce (version d'origine, retirée par P16) |
 | P13 | **NEWS2** affiché (entrées et points) et utilisé comme **plancher de la priorité suggérée** ; le choix manuel prime | Demande de l'équipe (prototype Bino) ; aide au calcul explicable | ⚠ Score clinique : à revoir avant tout usage réel (dispositif médical, voir PRODUCT « Réglementaire ») |
 | P14 | **Connexion de démo** par matricule + mot de passe partagé (`DEMO_PASSWORD`) | Parcours des maquettes ; « Mes CR » par soignant | Authentification réelle CPS / e-CPS : V2 |
 | P15 | Scénario par défaut **`chir-bino`** (chirurgie, 11 patients, 3 IDE) | Rejoue la démo de l'équipe à l'identique ; réa et médecine restent disponibles | — |
+| P16 | **Pas de question à l'IDE dans le front** : `SummaryBullet.question` retiré du contrat, `rules/summary.ts` n'en attache plus, `SummaryCard` n'en montre aucune | Demande de l'équipe : ne pas challenger les infirmières sur ce qu'elles disent (« la température a monté » ne doit pas appeler « de combien ? ») | Question sous la puce (P12 d'origine). **Reste dans l'API**, sans écran : `rules/completeness.ts`, questions d'imprécision du LLM, `answerFlag`, `pnpm sim eval`. ⚠ AGENTS.md §2 « Des questions, pas des verdicts » n'est donc plus tenu que dans l'API : à confirmer ou ajuster par l'équipe dans une PR dédiée |
 
 ## Technique
 
@@ -37,7 +38,7 @@ choix structurant (une PR qui change une décision met à jour ce fichier).
 | T8 | **Jev (TypeSafe)** pour les jugements typés (patient ambigu, gravité), derrière `ClassifierPort` | Probabilités calibrées, rapide (~200 ms), pas de génération | LLM seul (probabilités auto-déclarées) |
 | T9 | Store **JSON validé zod** (pas de SQL) | Zéro migration à 7 devs en 48 h ; un fichier incompatible est mis de côté | Drizzle + SQLite/Postgres : à faire pour la prod (HDS) |
 | T10 | Rafraîchissement **polling 5 s** (TanStack Query) | Robuste sur toutes les plateformes | SSE/WebSocket (polyfill RN) |
-| T11 | Dictée : **STT serveur** (si configuré) → Web Speech (navigateur) → clavier | Même moteur sur tous les appareils, vocabulaire soignant transmis ; Web Speech répète des mots sur Chrome Android. Fonctionne sans module natif, Expo Go suffit | Web Speech en premier (texte en direct, mais qualité variable) ; `expo-speech-recognition` (dev build) : V2 |
+| T11 | Dictée : **STT serveur** (si configuré) → Web Speech (navigateur) → clavier. Depuis T23, la dictée en direct passe en premier | Même moteur sur tous les appareils, vocabulaire soignant transmis ; Web Speech répète des mots sur Chrome Android. Fonctionne sans module natif, Expo Go suffit | Web Speech en premier (texte en direct, mais qualité variable) ; `expo-speech-recognition` (dev build) : V2 |
 | T12 | Styles : **tokens + primitives maison** | Fiable iOS/Android/web, pas de chaîne de build CSS | NativeWind, Tamagui, Unistyles (dev build) |
 | T13 | **Biome** (lint + format), lefthook, commitlint, CI GitHub | Un outil rapide, mêmes règles pour tous, humains et agents | ESLint + Prettier |
 | T14 | Tests : Vitest (unitaire, intégration via `app.request` + client réel), Playwright (E2E sur export web) | Pyramide rapide ; E2E = build de prod | Jest partout, Detox/Maestro (natif) : V2 |
@@ -49,6 +50,8 @@ choix structurant (une PR qui change une décision met à jour ce fichier).
 | T20 | Priorité : le bonus « non relue » ne vaut plus que pour les transmissions **mises de côté** (`unreviewed`), pas pour les brouillons | Dans Bino tous les CR restent `draft` : le bonus ferait monter tout patient ayant un CR | Garder le bonus sur `draft` |
 | T21 | Polices **Nunito + Plus Jakarta Sans**, couleurs du logo Bino, colonne de 440 px sur grand écran | Fidélité aux maquettes de l'équipe | Atkinson Hyperlegible (AGENTS.md §9 à mettre à jour si l'équipe confirme) |
 | T22 | Branche de référence consultée en **`git worktree`** dans `.reference/` (ignoré par git et Biome) | Comparer au prototype sans fusionner deux historiques | `git merge` de `demo` |
+| T23 | **Dictée en direct en deux passes**. Pendant la dictée : le son part à l'API (WebSocket `/transcriptions/live`), qui le relaie à `gpt-live-transcribe` (`LiveSttPort`) : texte provisoire mot à mot. À l'arrêt : l'API retranscrit **tout l'enregistrement** avec `SttPort` (`STT_MODEL`, recommandé `gpt-transcribe`) et ce texte final remplace le provisoire | Mesuré le 14/11 : `gpt-live-transcribe` suit la voix mais écrit souvent les nombres en lettres (l'ancrage rejetterait « SpO2 94 % ») ; `gpt-transcribe` met les chiffres et voit tout le contexte, mais ne rend le texte qu'à la fin (1,1 à 1,7 s). L'app n'appelle jamais le fournisseur : clés côté serveur | Une seule passe en direct (chiffres en lettres) ; jeton éphémère et connexion directe de l'app au fournisseur. Coût : les deux passes (0,017 + 0,0045 $/min). ⚠ Capture native (iOS/Android) pas encore testée sur un appareil |
+| T24 | Dépendance **`ws`** (+ `@types/ws`) dans `apps/api` : `WebSocketServer` passé à `serve()` de `@hono/node-server` v2, route via son `upgradeWebSocket` intégré (`apps/api/src/server.ts`) | `@hono/node-ws` exige `@hono/node-server` v1 (pair `^1.19.11`) ; l'API est en v2. `ws` était déjà dans `node_modules` sans être déclaré par l'API ; il l'est maintenant | `@hono/node-ws` |
 
 ## Pistes V2 identifiées
 
@@ -56,5 +59,8 @@ choix structurant (une PR qui change une décision met à jour ce fichier).
   rattache explicitement une réévaluation à la bonne cible (aujourd'hui : même libellé).
 - **Pseudonymisation** du transcript avant envoi au LLM (remplacer noms/chambres puis réinjecter).
 - **Dictée native sur l'appareil** (`expo-speech-recognition`, nécessite un dev build).
+- **Dictée en direct** : tester la capture native (`useAudioStream`) sur iPhone et Android ; un
+  adaptateur `LiveSttPort` auto-hébergé (piste HDS).
 - Store Postgres HDS, authentification (CPS / e-CPS), journal d'audit.
-- Questions de cohérence inter-dictées (« incohérent avec ta note de 14h »), toujours sourcées.
+- Questions de cohérence inter-dictées (« incohérent avec ta note de 14h »), toujours sourcées. À
+  rediscuter avec l'équipe : P16 retire les questions du front.

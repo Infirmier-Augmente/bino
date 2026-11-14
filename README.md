@@ -3,8 +3,7 @@
 > En sortant de la chambre, Martine ouvre la fiche du patient et écrit ou dicte son compte rendu.
 > L'IA le range en transmissions ciblées **DAR**, chaque élément lié à l'extrait d'origine, et le
 > laisse « à relire ». À la relève, l'onglet **Tous** montre une carte par patient : des puces
-> sourcées (qui, à quelle heure), le résultat manquant posé en question et une priorité de 1 à 4
-> qu'elle peut changer.
+> sourcées (qui, à quelle heure) et une priorité de 1 à 4 qu'elle peut changer.
 > **On ne remplace pas la relève : on la prépare.**
 
 Hackathon IA santé ARS × AdoptAI (13–15 nov. 2026) · défi Hôpital Foch « infirmier augmenté ».
@@ -29,6 +28,7 @@ pnpm dev
 - App web : appuie sur `w` dans le terminal Expo (ou `pnpm dev:web`). Sur téléphone : scanne le QR code avec **Expo Go** (même Wi-Fi).
   Dans un navigateur de téléphone, le micro exige HTTPS (voir [docs/DEMO.md](docs/DEMO.md)).
 - Sans clé d'API, l'IA tourne en **moteur local** (déterministe). Pour l'IA réelle, renseigne `LLM_PROVIDER` / `LLM_API_KEY` dans `.env` (voir [docs/AI_PROVIDERS.md](docs/AI_PROVIDERS.md)).
+  Pour la dictée en direct : `STT_PROVIDER=openai`, `STT_API_KEY` et `STT_MODEL=gpt-transcribe`.
 
 Prérequis : Node ≥ 22.12 et pnpm (`corepack enable`).
 
@@ -51,22 +51,22 @@ Toucher un patient ouvre la fiche **Nouveau compte rendu** : dossier médical, z
 | Moment | Ce que voit l'infirmière | Où dans le code |
 | --- | --- | --- |
 | Prise de poste | Connexion par **matricule** + mot de passe de démo | `apps/mobile/src/app/connexion.tsx`, `apps/api/src/services/team-service.ts` |
-| Entre deux chambres | Fiche **Nouveau compte rendu** : elle écrit, ou dicte au **micro** (le texte arrive à la fin de l'enregistrement avec la transcription serveur, en direct avec celle du navigateur) | `apps/mobile/src/app/patient/[patientId].tsx`, `apps/mobile/src/features/report` |
+| Entre deux chambres | Fiche **Nouveau compte rendu** : elle écrit, ou dicte au **micro**. Avec la dictée en direct, le texte s'affiche pendant qu'elle parle, puis le texte final, retranscrit sur toute la dictée, le remplace à l'arrêt. Sinon il arrive à la fin de l'enregistrement (transcription serveur) ou en direct (navigateur) | `apps/mobile/src/app/patient/[patientId].tsx`, `apps/mobile/src/features/report` |
 | Dans la fiche | **Dossier médical** : constantes avec les points **NEWS2** de chaque paramètre, dispositifs (J+n), allergies… ; feuille **Constantes** avec score recalculé en direct | `apps/mobile/src/features/report`, `packages/domain/src/rules/news2.ts` |
-| 1 geste | **Valider** : compte rendu signé et horodaté, popup « Compte rendu fait ». L'IA le range en **DAR** sourcé, R manquant posé en **question** ; il reste « à relire », jamais validé à sa place | `packages/ai`, `apps/api/src/services/hospital-service.ts` |
+| 1 geste | **Valider** : compte rendu signé et horodaté, popup « Compte rendu fait ». L'IA le range en **DAR** sourcé ; il reste « à relire », jamais validé à sa place | `packages/ai`, `apps/api/src/services/hospital-service.ts` |
 | Pendant le poste | **Mes CR** : ses comptes rendus, texte intégral, du plus récent au plus ancien | `apps/mobile/src/features/transmissions/MyReports.tsx` |
-| À la relève | **Tous** : une carte par patient, puces sourcées par thème avec auteur et heure, question « R manquant » sous sa puce, **Priorité 1 à 4** (suggestion avec plancher NEWS2, le choix manuel prime) | `apps/mobile/src/features/transmissions`, `packages/domain/src/rules/{summary,team,priority}.ts` |
+| À la relève | **Tous** : une carte par patient, puces sourcées par thème avec auteur et heure, sans question à l'IDE, **Priorité 1 à 4** (suggestion avec plancher NEWS2, le choix manuel prime) | `apps/mobile/src/features/transmissions`, `packages/domain/src/rules/{summary,team,priority}.ts` |
 | Démo / tests | **Simulateur** d'hôpital : journées rejouables (`/simulateur`, par l'URL), évaluation de l'IA | `packages/simulation`, `pnpm sim` |
 
 Gardé dans l'API mais pas affiché par ce front : relecture et validation des transmissions,
-réponse aux questions, étoile ★, entrée d'un patient, fiche de relève, recherche sourcée, récap « taille SMS »,
+questions à l'IDE (R manquant, imprécisions) et réponses, étoile ★, entrée d'un patient, fiche de relève, recherche sourcée, récap « taille SMS »,
 export **FHIR R4** vers un DPI simulé (voir [FONCTIONNEMENT.md §3](docs/FONCTIONNEMENT.md#3-fonctions-gardées-dans-le-backend-mais-pas-affichées)).
 
 ## Lignes rouges (testées)
 
 1. **L'IA ne décide rien** : elle structure, résume, signale. L'IDE valide et reste responsable.
 2. **Zéro information inventée** : un extrait introuvable dans la dictée ou un chiffre modifié = phrase écartée.
-3. **Des questions, pas des verdicts** (« Résultat non renseigné : quelle réévaluation ? »).
+3. **Des questions, pas des verdicts** : un manque devient une question sur la transmission, dans l'API (« Résultat non renseigné : quelle réévaluation ? »). Le front Bino n'en affiche aucune : on ne challenge pas l'IDE ([DECISIONS P16](docs/DECISIONS.md)).
 4. **Aucune dépendance à un fournisseur d'IA** : DeepSeek, OpenAI, Mistral, Anthropic, Google, Groq, Ollama, OVHcloud, Scaleway, Jev… se changent dans `.env`.
 
 ## Commandes utiles

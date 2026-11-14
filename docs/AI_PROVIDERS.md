@@ -1,11 +1,12 @@
 # Fournisseurs d'IA
 
-Aucun code métier ne connaît un fournisseur. Tout passe par trois **ports** (`packages/ai`) :
+Aucun code métier ne connaît un fournisseur. Tout passe par quatre **ports** (`packages/ai`) :
 
 | Port | Rôle | Implémentations |
 | --- | --- | --- |
 | `LlmPort` | Structuration DAR, admission | AI SDK : DeepSeek, OpenAI, Anthropic, Mistral, Google, Groq, **tout serveur compatible OpenAI** |
-| `SttPort` | Transcription audio côté serveur (optionnel) | OpenAI Whisper, Groq Whisper, **serveur auto-hébergé compatible OpenAI** |
+| `SttPort` | Transcription d'un enregistrement entier, côté serveur (optionnel) | OpenAI (`whisper-1`, `gpt-transcribe`…), Groq Whisper, **serveur auto-hébergé compatible OpenAI** |
+| `LiveSttPort` | Texte provisoire pendant la dictée, côté serveur (optionnel) | OpenAI Realtime (`gpt-live-transcribe`) |
 | `ClassifierPort` | Jugements typés avec probabilités (patient ambigu, gravité) | **Jev (TypeSafe)**, LLM, règles locales |
 
 Changer de fournisseur = modifier `.env` puis relancer l'API. Vérifier avec `pnpm sim eval`.
@@ -40,27 +41,73 @@ Garde-fous indépendants du fournisseur : sortie validée par schéma, ancrage d
 
 ## Speech-to-text
 
-Sans STT serveur (`STT_PROVIDER=none`), l'app utilise :
+Deux ports, côté serveur uniquement :
 
-- sur navigateur (PC, Chrome Android, Safari iOS) : la reconnaissance vocale du navigateur, texte en direct ;
-- sur l'app native : le micro du clavier du téléphone.
+- `SttPort` (fichier) : transcrit un enregistrement entier. Sert à `POST /transcriptions` et au
+  texte final de la dictée en direct.
+- `LiveSttPort` (direct) : texte provisoire pendant la dictée, derrière le WebSocket
+  `/transcriptions/live`. Un seul adaptateur : OpenAI Realtime (`packages/ai/src/stt/openai-realtime.ts`).
 
-Avec un STT serveur, il est **prioritaire partout** (app native et navigateur) : l'app enregistre
-(`expo-audio`) et envoie à `POST /transcriptions`, le texte s'affiche à la fin de l'enregistrement.
-La reconnaissance du navigateur n'est plus utilisée (Chrome Android répète des mots en mode continu).
-Choix du moteur : `apps/mobile/src/lib/dictation-engine.ts`.
+Choix du moteur dans l'app (`apps/mobile/src/lib/dictation-engine.ts`), d'après `GET /config` :
+
+1. **dictée en direct** si `sttLive.ready` ;
+2. sinon **transcription à la fin** si `stt.ready` : l'app enregistre (`expo-audio`) et envoie le
+   fichier à `POST /transcriptions` à l'arrêt ;
+3. sinon, sur navigateur (PC, Chrome Android, Safari iOS) : la reconnaissance vocale du navigateur,
+   texte en direct ;
+4. sinon : le micro du clavier du téléphone.
+
+Avec un STT serveur, la reconnaissance du navigateur n'est plus utilisée (Chrome Android répète des
+mots en mode continu).
 
 ```bash
-STT_PROVIDER=groq            # ou openai
+STT_PROVIDER=openai
 STT_API_KEY=...
-# STT_MODEL=whisper-large-v3-turbo (défaut Groq) / whisper-1 (défaut OpenAI)
+STT_MODEL=gpt-transcribe        # texte final ; défaut openai : whisper-1
+# STT_LIVE_MODEL=gpt-live-transcribe   (défaut) ; « none » = pas de direct
 
-STT_PROVIDER=openai-compatible   # faster-whisper-server / speaches auto-hébergé (piste HDS)
+STT_PROVIDER=groq               # transcription à la fin seulement
+STT_API_KEY=...
+# STT_MODEL=whisper-large-v3-turbo (défaut Groq)
+
+STT_PROVIDER=openai-compatible  # faster-whisper-server / speaches auto-hébergé (piste HDS), à la fin seulement
 STT_BASE_URL=http://localhost:8000/v1
 STT_MODEL=Systran/faster-whisper-large-v3
 ```
 
-Le lexique soignant (`domain/rules/lexicon.ts`) est envoyé comme vocabulaire à favoriser.
+Le lexique soignant (`domain/rules/lexicon.ts`) est envoyé comme vocabulaire à favoriser, au port
+fichier comme au direct (`dictationPrompt()`, `apps/api/src/http/transcription.ts`).
+
+### Dictée en direct : deux passes (DECISIONS T23)
+
+Le direct n'existe qu'avec `STT_PROVIDER=openai` : il est activé d'office dès que `STT_API_KEY` est
+renseignée (même clé, même `STT_BASE_URL`), sauf `STT_LIVE_MODEL=none`. Avec `groq` ou
+`openai-compatible`, `sttLive.ready` est faux et l'app enregistre puis transcrit.
+
+1. **Pendant la dictée** : l'app envoie le son du micro à l'API (PCM 16 bits mono 24 kHz, trames
+   binaires). L'API garde tout le son en mémoire et le relaie à `gpt-live-transcribe`. Le texte
+   provisoire arrive mot à mot, environ 1,3 s derrière la voix. Ce modèle écrit souvent les nombres
+   en lettres (« quatre-vingt-quatorze ») : il ne sert qu'à l'affichage.
+2. **À l'arrêt** : l'API retranscrit tout l'enregistrement (WAV, `pcm16ToWav`) avec le port fichier
+   (`STT_MODEL`). Avec `gpt-transcribe` : nombres en chiffres, contexte complet. Ce texte final
+   remplace le provisoire, environ 1,1 à 1,7 s après l'arrêt. C'est lui qui part à la structuration
+   et à l'ancrage des chiffres.
+
+Prix au 14/11 : `gpt-live-transcribe` 0,017 $/min, `gpt-transcribe` 0,0045 $/min. Une dictée en
+direct paie les deux.
+
+Replis :
+
+- connexion WebSocket refusée, pas ouverte en 4 s, ou direct non configuré côté API : l'app bascule
+  sur l'enregistrement + `POST /transcriptions` ;
+- direct en panne pendant la dictée : l'API continue d'enregistrer, le texte final arrive quand même ;
+- texte final absent au bout de 20 s, ou en échec : l'app garde le texte provisoire et demande de le
+  relire.
+
+Limites : 300 s par dictée (au-delà, l'API arrête et transcrit), trames WebSocket de 1 Mio au plus.
+
+**Ajouter un fournisseur de direct** : un adaptateur `LiveSttPort` dans `packages/ai/src/stt/`, son nom
+dans `STT_LIVE_PROVIDERS` et son choix dans `config.ts` et `services.ts`. Rien d'autre ne bouge.
 
 ## Classifieur (Jev / TypeSafe)
 

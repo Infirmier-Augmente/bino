@@ -12,6 +12,7 @@ flowchart LR
   end
   subgraph API["apps/api — Hono (Node)"]
     H["HTTP : contrat validé"] --> UC["Cas d'usage\nHospitalService, TeamService"]
+    WS["WebSocket\n/transcriptions/live"]
     UC --> ST[("Store JSON\nvalidé zod")]
     SIM["SimulationService"] --> UC
   end
@@ -19,13 +20,17 @@ flowchart LR
     P["Pipeline"] --> LLM["LlmPort\n(AI SDK : DeepSeek, OpenAI…)"]
     P --> CL["ClassifierPort\n(Jev, LLM, règles)"]
     P --> HE["Moteur heuristique\n(repli)"]
-    STT["SttPort\n(Whisper, Groq, auto-hébergé)"]
+    STT["SttPort\n(Whisper, gpt-transcribe, Groq, auto-hébergé)"]
+    LIVE["LiveSttPort\n(OpenAI Realtime)"]
   end
   DOM["packages/domain\nschémas, règles pures,\ncontrat d'API, client typé"]
   SCN["packages/simulation\nhôpital fictif, scénarios"]
   Mobile -- "client typé (contrat)" --> H
   UC --> P
   H --> STT
+  Mobile -- "son PCM (dictée en direct)" --> WS
+  WS --> LIVE
+  WS --> STT
   SIM --> SCN
   Mobile -.-> DOM
   API -.-> DOM
@@ -66,6 +71,12 @@ Endpoints ajoutés pour le front Bino (`apps/api/src/services/team-service.ts`, 
 | `nurseReports` | GET `/nurses/:nurseId/reports` | « Mes CR » : CR du soignant sur la fenêtre de relève, du plus récent au plus ancien |
 | `updateVitals` | PUT `/patients/:patientId/vitals` | Constantes saisies, horodatées et sourcées par le soignant ; renvoie le dossier recalculé |
 
+Deux routes sont **hors du contrat JSON** : `POST /transcriptions` (envoi de fichier,
+`apps/api/src/http/transcription.ts`) et le WebSocket `GET /transcriptions/live` (dictée en direct,
+`apps/api/src/http/live-transcription.ts`, voir plus bas). Le protocole du WebSocket est quand même
+partagé et typé : `packages/domain/src/api/live-transcription.ts` (messages validés par zod des deux
+côtés). Son état est dans `GET /config` (`sttLive`).
+
 `patientDetail` renvoie aussi `news2` et `devices` (jour de pose « J2 »). Le front utilise en plus
 `config`, `session`, `unitBoard`, `patientDetail`, `samples`, `createTransmission`, `updatePriority`,
 `health` et les endpoints du simulateur. Les autres (relecture, questions, fiche de relève,
@@ -103,13 +114,51 @@ Points clés :
 - **Repli** : délai max (`LLM_TIMEOUT_MS`) puis moteur heuristique ; la transmission porte
   `engine.degraded = true`, l'UI le dit.
 - **Complétude** déterministe : cible sans R → question. Les questions d'imprécision du LLM sont
-  limitées et toujours formulées en questions.
+  limitées et toujours formulées en questions. Elles restent sur la transmission (relecture,
+  `answerFlag`) : le front Bino n'en affiche aucune (DECISIONS P16).
 - **Priorité** : règles explicables (`PRIORITY_WEIGHTS`) + gravité suggérée (Jev Score / LLM / lexique)
   + **plancher NEWS2** sur la suggestion. Couleur manuelle et ★ priment toujours.
 - **Fiche de relève** et **résumé « Tous »** : assemblés sans IA à partir des éléments sourcés des
   transmissions structurées (`rules/handover.ts`, `rules/summary.ts`).
 - Le front Bino crée la transmission avec le patient présélectionné et ne la valide jamais :
   elle reste `draft` (DECISIONS P11).
+
+## Dictée en direct
+
+```mermaid
+sequenceDiagram
+  participant M as Mobile
+  participant W as API /transcriptions/live
+  participant L as LiveSttPort (gpt-live-transcribe)
+  participant F as SttPort (STT_MODEL)
+  M->>W: ouverture + son PCM 16 bits mono 24 kHz (trames binaires), dès le toucher
+  W->>L: session de transcription, son relayé
+  L-->>W: morceaux de texte
+  W-->>M: delta (texte provisoire)
+  M->>W: message « stop » (arrêt du micro)
+  W->>F: tout l'enregistrement (WAV)
+  F-->>W: texte final
+  W-->>M: final (remplace le provisoire), puis fermeture
+```
+
+- **Clés côté serveur** : l'app n'appelle jamais un fournisseur. Elle ouvre `ws(s)://<api>/transcriptions/live`
+  (`apps/mobile/src/lib/live-transcription.ts`) ; l'API ouvre la session chez le fournisseur avec sa
+  clé (WebSocket natif de Node, en-tête `Authorization`).
+- **Indépendance fournisseur** : l'API ne connaît que `LiveSttPort` (texte provisoire) et `SttPort`
+  (texte final). Changer de fournisseur = un adaptateur dans `packages/ai/src/stt/`.
+- **Deux passes** (DECISIONS T23) : le provisoire suit la voix ; le final est retranscrit sur tout
+  l'enregistrement, avec les nombres en chiffres, et c'est lui qui part à la structuration.
+- **Rien n'est perdu** : le son capté avant l'ouverture de la connexion attend en file côté app ;
+  celui reçu avant l'ouverture de la session fournisseur est gardé côté API. Si le direct tombe en
+  panne, l'API continue d'enregistrer et produit le final.
+- **Découpage** : `LiveDictation` (`apps/api/src/services/live-dictation.ts`) ne dépend pas du
+  transport et se teste sans réseau. `apps/api/src/http/live-transcription.ts` la branche sur
+  `upgradeWebSocket` de `@hono/node-server` ; `apps/api/src/server.ts` crée le serveur Node avec
+  `ws` (T24). Sans WebSocket, la route répond 426.
+- **Tests** : `app.request()` ne sait pas ouvrir de WebSocket ; `apps/api/src/http/live-transcription.test.ts`
+  démarre un vrai serveur sur un port éphémère, avec de faux ports IA (`apps/api/src/testing/fake-live.ts`).
+- **Limites** : 300 s par dictée (`LIVE_MAX_SECONDS`), trames de 1 Mio au plus. Une ligne de log
+  par dictée (durée, octets, moteurs), jamais le son, le texte ni une clé.
 
 ## Temps
 
@@ -146,9 +195,13 @@ sur Postgres hébergé HDS, sans toucher aux routes.
   tris) ; brouillons de CR par patient **en mémoire seulement** (`features/report/drafts.ts`).
 - Pas de bibliothèque de style : **tokens** (`src/ui/theme.ts`) + primitives maison, fiables sur
   toutes les plateformes. Identité Bino : [DESIGN.md](DESIGN.md).
-- Dictée : enregistrement `expo-audio` + `/transcriptions` si un STT serveur est configuré → sinon
-  Web Speech API (texte en direct, web seulement) → sinon micro du clavier (`src/lib/dictation-engine.ts`).
-  Le texte reconnu s'ajoute à la fin du brouillon.
+- Dictée (`src/lib/dictation-engine.ts`) : dictée en direct si `sttLive.ready` → sinon enregistrement
+  `expo-audio` + `/transcriptions` si un STT serveur est configuré → sinon Web Speech API (texte en
+  direct, web seulement) → sinon micro du clavier. Le texte reconnu s'ajoute à la fin du brouillon.
+- Capture du son en direct (`src/features/dictation/`) : `usePcmCapture.ts` sur iOS / Android
+  (`useAudioStream` d'`expo-audio`, **pas encore testé sur un appareil**), `usePcmCapture.web.ts` sur
+  le web (`getUserMedia` + AudioWorklet, repli ScriptProcessor). Le son est rééchantillonné en
+  24 kHz et converti en 16 bits par `src/lib/pcm.ts`.
 - Mise en page : une **colonne de 440 px** au plus, centrée (`COLUMN_MAX_WIDTH`, `src/app/_layout.tsx`),
   onglets en bas sur toutes les tailles d'écran. Pas de barre latérale ni de vue PC distincte
   (vérifié par `e2e/tests/bureau.spec.ts`).
@@ -157,7 +210,8 @@ sur Postgres hébergé HDS, sans toucher aux routes.
 
 ## Sécurité (prototype)
 
-- Clés uniquement côté serveur (`.env`, jamais dans l'app ni le dépôt ; hook de détection).
+- Clés uniquement côté serveur (`.env`, jamais dans l'app ni le dépôt ; hook de détection). La
+  dictée en direct passe aussi par l'API : aucun jeton de fournisseur dans l'app.
 - Le LLM ne reçoit pas l'identité du patient (sexe, âge, motif seulement) — la dictée elle-même peut
   contenir un nom : pseudonymisation avant envoi = piste V2.
 - CORS ouvert pour la démo : à restreindre au réseau de l'hôpital.

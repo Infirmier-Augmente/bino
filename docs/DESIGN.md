@@ -16,8 +16,8 @@ Identité « Bino », reprise des maquettes de l'équipe (DECISIONS P10, T21). L
    17, champs 16, corps et puces 15). Les petits textes (11 à 13 px) sont réservés aux mentions
    secondaires : auteur et heure, indices, onglets. Cibles tactiles de 44 px au moins.
 3. **La source reste visible.** Sous chaque puce : qui l'a dit et à quelle heure.
-4. **Questions, pas verdicts.** Un manque s'affiche dans le ton « question », en italique, formulé
-   comme une question.
+4. **Pas de question à l'IDE.** Le front ne remet pas en cause ce qu'elle a écrit ou dicté : aucune
+   question sous les puces (DECISIONS P16). Les questions restent dans l'API (relecture).
 5. **L'IDE garde la main.** Priorité modifiable d'un toucher ; NEWS2 toujours affiché avec ses
    entrées et ses points.
 6. **Une seule app.** Une colonne de 440 px au plus, centrée, onglets en bas, sur téléphone comme
@@ -28,13 +28,13 @@ Identité « Bino », reprise des maquettes de l'équipe (DECISIONS P10, T21). L
 | Rôle | Valeur | Usage |
 | --- | --- | --- |
 | Bleu nuit (encre) | `#002244` | texte, contour de la pilule « Dossier médical », puces |
-| Magenta (marque) | `#FF0066`, appuyé `#D6005A` | action principale : **Valider**, **Se connecter**, micro, onglet et segment actifs, compteur, liens texte |
+| Magenta (marque) | `#FF0066`, appuyé `#D6005A` | action principale : **Valider**, **Se connecter**, micro et son halo, bordure de la zone pendant la dictée, onglet et segment actifs, compteur, liens texte |
 | Bleu ciel | `#5BB8F0`, fond à 18 % | pastille « CHAMB 12 », barre des cartes patient |
 | Fond, cartes | `#FFFFFF` | page, cartes (filet 1 px, pas d'ombre) |
-| Texte secondaire | `#5F5F5F` | sous-titres, auteur et heure, libellés du dossier |
+| Texte secondaire | `#5F5F5F` | sous-titres, auteur et heure, libellés du dossier, ligne d'état de la dictée, texte provisoire (en italique) |
 | Filets | `rgba(0,34,68,0.1)`, tableau `#EEF1F4` | contour des cartes, séparateurs |
 | Champ | bordure `#C3CCD5`, focus `#9FD3F6` | saisie (contour bleu clair au focus) |
-| Question | `#9A4A06` | question « R manquant » sous sa puce, en italique (`warnSoft` `#FDF1E3` est défini mais pas utilisé) |
+| Avertissement | `#9A4A06`, fond `#FDF1E3` (`warnSoft`) | ton `warn`, prévu pour les bandeaux d'avertissement ; plus utilisé à l'écran depuis le retrait des questions sous les puces (P16) |
 | Erreur | `#DC0000` | messages d'erreur |
 | Succès | `#13804A` (fond `rgba(34,181,115,0.14)`) | coche de la popup « Compte rendu fait », « Connexion OK » |
 | Voile | `rgba(0,20,40,0.45)` | derrière la feuille et la popup |
@@ -81,14 +81,18 @@ contraste faible (environ 1,8:1) : il ne porte jamais seul l'information.
 | `UtilityScreen.tsx`, `a11y.ts` | écrans `/serveur` et `/simulateur` ; attributs ARIA sur le web, touche Échap |
 
 Métier (`apps/mobile/src/features`) : `PatientRow`, `MedicalRecord`, `VitalsSheet`, `ReportComposer`,
-`MyReports`, `SummaryCard`, `TeamSummaries`. Icônes : `lucide-react-native`. Mascotte :
-`apps/mobile/assets/bino/` (poses salue, présente, pouce).
+`MicButton`, `DictationStatusLine`, `MyReports`, `SummaryCard`, `TeamSummaries`. Icônes :
+`lucide-react-native`. Mascotte : `apps/mobile/assets/bino/` (poses salue, présente, pouce).
 
 ## Mouvement
 
-On n'anime qu'une activité réelle. Pendant l'enregistrement, le micro passe à l'icône « carré » et
-prend un halo fixe, sans pulsation. Pendant une transcription ou un envoi : roue de chargement. La
-fiche monte du bas (transition d'écran).
+On n'anime qu'une activité réelle : l'enregistrement. Dès le toucher, le micro passe à l'icône
+« carré », la zone de texte prend une bordure magenta et « Enregistrement 0:07 » s'affiche, avec un
+retour haptique au début et à l'arrêt. Le halo du micro suit le niveau réel de la voix (sauf avec
+la reconnaissance du navigateur) ; tant que personne ne parle, une onde lente (1,4 s) montre que le
+micro écoute et s'efface dès que la voix est captée. « Réduire les animations » : halo de taille
+fixe, seule son intensité suit la voix, pas d'onde. Pendant « Finalisation… », une transcription ou
+un envoi : roue de chargement. La fiche monte du bas (transition d'écran).
 
 ## Ce qu'on s'interdit (référence : impeccable.style/slop)
 
@@ -97,7 +101,8 @@ fiche monte du bas (transition d'écran).
   l'écart signalé en haut de page.
 - Icône dans un carré arrondi au-dessus d'un titre, petite étiquette au-dessus d'un titre.
 - Inter / Geist par défaut, lettres compressées, texte gris sur fond coloré.
-- Point qui pulse, rebonds, marquee.
+- Point qui pulse sans activité réelle (seule l'onde du micro pendant l'enregistrement), rebonds,
+  marquee.
 - Grilles de cartes identiques, chiffres héros.
 - Emoji décoratifs dans l'UI, promesses marketing.
 
@@ -109,5 +114,6 @@ fiche monte du bas (transition d'écran).
 - Priorité : toujours « Priorité n », jamais une couleur seule.
 - Ce qui est inconnu s'écrit « Non renseigné(e)s », jamais « Aucun » (« Aucune connue » seulement si
   le dossier le dit).
-- Un manque se dit en question (« Résultat non renseigné pour « Dyspnée » : quelle réévaluation ? »).
-- On ne dit pas « IA » à l'écran : on dit ce qui se passe (« Transcription en cours… »).
+- On ne pose pas de question à l'IDE sur ce qu'elle a dit (P16).
+- On ne dit pas « IA » à l'écran : on dit ce qui se passe (« Enregistrement », « Finalisation… »,
+  « Transcription en cours… »).

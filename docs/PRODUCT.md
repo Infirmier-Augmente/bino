@@ -34,13 +34,13 @@ flowchart TD
   A["Connexion (matricule)"] --> B["Patients : toucher le patient"]
   B --> C["Fiche « Nouveau compte rendu » : écrire ou dicter"]
   C --> D["Valider : CR signé et horodaté"]
-  D --> E["Structuration DAR sourcée, R manquant = question (reste « à relire »)"]
+  D --> E["Structuration DAR sourcée (reste « à relire »)"]
   E --> F["Mes CR : ses comptes rendus"]
   E --> G["Tous : une carte par patient, puces sourcées, auteur et heure"]
   V["Constantes du dossier : NEWS2"] --> P
   G --> P["Priorité 1 à 4 : suggestion (plancher NEWS2), choix manuel"]
   P --> J["Relève orale : vérifier, questionner, prioriser"]
-  E -.-> K["Relecture, validation, fiche de relève, export FHIR : dans l'API, pas à l'écran"]
+  E -.-> K["Questions (R manquant), relecture, validation, fiche de relève, export FHIR : dans l'API, pas à l'écran"]
 ```
 
 ## Périmètre
@@ -49,10 +49,10 @@ flowchart TD
 
 | Priorité (synthèse) | Fonction | État |
 | --- | --- | --- |
-| 🟩 Must | Bouton de dictée mobile, patient nommé en début de note | ✅ micro dans la fiche du patient (patient déjà choisi) : STT serveur d'abord, sinon navigateur, sinon clavier |
-| 🟩 Must | Transcription robuste au jargon | ✅ lexique soignant partagé (prompt LLM, biais STT, moteur local) |
+| 🟩 Must | Bouton de dictée mobile, patient nommé en début de note | ✅ micro dans la fiche du patient (patient déjà choisi) : dictée en direct d'abord (texte pendant qu'elle parle, puis texte final retranscrit sur toute la dictée), sinon STT serveur à l'arrêt, sinon navigateur, sinon clavier. Capture native pas encore testée sur un appareil |
+| 🟩 Must | Transcription robuste au jargon | ✅ lexique soignant partagé (prompt LLM, biais STT, moteur local) ; en direct, texte final retranscrit sur toute la dictée, nombres en chiffres (T23) |
 | 🟩 Must | Rangement DAR + tri cible / soin de routine | ✅ à chaque « Valider » (LLM few-shot exemple A, moteur local de secours) ; repris en puces dans Tous, routine exclue |
-| 🟩 Must | Champs manquants signalés, jamais inventés | ✅ R manquant → question sous sa puce ; ancrage des sources + chiffres |
+| 🟩 Must | Champs manquants signalés, jamais inventés | ✅ jamais inventés : ancrage des sources + chiffres ; 🟡 API pour le signalement : R manquant → question sur la transmission, pas affichée (P16 : on ne challenge pas l'IDE) |
 | 🟩 Must | Validation en 1 clic ou « non relu » | 🟡 API. Le front enregistre sans valider : la structuration reste « à relire » (P11) |
 | 🟩 Must | Fiche de relève par patient + bloc transverse | ✅ carte Tous (puces sourcées) + dossier médical de la fiche ; 🟡 API pour la fiche complète par appareil ou sommaire |
 | 🟨 Should | Vue service priorisée | ✅ Tous trié par priorité 1 → 4, choix manuel par les cercles ; 🟡 API pour l'étoile ★ |
@@ -64,7 +64,7 @@ flowchart TD
 | Ajout Bino | Connexion par matricule | ✅ démo, mot de passe partagé (P14) ; CPS / e-CPS en V2 |
 | 🟨 V2 | Détection des « non-dits », IA qui pose des questions d'incohérence | 🟡 API : questions d'imprécision par le LLM (2 demandées, 3 gardées au plus), pas d'analyse clinique ; non affichées |
 | 🟨 V2 | Score de priorité automatique | 🟡 suggestion explicable (règles + gravité Jev/LLM + plancher NEWS2), l'IDE garde la main ; raison lue par le lecteur d'écran, pas affichée |
-| 🟨 V2 | Continuité des cibles entre dictées (R dicté plus tard) | 🟡 la question « R manquant » se ferme si un CR ultérieur du poste apporte le résultat (vue, sans modifier l'original) |
+| 🟨 V2 | Continuité des cibles entre dictées (R dicté plus tard) | 🟡 API : la question « R manquant » se ferme si un CR ultérieur du poste apporte le résultat (vue, sans modifier l'original) ; non affichée |
 | ⬜ Vision | Écoute continue, pin's, prédiction clinique, prescriptions | ⬜ pitch « et demain » |
 
 ## Indicateurs (kit Foch) et comment on les mesure
