@@ -1,9 +1,9 @@
 name: Deploy prototype
 
-# Un push sur feat/bino-prototype publie prototypes/bino sur le Worker Cloudflare.
+# Un push sur demo publie prototypes/bino sur le Worker Cloudflare.
 on:
   push:
-    branches: [feat/bino-prototype]
+    branches: [demo]
 
 concurrency:
   group: deploy-prototype
