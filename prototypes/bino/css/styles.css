@@ -1745,6 +1745,17 @@ h2 .count {
   gap: 8px;
   margin: 0 0 12px;
 }
+.tr-q {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  border: 1px solid #c3ccd5;
+  border-radius: 12px;
+  padding: 0 12px;
+  background: #fff;
+  font: inherit;
+  font-size: 15px;
+}
 .tr-sort .sort-menu {
   flex: none;
 }

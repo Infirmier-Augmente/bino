@@ -308,10 +308,15 @@ export function vTransmissions(S, U) {
     return `${head}
     ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
   }
-  const ps = sorted(S.patients, U.trSort);
+  const q = (U.trQuery || '').trim();
+  const fold = (s) => String(s).toLocaleLowerCase('fr').normalize('NFD').replace(/\p{M}/gu, '');
+  const needle = fold(q);
+  const ps = sorted(S.patients, U.trSort).filter((p) =>
+    needle ? fold(`${p.nom} ${p.ch} ${p.motif}`).includes(needle) : true,
+  );
   return `${head}
-  <div class="tr-sort">${sortMenu(TR_SORTS, U.trSort || 'prio', 'trSort', '')}</div>
+  <div class="tr-sort">${sortMenu(TR_SORTS, U.trSort || 'prio', 'trSort', '')}<input id="tr-q" class="tr-q" type="search" placeholder="Patient, chambre" value="${esc(q)}" data-model="trQuery" aria-label="Rechercher un patient"></div>
   ${U.sumBusy ? `<p class="small muted"><span class="spin dark"></span> Mise à jour des résumés ${esc(U.sumBusy)}</p>` : ''}
-  ${ps.map((p) => summaryCard(p, U.lvlOpen === p.id)).join('')}
+  ${ps.length ? ps.map((p) => summaryCard(p, U.lvlOpen === p.id)).join('') : '<div class="card empty">Aucun patient pour cette recherche.</div>'}
   <p class="foot">Puces de la plus récente à la plus ancienne ; chacune vient d'un compte rendu (auteur et heure dessous). À relire avant la relève.</p>`;
 }

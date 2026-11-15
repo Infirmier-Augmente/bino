@@ -46,6 +46,7 @@ const U = {
   triBusy: false,
   sortBy: ['chambre', 'nom'].includes(settings.sortBy) ? settings.sortBy : 'chambre',
   trSort: ['chambre', 'nom', 'prio'].includes(settings.trSort) ? settings.trSort : 'prio',
+  trQuery: '',
   loginError: '',
   loginId: '',
   justIn: false,
@@ -642,6 +643,16 @@ document.addEventListener('click', (e) => {
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.dataset.model) U[t.dataset.model] = t.value;
+  if (t.id === 'tr-q') {
+    const pos = t.selectionStart;
+    render();
+    const el = document.getElementById('tr-q');
+    if (el) {
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    }
+    return;
+  }
   if (t.dataset.vit !== undefined) vprev();
 });
 document.addEventListener('change', (e) => {
