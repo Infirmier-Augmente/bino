@@ -232,8 +232,11 @@ export function vPatientPopup(S, U, EXAMPLES) {
   </div>`;
 }
 
-export const vDone = () =>
-  `<div class="done-wrap" data-act="closeDone"><div class="done-card" role="dialog" aria-modal="true" aria-labelledby="done-t"><button type="button" class="icon-btn done-x" data-act="closeDone" aria-label="Fermer">${ic('x', 22)}</button><div class="done-check">${ic('check', 56)}</div><div class="done-t" id="done-t">Compte rendu fait</div></div></div>`;
+export const vDone = (title = 'Compte rendu fait') =>
+  `<div class="done-wrap" data-act="closeDone"><div class="done-card" role="dialog" aria-modal="true" aria-labelledby="done-t"><button type="button" class="icon-btn done-x" data-act="closeDone" aria-label="Fermer">${ic('x', 22)}</button><div class="done-check">${ic('check', 56)}</div><div class="done-t" id="done-t">${esc(title)}</div></div></div>`;
+
+export const vShiftAsk = () =>
+  `<div class="done-wrap" data-act="cancelShift"><div class="done-card shift-ask" role="dialog" aria-modal="true" aria-labelledby="shift-t"><img class="shift-mascot" src="assets/bino/endormi-bust.png" width="160" height="176" alt=""><div class="done-t" id="shift-t">Valider la transmission ?</div><div class="shift-actions"><button type="button" class="btn sec" data-act="cancelShift">Annuler</button><button type="button" class="btn" data-act="confirmShift">Confirmer</button></div></div></div>`;
 
 /* ---------- onglet 2 : transmissions ---------- */
 function crItem(c, S) {

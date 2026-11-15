@@ -25,6 +25,7 @@ import {
   vLogin,
   vPatientPopup,
   vPatients,
+  vShiftAsk,
   vTransmissions,
 } from './views.js';
 
@@ -74,6 +75,7 @@ function render() {
   if (signedIn()) alignSession();
   const gate = !signedIn() || U.justIn;
   document.body.classList.toggle('locked', gate);
+  document.getElementById('shift').hidden = gate || U.tab !== 'transmissions';
   if (gate) {
     const top = document.getElementById('top');
     top.hidden = true;
@@ -142,9 +144,9 @@ function closePatient() {
 }
 
 let doneTimer;
-function showDone() {
+function showDone(title) {
   const el = document.getElementById('done');
-  el.innerHTML = vDone();
+  el.innerHTML = vDone(title);
   clearTimeout(doneTimer);
   doneTimer = setTimeout(() => {
     el.innerHTML = '';
@@ -549,6 +551,17 @@ const A = {
   },
   mic: (a) => startMic(a),
   saveCr: () => saveCr(),
+  askShift: () => {
+    document.getElementById('done').innerHTML = vShiftAsk();
+  },
+  cancelShift: (_a, el, e) => {
+    if (el.classList.contains('done-wrap') && e.target !== el) return;
+    document.getElementById('done').innerHTML = '';
+  },
+  confirmShift: () => {
+    document.getElementById('done').innerHTML = '';
+    toast('Transmission validée.');
+  },
 
   trScope: (a) => {
     U.trScope = a;
