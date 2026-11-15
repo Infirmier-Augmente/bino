@@ -42,25 +42,3 @@ npm run lint
 npm test
 npm run typecheck
 ```
-
-## Carte
-
-```
-app/                     routes expo-router
-  (tabs)/patients        priorisation
-  (tabs)/dictee          dictée puis validation
-  (tabs)/synthese        rapport par patient
-  (tabs)/releve/         passation ; lecture.tsx est /releve/lecture
-  patient/[id]           détail
-  alert/[id]             détail NEWS2, valider ou ajuster
-  onboarding             premier lancement
-src/theme                tokens (couleurs, espaces, rayons, typos, ombres)
-src/components           cartes, badges, Bino (SVG), éditeurs
-src/domain               NEWS2, patients, relève — fonctions pures
-src/mocks                vacation du 13 novembre, Chirurgie
-src/services             fonctions async. C'est ici qu'on remplace les mocks.
-src/context              état (validation, synthèse, relève)
-assets/bino              logo, mascotte, poses (PNG). Le visage est dessiné en SVG.
-```
-
-Onglets en bas sur téléphone. Barre latérale à partir de 900 px. Patients et Synthèse passent en deux colonnes.
