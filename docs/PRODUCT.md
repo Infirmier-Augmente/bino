@@ -31,7 +31,7 @@ Le front suit les maquettes de l'équipe (DECISIONS P10). Détail écran par éc
 
 ```mermaid
 flowchart TD
-  A["Connexion (matricule)"] --> B["Patients : toucher le patient"]
+  A["Qui es-tu ? (un toucher)"] --> B["Patients : toucher le patient"]
   B --> C["Fiche « Nouveau compte rendu » : écrire ou dicter"]
   C --> D["Valider : CR signé et horodaté"]
   D --> E["Structuration DAR sourcée (reste « à relire »)"]
@@ -61,7 +61,7 @@ flowchart TD
 | 🟦 Could | Récap « taille SMS » | 🟡 API |
 | 🟦 Could | Questions en langage naturel, extraits sourcés | 🟡 API (recherche façon Ctrl+F, pas de chiffre affirmé) |
 | Ajout Bino | Constantes et NEWS2 | ✅ points par paramètre, saisie avec score en direct, plancher de la priorité suggérée (P13) |
-| Ajout Bino | Connexion par matricule | ✅ démo, mot de passe partagé (P14) ; CPS / e-CPS en V2 |
+| Ajout Bino | Choix du soignant | ✅ « Qui es-tu ? », un toucher, sans mot de passe (P14) ; CPS / e-CPS en V2 |
 | 🟨 V2 | Détection des « non-dits », IA qui pose des questions d'incohérence | 🟡 API : questions d'imprécision par le LLM (2 demandées, 3 gardées au plus), pas d'analyse clinique ; non affichées |
 | 🟨 V2 | Score de priorité automatique | 🟡 suggestion explicable (règles + gravité Jev/LLM + plancher NEWS2), l'IDE garde la main ; raison lue par le lecteur d'écran, pas affichée |
 | 🟨 V2 | Continuité des cibles entre dictées (R dicté plus tard) | 🟡 API : la question « R manquant » se ferme si un CR ultérieur du poste apporte le résultat (vue, sans modifier l'original) ; non affichée |

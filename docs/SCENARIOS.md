@@ -20,7 +20,7 @@ soins de routine, « à faire », chaînes interdites (inventions plausibles). E
 
 | id | Contenu |
 | --- | --- |
-| `chir-bino` | **Scénario par défaut.** Chirurgie polyvalente, 11 chambres, poste de jour : la démo de l'équipe (prototype Bino). 3 IDE avec matricule (10482 Martine Dubois, 10401 Sophie Lemoine, 10415 Karim Haddad, mot de passe `bino`), constantes et dispositifs de chaque patient (NEWS2 7 pour M. Dupond, chambre 12), 11 comptes rendus de démo laissés « à relire », 2 exemples de dictée (« M. Dupond se dégrade », « Mme Berger, journée calme »). L'horloge finit à 17h45, après les dernières constantes. |
+| `chir-bino` | **Scénario par défaut.** Chirurgie polyvalente, 11 chambres, poste de jour : la démo de l'équipe (prototype Bino). 3 IDE à choisir sur « Qui es-tu ? » (Martine Dubois, Sophie Lemoine, Karim Haddad ; matricules 10482, 10401, 10415 pour `POST /session/login`, mot de passe `bino`), constantes et dispositifs de chaque patient (NEWS2 7 pour M. Dupond, chambre 12), 11 comptes rendus de démo laissés « à relire », 2 exemples de dictée (« M. Dupond se dégrade », « Mme Berger, journée calme »). L'horloge finit à 17h45, après les dernières constantes. |
 | `rea-box12` | Réa, 4 box, poste de jour. Exemple A du kit à 16h30 (Box 12), compte rendu « suivi nuit » (jargon), confusion, fièvre. La fiche du Box 12 doit ressembler à l'exemple B. |
 | `medecine-journee` | Médecine, 12 patients, trame sommaire : douleur (DAR complet), chute, vomissements sans R, fièvre, confusion, noms proches (Martin / Martins) |
 | `admission-nuit` | Réa de nuit : entrée en pleine nuit + dictée d'admission sans allergies, désaturation, agitation à 3h, dictée parlant de deux patients |
@@ -29,8 +29,7 @@ soins de routine, « à faire », chaînes interdites (inventions plausibles). E
 
 Dans l'app : écran `/simulateur`, accessible par l'URL seulement (pas d'onglet). Il rejoue une
 journée (**Rejouer la journée**), repart du début (**Partir du début**) ou avance d'un événement.
-Après un changement de scénario, se connecter avec un matricule de ce scénario (affiché sur l'écran
-de connexion). L'horloge se règle par l'API (`POST /simulation/clock`), plus depuis l'app.
+Après un changement de scénario, choisir un soignant de ce scénario sur « Qui es-tu ? ». L'horloge se règle par l'API (`POST /simulation/clock`), plus depuis l'app.
 Détail et pièges (fenêtre de relève, horloge qui avance) : [FONCTIONNEMENT.md §4](FONCTIONNEMENT.md#4-remettre-la-démo-à-zéro).
 
 En ligne de commande :

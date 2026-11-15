@@ -32,25 +32,20 @@ pnpm dev
 
 Prérequis : Node ≥ 22.12 et pnpm (`corepack enable`).
 
-### Comptes de démo
+### Soignants de démo
 
-Mot de passe `bino` pour tous (`DEMO_PASSWORD` dans `.env`). Ce n'est pas une authentification réelle.
-
-| Matricule | Soignant |
-| --- | --- |
-| 10482 | Martine Dubois · IDE |
-| 10401 | Sophie Lemoine · IDE |
-| 10415 | Karim Haddad · IDE |
+Pas de mot de passe : sur l'écran **« Qui es-tu ? »**, toucher **Martine Dubois**, **Sophie Lemoine** ou
+**Karim Haddad** (IDE, Chirurgie polyvalente). Ce n'est pas une authentification réelle.
 
 ## Le parcours
 
-Connexion (matricule + mot de passe) → Connexion réussie → onglets **Patients** et **Transmissions**.
+« Qui es-tu ? » (un toucher sur son prénom) → onglets **Patients** et **Transmissions**.
 Toucher un patient ouvre la fiche **Nouveau compte rendu** : dossier médical, zone de texte, micro,
 **Valider**. Détail écran par écran et règles : [docs/FONCTIONNEMENT.md](docs/FONCTIONNEMENT.md).
 
 | Moment | Ce que voit l'infirmière | Où dans le code |
 | --- | --- | --- |
-| Prise de poste | Connexion par **matricule** + mot de passe de démo | `apps/mobile/src/app/connexion.tsx`, `apps/api/src/services/team-service.ts` |
+| Prise de poste | **« Qui es-tu ? »** : un toucher sur son prénom, sans mot de passe | `apps/mobile/src/app/connexion.tsx` |
 | Entre deux chambres | Fiche **Nouveau compte rendu** : elle écrit, ou dicte au **micro**. Avec la dictée en direct, le texte s'affiche pendant qu'elle parle et devient définitif à chaque pause (chiffres compris), sans attendre la fin. Sinon il arrive à la fin de l'enregistrement (transcription serveur) ou en direct (navigateur) | `apps/mobile/src/app/patient/[patientId].tsx`, `apps/mobile/src/features/report` |
 | Dans la fiche | **Dossier médical** : constantes avec les points **NEWS2** de chaque paramètre, dispositifs (J+n), allergies… ; feuille **Constantes** avec score recalculé en direct | `apps/mobile/src/features/report`, `packages/domain/src/rules/news2.ts` |
 | 1 geste | **Valider** : compte rendu signé et horodaté, popup « Compte rendu fait ». L'IA le range en **DAR** sourcé ; il reste « à relire », jamais validé à sa place | `packages/ai`, `apps/api/src/services/hospital-service.ts` |

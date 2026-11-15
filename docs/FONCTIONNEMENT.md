@@ -16,27 +16,17 @@ l'app : [README](../README.md). Script du jury : [DEMO.md](DEMO.md). Choix et ra
 Code des écrans : `apps/mobile/src/app/`. Même app sur téléphone et sur ordinateur : une colonne
 de 440 px au plus, centrée, onglets **Patients** et **Transmissions** en bas.
 
-### Connexion (`connexion.tsx`)
+### « Qui es-tu ? » (`connexion.tsx`)
 
-- Mascotte Bino, champs **Matricule** (clavier numérique) et **Mot de passe**, bouton **Se connecter**.
-- Le serveur vérifie le matricule et le mot de passe de démo partagé (`DEMO_PASSWORD`, `bino` par
-  défaut, casse et espaces ignorés). Ce n'est pas une authentification réelle (CPS / e-CPS en V2).
-- Comptes du scénario `chir-bino` (service Chirurgie polyvalente) :
-
-  | Matricule | Soignant |
-  | --- | --- |
-  | 10482 | Martine Dubois · IDE |
-  | 10401 | Sophie Lemoine · IDE |
-  | 10415 | Karim Haddad · IDE |
-
-- Sous la carte : « Démo · matricule … · mot de passe bino » (premier soignant du scénario chargé).
-- Messages : « Indique le matricule et le mot de passe. », « Matricule ou mot de passe incorrect. ».
-  Si le serveur ne répond pas : lien « Serveur injoignable : régler l'adresse » vers `/serveur`.
-
-### Connexion réussie (`connexion-reussie.tsx`)
-
-Bino lève le pouce, « Martine Dubois · IDE », « Connexion réussie », bouton **Continuer** vers
-Patients. Pas de redirection automatique.
+- Mascotte Bino, titre **« Qui es-tu ? »**, « Touche ton prénom pour commencer. », puis une carte par
+  soignant du scénario chargé : nom et « IDE · service ». **Un toucher** et on arrive sur Patients :
+  pas de mot de passe ni d'écran « Connexion réussie » (DECISIONS P14).
+- Soignants du scénario `chir-bino` (service Chirurgie polyvalente) : Martine Dubois, Sophie
+  Lemoine, Karim Haddad (IDE).
+- Le soignant choisi signe ses comptes rendus (Mes CR, « Karim 14h05 » sous les puces). Ce n'est
+  pas une authentification : n'importe qui peut choisir n'importe quel nom (CPS / e-CPS en V2).
+- Si le serveur ne répond pas : lien « Serveur injoignable : régler l'adresse » vers `/serveur`.
+- L'API garde `POST /session/login` (matricule + `DEMO_PASSWORD`), que ce front n'utilise plus.
 
 ### Patients (`(app)/patients.tsx`)
 
@@ -153,7 +143,7 @@ Toutes les vues sont calculées par le serveur à la lecture, sans IA, par les r
 
 | Écran | Endpoint (`api.<nom>`) | Ce qui en sort | Rafraîchi |
 | --- | --- | --- | --- |
-| Connexion | `session` (GET `/session`), `login` (POST `/session/login`) | matricule de l'indice ; soignant + service | à la demande |
+| Qui es-tu ? | `session` (GET `/session`) | soignants et services du scénario chargé | à la demande |
 | Patients | `unitBoard` (GET `/units/:unitId/board`) | patients du service, date du serveur | toutes les 5 s |
 | Fiche | `patientDetail` (GET `/patients/:patientId`) | dossier, constantes, `news2`, dispositifs (`devices`, J+n), CR du patient | toutes les 5 s |
 | Fiche | `samples` (GET `/simulation/samples`) | CR d'exemple | à l'ouverture |
@@ -319,7 +309,7 @@ Le WebSocket suit l'adresse de l'API (`https` → `wss`) et passe par un tunnel 
   voulu : rien n'est écrit sur l'appareil). Effacé après un « Valider » réussi et à la déconnexion.
 - **Gardé sur l'appareil** (`features/session/store.ts`, AsyncStorage / `localStorage`) : le
   soignant connecté et son service, l'adresse de l'API choisie dans `/serveur`, les deux tris.
-  Le mot de passe n'est jamais gardé. Aucune donnée patient n'est écrite sur l'appareil.
+  Aucune donnée patient n'est écrite sur l'appareil.
 
 ### 2.9 Lignes rouges (AGENTS.md §2)
 
@@ -367,9 +357,7 @@ Retirées du front (P10), toujours dans l'API et testées (`apps/api/src/http/*.
 - L'horloge simulée avance en temps réel. Vers 21h45 simulées (environ 4 h après un rejeu), la
   fenêtre de relève passe au poste de nuit : Mes CR et Tous se vident. Rejouer la journée.
 - Après un changement de scénario (`rea-box12`, `medecine-journee`, `admission-nuit`), se
-  déconnecter puis se reconnecter avec un matricule de ce scénario (indiqué sur l'écran de
-  connexion). Le simulateur déconnecte d'office si le soignant n'existe plus **dans son service**
+  déconnecter puis choisir un soignant de ce scénario sur « Qui es-tu ? ». Le simulateur déconnecte d'office si le soignant n'existe plus **dans son service**
   (le même identifiant, ex. `martine`, peut exister dans un autre service : il est alors déconnecté
   aussi, `lib/session.ts`).
-- Changer le mot de passe : `DEMO_PASSWORD` dans `.env`, puis relancer l'API. L'indice de l'écran
-  de connexion affiche toujours « bino ».
+- `DEMO_PASSWORD` (`.env`) ne sert qu'à `POST /session/login`, que le front n'utilise plus.

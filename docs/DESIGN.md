@@ -28,7 +28,7 @@ Identité « Bino », reprise des maquettes de l'équipe (DECISIONS P10, T21). L
 | Rôle | Valeur | Usage |
 | --- | --- | --- |
 | Bleu nuit (encre) | `#002244` | texte, contour de la pilule « Dossier médical », puces |
-| Magenta (marque) | `#FF0066`, appuyé `#D6005A` | action principale : **Valider**, **Se connecter**, micro et son halo, bordure de la zone pendant la dictée, onglet et segment actifs, compteur, liens texte |
+| Magenta (marque) | `#FF0066`, appuyé `#D6005A` | action principale : **Valider**, micro et son halo, bordure de la zone pendant la dictée, onglet et segment actifs, compteur, liens texte |
 | Bleu ciel | `#5BB8F0`, fond à 18 % | pastille « CHAMB 12 », barre des cartes patient ; à 25 %, surlignage d'un segment dicté qui devient définitif (s'efface en 600 ms) |
 | Fond, cartes | `#FFFFFF` | page, cartes (filet 1 px, pas d'ombre) |
 | Texte secondaire | `#5F5F5F` | sous-titres, auteur et heure, libellés du dossier, ligne d'état de la dictée, texte provisoire de la dictée (en italique ; le définitif passe en bleu nuit) |
@@ -116,9 +116,9 @@ change d'un coup.
 
 ## Écrire pour l'UI
 
-- Français simple, phrases courtes, tutoiement entre soignants (« Entre ton matricule et ton mot de
-  passe. », « Dicte ou écris d'abord le compte rendu. »).
-- Verbes d'action sur les boutons : « Se connecter », « Continuer », « Valider », « Enregistrer ».
+- Français simple, phrases courtes, tutoiement entre soignants (« Qui es-tu ? », « Touche ton prénom
+  pour commencer. », « Dicte ou écris d'abord le compte rendu. »).
+- Verbes d'action sur les boutons : « Valider », « Enregistrer ».
 - Priorité : toujours « Priorité n », jamais une couleur seule.
 - Ce qui est inconnu s'écrit « Non renseigné(e)s », jamais « Aucun » (« Aucune connue » seulement si
   le dossier le dit).

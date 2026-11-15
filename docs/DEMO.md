@@ -9,7 +9,7 @@ Comportement détaillé : [FONCTIONNEMENT.md](FONCTIONNEMENT.md).
    `STT_PROVIDER=openai` + `STT_API_KEY` + `STT_MODEL=gpt-transcribe` pour la dictée en direct
    (`STT_LIVE_MODEL` vide = `gpt-live-transcribe`), sinon reconnaissance du navigateur. Au démarrage,
    l'API affiche « STT openai (gpt-transcribe), direct gpt-live-transcribe ».
-   Garder `DEFAULT_SCENARIO=chir-bino`, `SIM_BOOT=end`, `DEMO_PASSWORD=bino` (valeurs par défaut).
+   Garder `DEFAULT_SCENARIO=chir-bino` et `SIM_BOOT=end` (valeurs par défaut).
 2. `pnpm dev:api` puis `pnpm dev:web` (PC). Au premier démarrage, l'API rejoue `chir-bino` : les
    11 CR de démo passent par l'IA configurée (environ 2 s chacun avec un LLM). Un
    `.data/state.json` déjà présent est gardé : dans ce cas, remettre à zéro (étape 4).
@@ -34,7 +34,7 @@ Comportement détaillé : [FONCTIONNEMENT.md](FONCTIONNEMENT.md).
 | Temps | Écran | Ce qu'on fait et ce qu'on dit |
 | --- | --- | --- |
 | 0:00 | — | « Martine, 12 h de poste, écrit ses transmissions après l'heure. Le premier besoin du terrain : du temps. » |
-| 0:20 | Téléphone, Connexion | **10482** / `bino` → « Connexion réussie » → **Continuer**. « Un matricule pour la démo ; la carte CPS en V2. » |
+| 0:20 | Téléphone, « Qui es-tu ? » | Toucher **Martine Dubois**. « Un toucher pour la démo, sans mot de passe ; la carte CPS en V2. » |
 | 0:30 | Patients | « Ses 11 patients, par chambre. Pas de tâche en plus : elle touche celui qu'elle vient de voir. » Toucher **M. Jean Dupond** (CHAMB 12). |
 | 0:45 | Fiche, Dossier médical | Déplier : « Constantes de 17h40, NEWS2 7 : FR 24, +2 ; tension 98/62, +2. Le score montre ses entrées : une aide au calcul, pas un verdict. » |
 | 1:15 | Fiche, micro | Toucher le micro : il change tout de suite, petite vibration sur téléphone (pas dans Safari iOS), « Enregistrement 0:01 ». Dicter (ou la puce **Exemple : M. Dupond se dégrade**) : « Chambre 12, M. Dupond. Il est plus essoufflé qu'à 14h… » Le texte s'affiche en gris pendant qu'on parle ; à chaque pause, la phrase passe en bleu nuit, chiffres compris, environ une seconde après. Arrêter : le texte est déjà là, seul le dernier bout se finalise. « Le gris, c'est l'écoute en direct ; à chaque pause, un second modèle réécoute la phrase et la pose, chiffres compris. » |
