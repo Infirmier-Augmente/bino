@@ -60,6 +60,6 @@ test.describe('Transmissions › Tous', () => {
     expect((await roomsInOrder(page, 'resume')).slice(0, 3)).toEqual(['12', '14', '10']);
 
     await page.getByRole('button', { name: 'Déconnexion' }).click();
-    await expect(page.getByRole('heading', { name: 'Connexion' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Qui es-tu ?' })).toBeVisible();
   });
 });

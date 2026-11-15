@@ -57,8 +57,7 @@ export default function RootLayout() {
                   }}
                 >
                   <Stack.Screen name="index" />
-                  <Stack.Screen name="connexion" options={{ title: 'Connexion' }} />
-                  <Stack.Screen name="connexion-reussie" options={{ title: 'Connexion réussie' }} />
+                  <Stack.Screen name="connexion" options={{ title: 'Qui es-tu ?' }} />
                   <Stack.Screen name="(app)" />
                   {/* Fiche plein écran : écran empilé qui monte du bas (les toasts restent visibles au-dessus). */}
                   <Stack.Screen

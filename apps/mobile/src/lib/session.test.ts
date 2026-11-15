@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSessionStillValid } from './session';
+import { isSessionStillValid, nurseChoices } from './session';
 
 const unit = (id: string) => ({
   id,
@@ -35,5 +35,23 @@ describe('session après un changement de scénario', () => {
     expect(
       isSessionStillValid(session, { units: [unit('chir')], nurses: [nurse('karim', 'chir')] }),
     ).toBe(false);
+  });
+});
+
+describe('« Qui es-tu ? »', () => {
+  it('un choix par soignant, avec son service ; ordre du serveur', () => {
+    const karim = { ...nurse('karim', 'chir'), firstName: 'Karim', lastName: 'Haddad' };
+    const choices = nurseChoices({
+      units: [{ ...unit('chir'), name: 'Chirurgie polyvalente' }],
+      nurses: [nurse('martine', 'chir'), karim],
+    });
+    expect(choices.map((c) => [c.nurse.id, c.name, c.detail])).toEqual([
+      ['martine', 'Martine Dubois', 'IDE · Chirurgie polyvalente'],
+      ['karim', 'Karim Haddad', 'IDE · Chirurgie polyvalente'],
+    ]);
+    expect(choices[0]?.unit.id).toBe('chir');
+  });
+  it('un soignant sans service connu n’est pas proposé', () => {
+    expect(nurseChoices({ units: [unit('chir')], nurses: [nurse('martine', 'rea')] })).toEqual([]);
   });
 });

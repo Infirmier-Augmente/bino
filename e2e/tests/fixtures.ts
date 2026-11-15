@@ -18,14 +18,10 @@ export const test = base.extend<{ resetHospital: void }>({
 
 export { expect };
 
-/** Connexion de démo : Martine (matricule 10482, mot de passe bino) → « Connexion réussie » → Patients. */
-export async function login(page: Page, matricule = '10482', password = 'bino') {
+/** « Qui es-tu ? » : un toucher sur le soignant (Martine par défaut) → Patients. */
+export async function login(page: Page, nurseId = 'martine') {
   await page.goto('/');
-  await page.getByTestId('login-matricule').fill(matricule);
-  await page.getByTestId('login-password').fill(password);
-  await page.getByTestId('login-submit').click();
-  await expect(page.getByText('Connexion réussie')).toBeVisible();
-  await page.getByTestId('continuer').click();
+  await page.getByTestId(`soignant-${nurseId}`).click();
   await expect(page.getByTestId('patient-12')).toBeVisible();
 }
 

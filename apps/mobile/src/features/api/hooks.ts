@@ -1,6 +1,5 @@
 import type {
   CreateTransmissionBody,
-  LoginBody,
   PatientDetail,
   PriorityLevel,
   UnitSummaries,
@@ -87,8 +86,6 @@ function useInvalidateAll() {
   const qc = useQueryClient();
   return () => void qc.invalidateQueries();
 }
-
-export const useLogin = () => useMutation({ mutationFn: (body: LoginBody) => api.login({ body }) });
 
 /**
  * « Valider » = enregistrer le compte rendu (signé, horodaté). La structuration IA reste

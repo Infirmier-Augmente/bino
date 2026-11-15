@@ -11,7 +11,6 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { roomChipLabel } from '@/lib/format';
-import pouce from '../../assets/bino/pouce-bust.png';
 import presente from '../../assets/bino/presente-bust.png';
 import salue from '../../assets/bino/salue-bust.png';
 import { colors, radius, space, type } from './theme';
@@ -117,7 +116,7 @@ export function TogglePill({
   );
 }
 
-const MASCOTS = { presente, pouce, salue } as const;
+const MASCOTS = { presente, salue } as const;
 
 /** Bino, la mascotte (image décorative : `alt` vide). */
 export function Mascot({

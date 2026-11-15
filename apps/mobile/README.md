@@ -3,7 +3,7 @@
 App Expo SDK 58 (iOS, Android, **web**), identité « Bino ». Même app sur téléphone et sur
 ordinateur : une colonne centrée de 440 px au plus, onglets en bas.
 
-Parcours : Connexion (matricule + mot de passe de démo) → Connexion réussie → onglets
+Parcours : « Qui es-tu ? » (un toucher sur son prénom, sans mot de passe) → onglets
 **Patients** (fiche « Nouveau compte rendu », dossier médical, constantes NEWS2) et
 **Transmissions** (« Mes CR » / « Tous », priorité 1 à 4). « Valider » enregistre le compte rendu ;
 la structuration IA reste « à relire » côté serveur.
