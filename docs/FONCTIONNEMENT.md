@@ -230,6 +230,11 @@ l'équipe, tous statuts (à relire, validés, non relus) :
   **observation** (thème = appareil, ex. « Neuro »), un **« À faire »**, une **info transverse**
   (ex. « Famille / proches », « Examens programmés »), la macro-cible d'**« Entrée »** ;
 - les **soins de routine** ne sont pas repris ;
+- **filet de sécurité** (P17, `rules/summary-coverage.ts`) : toute phrase du CR qu'aucun élément
+  structuré ne cite (une valeur que l'IA aurait écartée, une phrase oubliée) est reprise **mot pour
+  mot** sous **« Autres informations »**, sourcée par sa position dans le CR. Seule la courte phrase
+  qui nomme le patient (« Chambre 3, Mme Keller. ») est ignorée. Rien de ce que l'IDE a dit ne se
+  perd ;
 - même thème dans plusieurs CR → une seule puce ; un texte identique n'est pas répété, ses
   sources s'ajoutent ;
 - le texte de la puce = les éléments mis bout à bout (« Thème : élément. élément. »). Rien

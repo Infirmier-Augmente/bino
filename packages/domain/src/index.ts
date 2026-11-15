@@ -15,6 +15,7 @@ export * from './rules/patient-matching';
 export * from './rules/priority';
 export * from './rules/search';
 export * from './rules/summary';
+export * from './rules/summary-coverage';
 export * from './rules/team';
 export * from './rules/text';
 export * from './rules/time';

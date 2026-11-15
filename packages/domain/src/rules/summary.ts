@@ -2,6 +2,7 @@ import { APPAREIL_LABELS, type SourcedItem, type SourceRef } from '../schemas/co
 import { type Nurse, TRANSVERSE_LABELS } from '../schemas/hospital';
 import type { Transmission } from '../schemas/transmission';
 import type { SummaryBullet, SummaryContributor } from '../schemas/views';
+import { UNSTRUCTURED_THEME, uncoveredItems } from './summary-coverage';
 import { normalize } from './text';
 import { formatClock } from './time';
 
@@ -9,6 +10,8 @@ import { formatClock } from './time';
  * RÉSUMÉ « TOUS » (Bino) — une puce par thème, faite UNIQUEMENT d'éléments sourcés des
  * transmissions du poste (toute l'équipe, tous statuts de relecture). Aucune phrase générée :
  * on regroupe, on ordonne et on attribue (qui, quand). Les soins de routine n'y figurent pas.
+ * Une phrase que la structuration n'a pas reprise apparaît quand même, mot pour mot, sous
+ * « Autres informations » (`summary-coverage.ts`) : rien de ce que l'IDE a dit ne se perd.
  *
  * Thèmes : libellé de la cible DAR (D, A puis R), appareil d'une observation, « À faire »,
  * rubrique d'une info transverse, « Entrée » pour la macro-cible d'entrée.
@@ -164,7 +167,16 @@ export function buildSummaryBullets({
 
   const drafts = new Map<string, BulletDraft>();
   for (const t of live) {
-    for (const g of transmissionGroups(t)) {
+    // Filet de sécurité : ce que la structuration n'a pas repris figure quand même, mot pour mot.
+    const loose = uncoveredItems(t);
+    const groups =
+      loose.length > 0
+        ? [
+            ...transmissionGroups(t),
+            { theme: UNSTRUCTURED_THEME, items: loose, position: Number.POSITIVE_INFINITY },
+          ]
+        : transmissionGroups(t);
+    for (const g of groups) {
       const key = normalize(g.theme) || g.theme;
       let draft = drafts.get(key);
       if (!draft) {
