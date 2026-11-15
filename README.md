@@ -42,3 +42,7 @@ npm run lint
 npm test
 npm run typecheck
 ```
+
+## Licence
+
+[Apache-2.0](LICENSE). Copyright 2026 Infirmier-Augmente.

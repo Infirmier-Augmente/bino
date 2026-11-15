@@ -1,6 +1,7 @@
 {
   "name": "infirmier-augmente",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Infirmier augmenté : dictée au fil de l'eau, transmissions DAR sourcées et relève priorisée (hackathon IA santé, défi Foch).",
   "packageManager": "pnpm@10.28.0",
   "engines": {
