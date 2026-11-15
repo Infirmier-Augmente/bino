@@ -67,6 +67,11 @@ export const SORTS = {
   chambre: { l: 'Chambre', f: (a, b) => Number(a.ch) - Number(b.ch) },
   nom: { l: 'Nom', f: (a, b) => lastName(a).localeCompare(lastName(b), 'fr') },
 };
+const TR_SORTS = {
+  chambre: SORTS.chambre,
+  nom: SORTS.nom,
+  prio: { l: 'Priorité' },
+};
 // Ordre par priorité (IA ou choix manuel), utilisé dans Transmissions › Tous et le document.
 export const byPriority = (patients) => [...patients].sort(byPrio);
 export const sorted = (patients, by = 'chambre') =>
@@ -74,9 +79,9 @@ export const sorted = (patients, by = 'chambre') =>
 export const room = (p) => `CHAMB ${esc(p?.ch ?? '')}`;
 
 // Menu « Trier » partagé par le dashboard et Transmissions › Tous.
-function sortMenu(opts, cur, act) {
+function sortMenu(opts, cur, act, pop = 'right') {
   return `<details class="menu sort-menu"><summary class="btn sec sm" role="button">Trier : ${opts[cur]?.l || ''} ${ic('chev', 16)}</summary>
-      <div class="menu-pop right">${Object.entries(opts)
+      <div class="menu-pop ${pop}">${Object.entries(opts)
         .map(
           ([k, o]) =>
             `<button type="button" data-act="${act}" data-arg="${k}" aria-pressed="${cur === k}"><span><b>${o.l}</b></span>${cur === k ? ic('check', 18) : ''}</button>`,
@@ -303,8 +308,9 @@ export function vTransmissions(S, U) {
     return `${head}
     ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
   }
-  const ps = byPriority(S.patients);
+  const ps = sorted(S.patients, U.trSort);
   return `${head}
+  <div class="tr-sort">${sortMenu(TR_SORTS, U.trSort || 'prio', 'trSort', '')}</div>
   ${U.sumBusy ? `<p class="small muted"><span class="spin dark"></span> Mise à jour des résumés ${esc(U.sumBusy)}</p>` : ''}
   ${ps.map((p) => summaryCard(p, U.lvlOpen === p.id)).join('')}
   <p class="foot">Puces de la plus récente à la plus ancienne ; chacune vient d'un compte rendu (auteur et heure dessous). À relire avant la relève.</p>`;

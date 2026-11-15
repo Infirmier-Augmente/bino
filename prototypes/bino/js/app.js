@@ -45,6 +45,7 @@ const U = {
   sumBusy: '',
   triBusy: false,
   sortBy: ['chambre', 'nom'].includes(settings.sortBy) ? settings.sortBy : 'chambre',
+  trSort: ['chambre', 'nom', 'prio'].includes(settings.trSort) ? settings.trSort : 'prio',
   loginError: '',
   loginId: '',
   justIn: false,
@@ -571,6 +572,12 @@ const A = {
   sortBy: (a) => {
     U.sortBy = a;
     saveSettings({ sortBy: a });
+    render();
+  },
+  trSort: (a) => {
+    if (!['chambre', 'nom', 'prio'].includes(a)) return;
+    U.trSort = a;
+    saveSettings({ trSort: a });
     render();
   },
   pickLevel: (a) => {
