@@ -5,9 +5,11 @@
 import { LV, news2 } from './news2.js';
 import { num } from './util.js';
 
-export const LEVELS = ['critique', 'eleve', 'moyen', 'faible'];
+export const LEVELS = ['critique', 'eleve', 'moyen'];
+// Ancien niveau « faible » (vert) : replié sur le jaune, le plus bas des trois.
+export const canonLevel = (lv) => (lv === 'faible' ? 'moyen' : LEVELS.includes(lv) ? lv : null);
 export const rank = (lv) => {
-  const i = LEVELS.indexOf(lv);
+  const i = LEVELS.indexOf(canonLevel(lv));
   return i < 0 ? LEVELS.length : i;
 };
 
@@ -58,7 +60,7 @@ export function triagePrompt(items) {
 ${lines}
 
 Classe TOUS les patients, du plus urgent au moins urgent.
-Pour chacun : "niveau" parmi critique, eleve, moyen, faible, et "raison" : 6 à 14 mots, factuelle, qui reprend uniquement des faits présents ci-dessus (constantes, comptes rendus).
+Pour chacun : "niveau" parmi critique, eleve, moyen, et "raison" : 6 à 14 mots, factuelle, qui reprend uniquement des faits présents ci-dessus (constantes, comptes rendus).
 N'invente rien. Le NEWS2 est un repère : un compte rendu inquiétant peut faire monter un patient, mais ne descends jamais un patient sous le niveau de son NEWS2.
 Réponds uniquement avec ce JSON :
 {"patients":[{"id":"p12","niveau":"critique","raison":"…"}]}`;
@@ -73,8 +75,8 @@ export function normalizeTriage(raw, items) {
   for (const r of Array.isArray(raw?.patients) ? raw.patients : []) {
     const it = byId.get(r?.id);
     if (!it || seen.has(r.id)) continue;
-    const floor = news2(it.v).level;
-    let niveau = LEVELS.includes(r.niveau) ? r.niveau : floor;
+    const floor = canonLevel(news2(it.v).level) || 'moyen';
+    let niveau = canonLevel(r.niveau) || floor;
     if (rank(niveau) > rank(floor)) niveau = floor;
     const raison =
       String(r.raison || '')

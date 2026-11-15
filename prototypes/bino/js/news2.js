@@ -1,12 +1,11 @@
 // Score NEWS2 (Royal College of Physicians, 2017), échelle SpO2 n°1.
 // Démo hackathon : l'infirmier garde toujours le dernier mot.
 
-// Couleurs harmonisées avec le logo Bino (rose, bleu ciel, bleu nuit). Priorité 1 = critique … 4 = faible.
+// Priorité 1 rouge, 2 orange, 3 jaune.
 export const LV = {
-  critique: { l: 'Critique', bg: '#D6005A', fg: '#fff', bar: '#FF0066' },
-  eleve: { l: 'Élevé', bg: '#FFD6E6', fg: '#A3003F', bar: '#FF7AAE' },
-  moyen: { l: 'Moyen', bg: '#DCEFFC', fg: '#0B4F7A', bar: '#5BB8F0' },
-  faible: { l: 'Faible', bg: '#EDF0F3', fg: '#3D4A57', bar: '#C9D3DD' },
+  critique: { l: 'Critique', bg: '#DC0000', fg: '#fff', bar: '#DC0000' },
+  eleve: { l: 'Élevé', bg: '#F57C00', fg: '#fff', bar: '#F57C00' },
+  moyen: { l: 'Moyen', bg: '#F5B700', fg: '#1A1A1A', bar: '#F5B700' },
 };
 
 export function news2(v) {
@@ -20,9 +19,7 @@ export function news2(v) {
     cons: v.cons === 'A' ? 0 : 3,
   };
   const total = Object.values(p).reduce((a, b) => a + b, 0);
-  const any3 = Object.values(p).some((x) => x === 3);
-  // Convention de la démo : ≥7 critique, 5-6 élevé, 3-4 ou un paramètre à 3 moyen, sinon faible.
-  const level =
-    total >= 7 ? 'critique' : total >= 5 ? 'eleve' : total >= 3 || any3 ? 'moyen' : 'faible';
+  // Trois niveaux : ≥7 critique, 5-6 élevé, le reste moyen.
+  const level = total >= 7 ? 'critique' : total >= 5 ? 'eleve' : 'moyen';
   return { p, total, level };
 }

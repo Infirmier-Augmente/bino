@@ -1709,8 +1709,16 @@ h2 .count {
   justify-content: space-between;
 }
 .lvl.sm {
-  min-height: 32px;
-  padding: 0 8px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 10px 0 12px;
+  gap: 3px;
+  font-size: 13px;
+  line-height: 1;
+}
+.lvl.sm svg {
+  display: block;
+  flex: none;
 }
 .level-opt {
   gap: 10px;

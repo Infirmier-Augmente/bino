@@ -39,7 +39,7 @@ const U = {
   saving: false,
   syncing: false,
   trScope: 'mine',
-  lvlOpen: null, // patient dont la rangée de priorité 1 à 4 est dépliée (Transmissions › Tous)
+  lvlOpen: null, // patient dont la rangée de priorité 1 à 3 est dépliée (Transmissions › Tous)
   docBusy: '',
   sumBusy: '',
   triBusy: false,

@@ -3,7 +3,7 @@
 import { LV, news2 } from './news2.js';
 import { esc, num } from './util.js';
 
-const PRIO = { critique: 1, eleve: 2, moyen: 3, faible: 4 };
+const PRIO = { critique: 1, eleve: 2, moyen: 3 };
 
 const vitShort = (v) =>
   `FR ${v.fr} · SpO2 ${v.spo2} %${v.o2 ? ' sous O2' : ''} · TA ${v.pas}/${v.pad} · FC ${v.fc} · T ${num(v.temp)} °C`;
@@ -16,7 +16,10 @@ export function buildModel(items, meta) {
   const crCount = items.reduce((a, it) => a + it.crs.length, 0);
   const nurses = [...new Set(items.flatMap((it) => it.crs.map((c) => meta.authorOf(c))))];
   // Priorité affichée : celle de l'app (IA ou choix de l'infirmière), sinon le niveau du NEWS2.
-  const rows = items.map((it) => ({ ...it, n: news2(it.v), lv: it.level || news2(it.v).level }));
+  const rows = items.map((it) => {
+    const raw = it.level || news2(it.v).level;
+    return { ...it, n: news2(it.v), lv: raw === 'faible' ? 'moyen' : PRIO[raw] ? raw : 'moyen' };
+  });
   return {
     ...meta,
     rows,

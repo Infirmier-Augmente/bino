@@ -4,7 +4,7 @@
 // 3. Transmissions (Mes CR / Tous en puces résumées). Aucune écriture ici : les actions sont dans app.js.
 import { LV, news2 } from './news2.js';
 import * as Store from './store.js';
-import { LEVELS, rank } from './triage.js';
+import { canonLevel, LEVELS, rank } from './triage.js';
 import { esc, num } from './util.js';
 
 /* ---------- briques ---------- */
@@ -39,15 +39,15 @@ export const badge = (lv) =>
 
 export const V = (p) => Store.vitalsFor(p.id) || p.v;
 
-// Priorité 1 (la plus urgente) à 4. Proposée par l'IA (repli NEWS2), modifiable à la main :
+// Priorité 1 (la plus urgente) à 3. Proposée par l'IA (repli NEWS2), modifiable à la main :
 // le choix de l'infirmière prime toujours.
-export const PRIO = { critique: 1, eleve: 2, moyen: 3, faible: 4 };
+export const PRIO = { critique: 1, eleve: 2, moyen: 3 };
 export const prioTag = (lv) => `Priorité ${PRIO[lv]}`;
 export function levelOf(p) {
-  const manual = Store.manualLevels()[p.id];
+  const manual = canonLevel(Store.manualLevels()[p.id]);
   if (manual) return manual;
   const ai = Store.prioAI()?.order?.find((x) => x.id === p.id);
-  return ai?.niveau || news2(V(p)).level;
+  return canonLevel(ai?.niveau) || canonLevel(news2(V(p)).level) || 'moyen';
 }
 const aiPos = (p) => {
   const i = (Store.prioAI()?.order || []).findIndex((x) => x.id === p.id);
@@ -131,12 +131,11 @@ export function vHeader() {
 }
 
 /* ---------- onglet 1 : patients ---------- */
-// Code couleur de Transmissions › Tous : rouge (1 et 2), jaune (3), vert (4).
+// Rouge, orange, jaune. Le vert n'est plus un niveau.
 const TRAFFIC = {
   critique: { bg: '#DC0000', fg: '#fff', ink: '#DC0000', bar: '#DC0000' },
-  eleve: { bg: '#DC0000', fg: '#fff', ink: '#DC0000', bar: '#DC0000' },
+  eleve: { bg: '#F57C00', fg: '#fff', ink: '#C45C00', bar: '#F57C00' },
   moyen: { bg: '#F5B700', fg: '#1A1A1A', ink: '#8A6500', bar: '#F5B700' },
-  faible: { bg: '#1B8A4A', fg: '#fff', ink: '#1B8A4A', bar: '#1B8A4A' },
 };
 const trafficStyle = (lv) => `--c:${TRAFFIC[lv].bg};--f:${TRAFFIC[lv].fg};--ink:${TRAFFIC[lv].ink}`;
 
@@ -164,7 +163,7 @@ export function vPatients(S, U) {
     .join('')}`;
 }
 
-// Petite rangée de cercles 1 à 4, dépliée dans la carte sous le bouton Priorité.
+// Petite rangée de cercles 1 à 3, dépliée dans la carte sous le bouton Priorité.
 // Le choix de l'infirmière prime sur la proposition (IA ou NEWS2).
 function levelRow(p) {
   const cur = levelOf(p);

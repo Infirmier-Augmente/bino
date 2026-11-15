@@ -6,7 +6,7 @@
 // Données 100 % fictives : l'app est une démo publique, aucune donnée réelle ne doit y être saisie.
 import { DurableObject } from 'cloudflare:workers';
 
-const LEVELS = ['critique', 'eleve', 'moyen', 'faible'];
+const LEVELS = ['critique', 'eleve', 'moyen'];
 const LIMITS = {
   crText: 2000, // caractères par compte rendu
   crCount: 500, // comptes rendus au total
@@ -157,7 +157,8 @@ export class Ward extends DurableObject {
     if (op === 'setManualLevel') {
       if (!isPid(body.pid)) return ko('Patient invalide');
       const manual = { ...(st.prio.manual || {}) };
-      if (LEVELS.includes(body.level)) manual[body.pid] = body.level;
+      const level = body.level === 'faible' ? 'moyen' : body.level;
+      if (LEVELS.includes(level)) manual[body.pid] = level;
       else delete manual[body.pid];
       st.prio = { ...st.prio, manual };
       await this.save(st, ['prio']);
