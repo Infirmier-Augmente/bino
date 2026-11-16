@@ -1,7 +1,7 @@
 /** Erreur métier avec code HTTP et code stable (lisible côté mobile). */
 export class AppError extends Error {
   constructor(
-    readonly status: 400 | 404 | 409 | 422 | 500 | 503,
+    readonly status: 400 | 401 | 404 | 409 | 422 | 500 | 503,
     readonly code: string,
     message: string,
     readonly details?: unknown,
