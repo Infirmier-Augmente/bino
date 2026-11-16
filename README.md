@@ -8,7 +8,7 @@
   <img src="assets/bino/logo-icon.png" alt="Logo Bino" width="96">
 </p>
 
-<p align="center">Rendre à Martine le temps que l'administratif prend aux patients.</p>
+<p align="center">Rendre à Martine, infirmière, le temps que l'administratif lui prend pour le rendre au patient.</p>
 
 <p align="left">
   <a href="https://bino.noiseless-sunflower.workers.dev"><b>Essayer →</b></a>
@@ -28,19 +28,18 @@ Matricule `10482`, mot de passe `bino`. Patients fictifs.
 ## Lancer
 
 ```bash
-npm install
-npx expo start
+pnpm install
+pnpm dev:api
 ```
 
-- `w` ouvre l'app web.
-- Expo Go (téléphone) : scanner le QR code.
+L'API écoute sur le port 8787. Copie `.env.example` en `.env`. Sans clé OpenRouter, les notes passent par les règles locales.
 
-SDK Expo 57, le SDK que Expo Go ouvre aujourd'hui pendant la transition vers le 58. Même code pour iOS, Android et le web.
+`pnpm dev:app` lance l'app mobile.
 
 ```bash
-npm run lint
-npm test
-npm run typecheck
+pnpm lint
+pnpm test
+pnpm typecheck
 ```
 
 ## Licence
