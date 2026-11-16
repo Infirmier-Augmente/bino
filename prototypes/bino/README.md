@@ -12,7 +12,7 @@ Le détail de chaque écran, des règles (priorités, NEWS2, zéro information i
 
 ## Tester en 30 secondes
 
-**Sur téléphone ou ordinateur :** ouvrez le lien Cloudflare de l'équipe (`https://bino.<sous-domaine>.workers.dev`, déployé à chaque push sur `demo`). Aucun compte ni installation : tous les téléphones partagent les mêmes comptes rendus et priorités. Autre option : le lien de l'artifact Claude, ou en local (voir plus bas).
+**Sur téléphone ou ordinateur :** ouvrez le lien Cloudflare de l'équipe (`https://bino.<sous-domaine>.workers.dev`, déployé à chaque push sur `proto`). Aucun compte ni installation : tous les téléphones partagent les mêmes comptes rendus et priorités. Autre option : le lien de l'artifact Claude, ou en local (voir plus bas).
 
 Sur iPhone : Safari › Partager › « Sur l'écran d'accueil » pour l'avoir comme une app.
 
@@ -56,7 +56,7 @@ Pour activer l'IA et la remise à zéro, ajoutez dans GitHub › Settings › Se
 | `ANTHROPIC_API_KEY` | clé API (de préférence une clé de test à budget limité) ; sans elle, règles locales |
 | `BINO_RESET_CODE` | code libre pour remettre la démo à zéro |
 
-Le prochain push sur `demo` les copie dans les secrets du Worker. Garde-fous : 400 appels IA par jour (`AI_DAILY_LIMIT` dans `wrangler.jsonc`), prompts et comptes rendus de taille limitée.
+Le prochain push sur `proto` les copie dans les secrets du Worker. Garde-fous : 400 appels IA par jour (`AI_DAILY_LIMIT` dans `wrangler.jsonc`), prompts et comptes rendus de taille limitée.
 
 Remettre la démo à zéro (avant le jury, par exemple) :
 
