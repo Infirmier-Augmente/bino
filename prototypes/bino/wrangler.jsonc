@@ -7,6 +7,11 @@
   // Stockage commun de la démo : un seul Durable Object (SQLite) pour tout le service.
   "durable_objects": { "bindings": [{ "name": "WARD", "class_name": "Ward" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Ward"] }],
-  // Secrets à définir côté Cloudflare (jamais dans le repo) : ANTHROPIC_API_KEY, RESET_CODE.
-  "vars": { "AI_MODEL": "claude-sonnet-5-5", "AI_DAILY_LIMIT": "400" }
+  // Secrets à définir côté Cloudflare (jamais dans le repo) : ANTHROPIC_API_KEY, RESET_CODE, API_EDGE_SECRET.
+  // API_ORIGIN est l'adresse du tunnel. Le Worker est le seul à y ajouter le secret.
+  "vars": {
+    "AI_MODEL": "claude-sonnet-5-5",
+    "AI_DAILY_LIMIT": "400",
+    "API_ORIGIN": "https://bino-api.spidex.dev"
+  }
 }

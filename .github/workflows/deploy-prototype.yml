@@ -43,6 +43,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RESET_CODE: ${{ secrets.BINO_RESET_CODE }}
+          API_EDGE_SECRET: ${{ secrets.API_EDGE_SECRET }}
         run: |
           if [ -n "$ANTHROPIC_API_KEY" ]; then
             printf '%s' "$ANTHROPIC_API_KEY" | npx --yes wrangler@4 secret put ANTHROPIC_API_KEY
@@ -51,4 +52,10 @@ jobs:
           fi
           if [ -n "$RESET_CODE" ]; then
             printf '%s' "$RESET_CODE" | npx --yes wrangler@4 secret put RESET_CODE
+          fi
+          if [ -n "$API_EDGE_SECRET" ]; then
+            printf '%s' "$API_EDGE_SECRET" | npx --yes wrangler@4 secret put API_EDGE_SECRET
+          else
+            echo "API_EDGE_SECRET absent : le site ne peut pas appeler le mini."
+            exit 1
           fi
