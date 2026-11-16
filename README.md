@@ -10,6 +10,8 @@
 
 <p align="center">Rendre à Martine, infirmière, le temps que l'administratif lui prend pour le rendre au patient.</p>
 
+<p align="center">Lauréat du prix Organisation des Soins. Projet porté par l'Hôpital Foch, Paris.</p>
+
 <p align="left">
   <a href="https://bino.noiseless-sunflower.workers.dev"><b>Essayer →</b></a>
 </p>
