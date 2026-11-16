@@ -93,24 +93,24 @@ const firstName = (s) => (s || '').split(/[·,]/)[0].trim().split(/\s+/)[0] || '
 
 export function vLogin(error, matricule) {
   return `<div class="login">
-    <img class="login-mark" src="assets/bino/presente-bust.png" width="104" height="126" alt="">
+    <img class="login-mark" src="assets/bino/presente-bust.png" width="106" height="128" alt="">
     <h1>Connexion</h1>
     <p class="sub">Entre ton matricule et ton mot de passe.</p>
     <div class="card login-card">
       <label class="l" for="login-id">Matricule</label>
-      <input class="f" id="login-id" inputmode="numeric" autocomplete="username" value="${esc(matricule || '')}">
+      <input class="f" id="login-id" inputmode="numeric" autocomplete="username" placeholder="10482" value="${esc(matricule || '')}">
       <label class="l" for="login-pw">Mot de passe</label>
-      <input class="f" id="login-pw" type="password" autocomplete="current-password">
+      <input class="f" id="login-pw" type="password" autocomplete="current-password" placeholder="bino">
       ${error ? `<p class="login-err" role="alert">${esc(error)}</p>` : ''}
       <button type="button" class="btn" data-act="login">Se connecter</button>
     </div>
-    <p class="small muted login-hint">Démo · matricule 10482 · mot de passe bino</p>
+    <p class="small muted login-hint">Demo</p>
   </div>`;
 }
 
 export function vLogged(name) {
   return `<div class="login logged">
-    <img class="login-mark" src="assets/bino/pouce-bust.png" width="200" height="220" alt="">
+    <img class="login-mark" src="assets/bino/pouce-bust.png" width="116" height="128" alt="">
     <h1>${esc(name)}</h1>
     <p class="sub">Connexion réussie</p>
     <button type="button" class="btn" data-act="enter">Continuer</button>
@@ -214,9 +214,13 @@ export function vPatientPopup(S, U, EXAMPLES) {
   ${
     U.foldOpen
       ? `<div class="dossier-body card">
-      ${vtable(v)}
+      ${
+        v.src === 'absent'
+          ? '<p class="small muted">Constantes non fournies par le service.</p>'
+          : `${vtable(v)}
       <div class="small muted" style="margin-top:6px">Constantes de ${esc(v.at)}${v.src === 'DPI' ? ' · importées du DPI' : ''}</div>
-      <button type="button" class="btn sec sm" data-act="editVitals" data-arg="${p.id}" style="margin:10px 0 6px">${ic('pen', 16)} Modifier les constantes</button>
+      <button type="button" class="btn sec sm" data-act="editVitals" data-arg="${p.id}" style="margin:10px 0 6px">${ic('pen', 16)} Modifier les constantes</button>`
+      }
       ${info('Motif', p.motif)}${info('Antécédents', p.atcd)}${info('Allergies', p.allergies)}
       ${p.precautions ? info('Précautions', p.precautions) : ''}
       ${p.disp.length ? info('Dispositifs', p.disp.map((d) => `${d.l} (J${d.j})`).join(', ')) : ''}
@@ -241,7 +245,7 @@ export const vDone = (title = 'Compte rendu fait') =>
   `<div class="done-wrap" data-act="closeDone"><div class="done-card" role="dialog" aria-modal="true" aria-labelledby="done-t"><button type="button" class="icon-btn done-x" data-act="closeDone" aria-label="Fermer">${ic('x', 22)}</button><div class="done-check">${ic('check', 56)}</div><div class="done-t" id="done-t">${esc(title)}</div></div></div>`;
 
 export const vShiftAsk = () =>
-  `<div class="done-wrap" data-act="cancelShift"><div class="done-card shift-ask" role="dialog" aria-modal="true" aria-labelledby="shift-t"><img class="shift-mascot" src="assets/bino/endormi-bust.png" width="160" height="176" alt=""><div class="done-t" id="shift-t">Valider la transmission ?</div><div class="shift-actions"><button type="button" class="btn sec" data-act="cancelShift">Annuler</button><button type="button" class="btn" data-act="confirmShift">Confirmer</button></div></div></div>`;
+  `<div class="done-wrap" data-act="cancelShift"><div class="done-card shift-ask" role="dialog" aria-modal="true" aria-labelledby="shift-t"><img class="shift-mascot" src="assets/bino/endormi-bust.png" width="142" height="128" alt=""><div class="done-t" id="shift-t">Valider la transmission ?</div><div class="shift-actions"><button type="button" class="btn sec" data-act="cancelShift">Annuler</button><button type="button" class="btn" data-act="confirmShift">Confirmer</button></div></div></div>`;
 
 /* ---------- onglet 2 : transmissions ---------- */
 function crItem(c, S) {

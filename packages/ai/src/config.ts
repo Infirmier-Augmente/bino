@@ -27,6 +27,8 @@ export type ClassifierProviderName = (typeof CLASSIFIER_PROVIDERS)[number];
 const DEFAULT_LLM_MODELS: Partial<Record<LlmProviderName, string>> = {
   deepseek: 'deepseek-chat',
 };
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+const DEFAULT_OPENROUTER_MODEL = 'deepseek/deepseek-chat';
 const DEFAULT_STT_MODELS: Partial<Record<SttProviderName, string>> = {
   openai: 'whisper-1',
   groq: 'whisper-large-v3-turbo',
@@ -66,6 +68,8 @@ const Env = z.object({
   LLM_MODEL: emptyToNull,
   LLM_API_KEY: emptyToNull,
   LLM_BASE_URL: emptyToNull,
+  OPENROUTER_API_KEY: emptyToNull,
+  OPENROUTER_MODEL: emptyToNull,
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   LLM_FALLBACK: z.enum(['heuristic', 'none']).default('heuristic'),
   STT_PROVIDER: z.enum(STT_PROVIDERS).default('none'),
@@ -94,8 +98,23 @@ export function aiConfigFromEnv(env: Record<string, string | undefined>): AiConf
   }
   const e = parsed.data;
 
+  if (e.OPENROUTER_API_KEY && e.LLM_PROVIDER !== 'heuristic') {
+    throw new AiConfigError(
+      'OPENROUTER_API_KEY et LLM_PROVIDER ne se combinent pas. Garde un seul des deux.',
+    );
+  }
+
+  const openRouter = e.OPENROUTER_API_KEY
+    ? {
+        provider: 'openai-compatible' as const,
+        model: e.OPENROUTER_MODEL ?? DEFAULT_OPENROUTER_MODEL,
+        apiKey: e.OPENROUTER_API_KEY,
+        baseUrl: OPENROUTER_BASE_URL,
+      }
+    : null;
+
   const llmModel = e.LLM_MODEL ?? DEFAULT_LLM_MODELS[e.LLM_PROVIDER] ?? null;
-  if (e.LLM_PROVIDER !== 'heuristic') {
+  if (!openRouter && e.LLM_PROVIDER !== 'heuristic') {
     if (!llmModel) {
       throw new AiConfigError(`LLM_MODEL est requis pour le fournisseur « ${e.LLM_PROVIDER} ».`);
     }
@@ -112,16 +131,16 @@ export function aiConfigFromEnv(env: Record<string, string | undefined>): AiConf
   if (e.CLASSIFIER_PROVIDER === 'jev' && !e.JEV_API_KEY) {
     throw new AiConfigError('JEV_API_KEY est requis quand CLASSIFIER_PROVIDER=jev.');
   }
-  if (e.CLASSIFIER_PROVIDER === 'llm' && e.LLM_PROVIDER === 'heuristic') {
+  if (e.CLASSIFIER_PROVIDER === 'llm' && !openRouter && e.LLM_PROVIDER === 'heuristic') {
     throw new AiConfigError('CLASSIFIER_PROVIDER=llm nécessite un LLM_PROVIDER réel.');
   }
 
   return {
     llm: {
-      provider: e.LLM_PROVIDER,
-      model: e.LLM_PROVIDER === 'heuristic' ? null : llmModel,
-      apiKey: e.LLM_API_KEY,
-      baseUrl: e.LLM_BASE_URL,
+      provider: openRouter?.provider ?? e.LLM_PROVIDER,
+      model: openRouter ? openRouter.model : e.LLM_PROVIDER === 'heuristic' ? null : llmModel,
+      apiKey: openRouter?.apiKey ?? e.LLM_API_KEY,
+      baseUrl: openRouter?.baseUrl ?? e.LLM_BASE_URL,
       timeoutMs: e.LLM_TIMEOUT_MS,
       fallback: e.LLM_FALLBACK,
     },

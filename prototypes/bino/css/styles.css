@@ -172,13 +172,13 @@ body.locked main {
   text-align: center;
 }
 .login-mark {
-  width: 104px;
-  height: 126px;
+  width: auto;
+  height: 128px;
   object-fit: contain;
 }
 .logged .login-mark {
-  width: 200px;
-  height: 220px;
+  /* The thumb sits on the left of the file, so the face is right of the box. */
+  transform: translateX(-5%);
 }
 .login h1 {
   margin-top: 12px;
@@ -208,6 +208,10 @@ body.locked main {
 }
 .login-hint {
   margin-top: 16px;
+}
+.login-card input.f::placeholder {
+  color: #8a8a8a;
+  opacity: 1;
 }
 h1 {
   font-size: 30px;
@@ -520,9 +524,11 @@ button.mode {
 }
 .shift-mascot {
   display: block;
-  width: 128px;
-  height: auto;
+  width: auto;
+  height: 128px;
   margin: 0 auto 20px;
+  /* The wave sits on the left of the file, so the face is right of the box. */
+  transform: translateX(-7%);
 }
 .shift-ask .done-t {
   margin: 0;

@@ -21,6 +21,8 @@ export interface AppDeps {
   scenarios?: readonly Scenario[];
   realNow?: () => Date;
   logRequests?: boolean;
+  /** Si défini, seule une requête portant ce secret (le Worker) est acceptée. */
+  edgeSecret?: string;
 }
 
 export function createApp(deps: AppDeps) {
@@ -62,6 +64,16 @@ export function createApp(deps: AppDeps) {
   app.notFound((c) =>
     c.json({ error: { code: 'route-not-found', message: `Route inconnue : ${c.req.path}` } }, 404),
   );
+
+  if (deps.edgeSecret) {
+    const secret = deps.edgeSecret;
+    app.use('*', async (c, next) => {
+      if (c.req.header('x-bino-edge') !== secret) {
+        throw new AppError(401, 'edge-required', 'Cette API n’accepte que le site Bino.');
+      }
+      await next();
+    });
+  }
 
   registerContract(
     app,

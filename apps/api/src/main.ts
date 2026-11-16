@@ -1,4 +1,3 @@
-import { networkInterfaces } from 'node:os';
 import { join, resolve } from 'node:path';
 import { serve } from '@hono/node-server';
 import { aiConfigFromEnv, createAiServices } from '@infirmier/ai';
@@ -26,18 +25,19 @@ if (!fresh && store.snapshot.clock.mode === 'simulated' && store.snapshot.clock.
   });
 }
 
-const { app, simulation } = createApp({ store, ai, logRequests: true });
+const { app, simulation } = createApp({
+  store,
+  ai,
+  logRequests: true,
+  edgeSecret: process.env.API_EDGE_SECRET || undefined,
+});
 
-serve({ fetch: app.fetch, port: config.API_PORT, hostname: '0.0.0.0' }, (info) => {
+const bind = process.env.API_BIND || '0.0.0.0';
+serve({ fetch: app.fetch, port: config.API_PORT, hostname: bind }, (info) => {
   const status = ai.status(VERSION);
-  const lan = Object.values(networkInterfaces())
-    .flat()
-    .filter((i) => i && i.family === 'IPv4' && !i.internal)
-    .map((i) => `http://${i?.address}:${info.port}`);
   console.info(`
   Infirmier augmenté — API ${VERSION}
-  ➜ local    http://localhost:${info.port}
-  ${lan.map((u) => `➜ réseau   ${u}`).join('\n  ')}
+  ➜ écoute   http://${info.address}:${info.port}
   LLM        ${status.llm.provider}${status.llm.model ? ` (${status.llm.model})` : ''}${status.llm.fallback ? `, repli ${status.llm.fallback}` : ''}
   STT        ${status.stt.provider}
   Classifieur ${status.classifier.provider}

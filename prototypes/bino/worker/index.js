@@ -223,9 +223,29 @@ async function readJson(request) {
   }
 }
 
+// Le navigateur appelle /api/bino/… sur ce Worker. Lui seul connaît le mini, et ajoute le secret.
+async function proxyBino(request, env, url) {
+  if (!env.API_ORIGIN || !env.API_EDGE_SECRET) return bad('API non reliée', 503);
+  const path = url.pathname.slice('/api/bino'.length) || '/';
+  const dest = new URL(path + url.search, env.API_ORIGIN);
+  const headers = new Headers();
+  const type = request.headers.get('content-type');
+  if (type) headers.set('content-type', type);
+  headers.set('x-bino-edge', env.API_EDGE_SECRET);
+  const init = { method: request.method, headers };
+  if (request.method !== 'GET' && request.method !== 'HEAD')
+    init.body = await request.arrayBuffer();
+  const r = await fetch(dest, init);
+  const out = new Headers();
+  out.set('content-type', r.headers.get('content-type') || 'application/json; charset=utf-8');
+  out.set('cache-control', 'no-store');
+  return new Response(r.body, { status: r.status, headers: out });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname.startsWith('/api/bino')) return proxyBino(request, env, url);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
 
     const ward = env.WARD.get(env.WARD.idFromName('service-chirurgie'));

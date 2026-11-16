@@ -29,6 +29,20 @@ describe('config', () => {
     );
     expect(() => aiConfigFromEnv({ CLASSIFIER_PROVIDER: 'jev' })).toThrow(/JEV_API_KEY/);
   });
+  it('utilise OpenRouter dès que OPENROUTER_API_KEY est renseignée', () => {
+    const c = aiConfigFromEnv({ OPENROUTER_API_KEY: 'sk-or-test' });
+    expect(c.llm.provider).toBe('openai-compatible');
+    expect(c.llm.baseUrl).toBe('https://openrouter.ai/api/v1');
+    expect(c.llm.model).toBe('deepseek/deepseek-chat');
+    expect(c.llm.apiKey).toBe('sk-or-test');
+    expect(aiConfigFromEnv({ OPENROUTER_API_KEY: ' ' }).llm.provider).toBe('heuristic');
+    expect(
+      aiConfigFromEnv({
+        OPENROUTER_API_KEY: 'sk-or-test',
+        OPENROUTER_MODEL: 'deepseek/deepseek-v3',
+      }).llm.model,
+    ).toBe('deepseek/deepseek-v3');
+  });
 });
 
 describe('assemble (porte anti-invention)', () => {

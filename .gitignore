@@ -23,6 +23,8 @@ blob-report/
 .env
 .env.*
 !.env.example
+.dev.vars
+prototypes/bino/.dev.vars
 
 # native (Continuous Native Generation)
 apps/mobile/ios/

@@ -2,6 +2,7 @@
 // Dans Claude (artifact) : base partagée en temps réel entre tous les soignants.
 // Sur Cloudflare : stockage commun du Worker (/api/state, /api/op), relu toutes les 5 s.
 // Ailleurs (fichier local, serveur statique) : ce navigateur seulement (localStorage).
+import * as Bino from './bino-api.js';
 import { SEED_CR } from './data.js';
 import { settings } from './settings.js';
 import { hhmm } from './util.js';
@@ -148,7 +149,39 @@ async function api(path, body) {
   }
 }
 
+let apiPatients = null;
+export const patientRows = () => apiPatients;
+
+async function refreshBino() {
+  const snap = await Bino.refresh(settings.matricule);
+  cache.cr = snap.cr;
+  cache.syn = snap.syn;
+  cache.vit = {};
+  cache.prio = snap.prio;
+  apiPatients = Bino.patientRows();
+  stale = false;
+  loading = false;
+  emit();
+}
+
 async function initRemote() {
+  if (await Bino.reachable()) {
+    mode = 'api';
+    loading = true;
+    emit();
+    try {
+      await refreshBino();
+    } catch {
+      stale = true;
+      loading = false;
+      emit();
+    }
+    clearInterval(pollTimer);
+    pollTimer = setInterval(() => {
+      if (!document.hidden) refreshBino().catch(() => {});
+    }, 15000);
+    return;
+  }
   let st = null;
   try {
     st = await api('/api/state');
@@ -233,7 +266,10 @@ export function needsSynth(s, crs) {
   return crs.some((c) => !ids.includes(c.id)) || ids.some((id) => !crs.some((c) => c.id === id));
 }
 // La soignante simulée (Martine par défaut) signe et retrouve « ses » comptes rendus par son nom.
-export const isMine = (c) => !!c.byName && c.byName === myName();
+export const isMine = (c) =>
+  mode === 'api'
+    ? !!c.nurseId && c.nurseId === Bino.currentNurseId()
+    : !!c.byName && c.byName === myName();
 export const myName = () => settings.name.trim();
 // Nom affiché dans « Bonjour … » : la soignante simulée choisie (Martine par défaut).
 export const displayName = () => myName();
@@ -247,6 +283,11 @@ export const personLabel = (id) => (id && names.get(id)) || (id && id === me ? '
 
 /* ---------- écriture ---------- */
 export async function addCr(pid, text) {
+  if (mode === 'api') {
+    await Bino.addCr(pid, text, settings.matricule);
+    await refreshBino();
+    return;
+  }
   const now = new Date();
   const doc = { pid, text, at: now.toISOString(), t: hhmm(now) };
   if (mode === 'shared') {
@@ -326,7 +367,18 @@ export async function savePrioAI(obj) {
   emit();
 }
 
+export async function reviewMine() {
+  if (mode !== 'api') return;
+  await Bino.reviewMine(cache.cr, settings.matricule);
+  await refreshBino();
+}
+
 export async function setManualLevel(pid, level) {
+  if (mode === 'api') {
+    await Bino.setLevel(pid, level, settings.matricule);
+    await refreshBino();
+    return;
+  }
   const levels = { ...manualLevels() };
   if (level) levels[pid] = level;
   else delete levels[pid];

@@ -341,6 +341,7 @@ async function runTriage() {
 const triageSig = () =>
   `${Store.allCr().length}|${S.patients.map((p) => news2(V(p)).total).join(',')}`;
 function autoTriage() {
+  if (Store.storeMode() === 'api') return;
   const ai = Store.prioAI();
   if (!ai || ai.sig !== triageSig() || (ai.engine !== 'ai' && AI.mode() !== 'off')) runTriage();
 }
@@ -560,9 +561,14 @@ const A = {
     if (el.classList.contains('done-wrap') && e.target !== el) return;
     document.getElementById('done').innerHTML = '';
   },
-  confirmShift: () => {
+  confirmShift: async () => {
     document.getElementById('done').innerHTML = '';
-    toast('Transmission validée.');
+    try {
+      await Store.reviewMine();
+      toast('Transmission validée.');
+    } catch {
+      toast('Validation impossible pour le moment.');
+    }
   },
 
   trScope: (a) => {
@@ -680,6 +686,8 @@ style.textContent = DOC_CSS;
 document.head.append(style);
 
 Store.onChange(() => {
+  const rows = Store.patientRows();
+  if (rows?.length) S.patients.splice(0, S.patients.length, ...rows);
   softRender();
   ensureSummaries();
 });
