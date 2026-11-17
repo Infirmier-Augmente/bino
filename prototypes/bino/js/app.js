@@ -424,32 +424,40 @@ function startMic(target) {
   const el = document.getElementById(target);
   if (target === 'draft' && el) U.draft = el.value;
   U.listening = target;
+  const live = document.getElementById('live');
+  if (live) live.textContent = 'Écoute…';
   Voice.start({
     onPartial: (t) => {
       const l = document.getElementById('live');
-      if (l) l.textContent = t;
+      if (l) l.textContent = t || 'Écoute…';
     },
     onFinal: (t) => {
       const box = document.getElementById(target);
       if (box) box.value = `${(box.value || '').trim()} ${t}`.trim();
       if (target === 'draft') U.draft = box ? box.value : `${U.draft} ${t}`.trim();
       const l = document.getElementById('live');
-      if (l) l.textContent = '';
+      if (l) l.textContent = U.listening === target ? 'Écoute…' : '';
     },
     onEnd: () => {
       if (U.listening === target) {
         U.listening = null;
         refreshMic();
       }
+      const l = document.getElementById('live');
+      if (l && l.textContent === 'Écoute…') l.textContent = '';
     },
     onError: (e) => {
       U.listening = null;
       refreshMic();
-      toast(
-        e?.code === 'not_granted'
-          ? 'Micro refusé : tu peux taper le texte.'
-          : 'Dictée indisponible ici : utilise le micro du clavier.',
-      );
+      const l = document.getElementById('live');
+      if (l) l.textContent = '';
+      const messages = {
+        not_granted: 'Micro refusé : tu peux taper le texte.',
+        network: 'La dictée ne joint pas le service vocal. Tu peux taper le texte.',
+        'service-not-allowed': 'Ce navigateur ne dicte pas. Tu peux taper le texte.',
+        'audio-capture': 'Aucun micro détecté. Tu peux taper le texte.',
+      };
+      toast(messages[e?.code] || 'Dictée indisponible ici : utilise le micro du clavier.');
     },
   });
   refreshMic();

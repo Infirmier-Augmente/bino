@@ -11,7 +11,8 @@ let h = null,
   wired = false,
   wiredT = false,
   speaking = false,
-  onSpeak = null;
+  onSpeak = null,
+  want = false;
 
 export async function init() {
   if (window.claude?.use) {
@@ -46,33 +47,66 @@ export function start(handlers) {
     });
   }
   if (SR) {
-    rec = new SR();
-    rec.lang = 'fr-FR';
-    rec.interimResults = true;
-    rec.continuous = true;
-    rec.onresult = (e) => {
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) h?.onFinal?.(r[0].transcript.trim());
-        else interim += r[0].transcript;
-      }
-      h?.onPartial?.(interim);
-    };
-    rec.onerror = (e) =>
-      h?.onError?.({ code: e.error === 'not-allowed' ? 'not_granted' : e.error });
-    rec.onend = () => h?.onEnd?.();
-    try {
-      rec.start();
-    } catch (e) {
-      h?.onError?.(e);
-    }
+    want = true;
+    listen();
     return Promise.resolve();
   }
   return Promise.reject({ code: 'unavailable' });
 }
 
+// Chrome coupe la session tout seul. On la relance tant que le bouton reste allumé,
+// et on garde la phrase entendue même si elle n'a pas été marquée finale.
+function listen() {
+  if (!want || !SR) return;
+  const current = new SR();
+  rec = current;
+  let interim = '';
+  current.lang = 'fr-FR';
+  current.interimResults = true;
+  current.continuous = true;
+  current.onresult = (e) => {
+    let pending = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      const text = r[0].transcript.trim();
+      if (!text) continue;
+      if (r.isFinal) {
+        interim = '';
+        h?.onFinal?.(text);
+      } else pending += `${text} `;
+    }
+    interim = pending.trim();
+    if (interim) h?.onPartial?.(interim);
+  };
+  current.onerror = (e) => {
+    const code = e.error;
+    if (code === 'no-speech' || code === 'aborted') return;
+    want = false;
+    h?.onError?.({ code: code === 'not-allowed' ? 'not_granted' : code });
+  };
+  current.onend = () => {
+    const pending = interim.trim();
+    interim = '';
+    if (pending) h?.onFinal?.(pending);
+    if (rec !== current) return;
+    if (want) {
+      setTimeout(() => {
+        if (want && rec === current) listen();
+      }, 250);
+      return;
+    }
+    h?.onEnd?.();
+  };
+  try {
+    current.start();
+  } catch (e) {
+    want = false;
+    h?.onError?.(e);
+  }
+}
+
 export function stop() {
+  want = false;
   if (cd) return cd.stop().catch(() => {});
   if (rec) {
     try {
