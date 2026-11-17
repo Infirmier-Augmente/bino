@@ -98,7 +98,7 @@ pnpm sim eval                     # évalue la structuration IA sur tous les sc�
 | Ajuster la priorisation          | `PRIORITY_WEIGHTS` dans `packages/domain/src/rules/priority.ts` + tests                                                                               |
 | Enrichir le lexique soignant     | `packages/domain/src/rules/lexicon.ts` (profite au prompt, au STT et au moteur de secours)                                                            |
 | Ajouter un scénario              | `packages/simulation/src/scenarios/*.ts` + l'enregistrer dans `index.ts` (voir `docs/SCENARIOS.md`)                                                   |
-| Ajouter un écran                 | `prototypes/bino` (HTML, `js/views.js`, `css/styles.css`) ; voir `docs/DESIGN.md`                                                                    |
+| Ajouter un écran                 | `prototypes/bino` (HTML, `src/*.ts`, `css/styles.css`). `js/` est compilé. Voir `docs/DESIGN.md`                                                      |
 
 ## 7. Tests : quoi tester, où
 
@@ -134,6 +134,14 @@ icône dans un carré au-dessus d'un titre, emoji décoratifs, point qui pulse s
 promesses marketing (« révolutionnaire », « boostez »). Animer uniquement une activité réelle (enregistrement).
 
 ## 10. Consignes spécifiques aux agents IA
+
+L'ordre de confiance, du plus large au plus fin :
+
+1. **Le code** porte la règle (schéma, type, fonction pure). L'écran affiche, il ne décide pas.
+2. **L'analyse statique** la bloque : Biome, TypeScript, tests, CI (`pnpm check`, Playwright, `pnpm sim eval`).
+3. **Une vérification rejouable** refait le geste (test d'intégration, parcours du site). Une capture ne suffit pas.
+4. **Ce fichier** rappelle l'ordre. Il ne remplace pas un test.
+5. **Une personne** relit ce que les trois premiers n'ont pas pu voir.
 
 - Lis ce fichier, puis le `README.md` du package que tu modifies.
 - Avant de dire « fini » : `pnpm check` doit passer. Si tu touches l'UI : `pnpm test:e2e`.

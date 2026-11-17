@@ -109,7 +109,7 @@ Ordre de décision pour chaque patient :
    du jour, avec une **raison courte et factuelle** (6 à 14 mots, uniquement des faits présents).
 3. Sinon (IA indisponible), **niveau NEWS2**, avec la raison `NEWS2 n · paramètres qui pèsent`.
 
-Garde-fous appliqués à la réponse de l'IA (`js/triage.js`) :
+Garde-fous appliqués à la réponse de l'IA (`src/triage.ts`) :
 
 - l'IA ne peut **jamais descendre un patient sous le niveau de son NEWS2** (elle peut le monter
   si un CR est inquiétant) ;
@@ -119,13 +119,13 @@ Garde-fous appliqués à la réponse de l'IA (`js/triage.js`) :
 Le calcul est relancé automatiquement quand les constantes ou les CR changent (signature des
 données), et à l'ouverture de l'app.
 
-**Seuils NEWS2** (`js/news2.js`, convention de la démo) : 7 et plus = critique (priorité 1),
+**Seuils NEWS2** (`src/news2.ts`, convention de la démo) : 7 et plus = critique (priorité 1),
 5 à 6 = élevé (2), 3 à 4 ou un paramètre à 3 points = moyen (3), sinon faible (4).
 
 ## 7. Document complet (transmission de relève)
 
 > Le bouton **Document complet** a été retiré de l'écran Tous à la demande de l'équipe. Le module
-> (`js/document.js`, testé) et les actions de l'app restent en place pour le remettre au besoin.
+> (`src/document.ts`, testé) et les actions de l'app restent en place pour le remettre au besoin.
 
 Ce qu'il fait quand il est branché :
 
@@ -165,7 +165,7 @@ Le navigateur envoie la dictée à l'API (`POST /transmissions`). L'API structur
 
 ## 10. Dictée vocale
 
-`js/services/voice.js` :
+`src/services/voice.ts` :
 
 - dans Claude, la capacité `dictation` ;
 - sinon, l'API Web Speech du navigateur (Chrome ordinateur ou Android, Safari iOS) ;
@@ -173,7 +173,7 @@ Le navigateur envoie la dictée à l'API (`POST /transmissions`). L'API structur
 
 ## 11. Stockage
 
-Chaque navigateur a sa copie du scénario, servie par l'API via `/api/bino`. Le Worker ne garde pas les notes. Si l'API ne répond pas, la liste reste vide.
+Le site public et le site local ouvrent le même service de réanimation, servi par l'API via `/api/bino`. Le Worker ne garde pas les notes. Si l'API ne répond pas, la liste reste vide.
 
 ## 12. Lignes rouges
 
@@ -188,8 +188,9 @@ Chaque navigateur a sa copie du scénario, servie par l'API via `/api/bino`. Le 
 ## 13. Carte des fichiers
 
 ```
-index.html, css/styles.css, js/   le site
-js/store.js, js/bino-api.js       lecture et écriture vers l'API
+index.html, css/styles.css, src/  le site (TypeScript)
+src/store.ts, src/bino-api.ts     lecture et écriture vers l'API
+js/                               compilé pour le déploiement
 worker/index.js                   fichiers statiques et relais /api/bino
 tests/                            score NEWS2
 ```

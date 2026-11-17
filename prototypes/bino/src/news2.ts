@@ -1,14 +1,19 @@
 // Score NEWS2 (Royal College of Physicians, 2017), échelle SpO2 n°1.
 // Démo hackathon : l'infirmier garde toujours le dernier mot.
 
-// Priorité 1 rouge, 2 orange, 3 jaune.
-export const LV = {
+import type { Level, NewsScore, Vitals } from './model.js';
+
+type Palette = { l: string; bg: string; fg: string; bar: string };
+
+// Priorité 1 rouge, 2 orange, 3 jaune, 4 vert.
+export const LV: Record<Level, Palette> = {
   critique: { l: 'Critique', bg: '#DC0000', fg: '#fff', bar: '#DC0000' },
   eleve: { l: 'Élevé', bg: '#F57C00', fg: '#fff', bar: '#F57C00' },
   moyen: { l: 'Moyen', bg: '#F5B700', fg: '#1A1A1A', bar: '#F5B700' },
+  stable: { l: 'Stable', bg: '#14804a', fg: '#fff', bar: '#14804a' },
 };
 
-export function news2(v) {
+export function news2(v: Vitals): NewsScore {
   const p = {
     fr: v.fr <= 8 ? 3 : v.fr <= 11 ? 1 : v.fr <= 20 ? 0 : v.fr <= 24 ? 2 : 3,
     spo2: v.spo2 <= 91 ? 3 : v.spo2 <= 93 ? 2 : v.spo2 <= 95 ? 1 : 0,

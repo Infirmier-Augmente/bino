@@ -1,7 +1,8 @@
 // Rendu des écrans (HTML en chaînes), d'après les maquettes papier de l'équipe :
 // 1. Patients (Bonjour + date, liste organisée par sévérité, auto par l'IA ou manuelle) ;
 // 2. Fiche « Nouveau compte rendu » (dossier médical, micro, Valider) ;
-// 3. Transmissions (Mes CR / Tous en puces résumées). Aucune écriture ici : les actions sont dans app.js.
+// 3. Transmissions (Mes CR / Tous en puces résumées). Aucune écriture ici : les actions sont dans app.ts.
+import type { Cr, Example, Level, Patient, Point, Ui, Vitals, Ward } from './model.js';
 import { LV, news2 } from './news2.js';
 import * as Store from './store.js';
 import { canonLevel, LEVELS, rank } from './triage.js';
@@ -31,41 +32,43 @@ const I = {
     '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
   folder: '<path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>',
 };
-export const ic = (n, s = 20) =>
+export const ic = (n: keyof typeof I, s = 20): string =>
   `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
 
-export const badge = (lv) =>
+export const badge = (lv: Level): string =>
   `<span class="badge" style="background:${LV[lv].bg};color:${LV[lv].fg}">${LV[lv].l}</span>`;
 
-export const V = (p) => Store.vitalsFor(p.id) || p.v;
+export const V = (p: Patient): Vitals => Store.vitalsFor(p.id) || p.v;
 
-// Priorité 1 (la plus urgente) à 3. Proposée par l'IA (repli NEWS2), modifiable à la main :
+// Priorité 1 (la plus urgente) à 4. Proposée par le service, modifiable à la main :
 // le choix de l'infirmière prime toujours.
-export const PRIO = { critique: 1, eleve: 2, moyen: 3 };
-export const prioTag = (lv) => `Priorité ${PRIO[lv]}`;
-export function levelOf(p) {
+export const PRIO: Record<Level, number> = { critique: 1, eleve: 2, moyen: 3, stable: 4 };
+export const prioTag = (lv: Level): string => `Priorité ${PRIO[lv]}`;
+export function levelOf(p: Patient): Level {
   const manual = canonLevel(Store.manualLevels()[p.id]);
   if (manual) return manual;
-  const ai = Store.prioAI()?.order?.find((x) => x.id === p.id);
-  return canonLevel(ai?.niveau) || canonLevel(news2(V(p)).level) || 'moyen';
+  const ai = Store.prioAI()?.order.find((x) => x.id === p.id);
+  return (
+    canonLevel(ai?.niveau) || canonLevel(ai?.level) || canonLevel(news2(V(p)).level) || 'moyen'
+  );
 }
-const aiPos = (p) => {
-  const i = (Store.prioAI()?.order || []).findIndex((x) => x.id === p.id);
+const aiPos = (p: Patient): number => {
+  const i = (Store.prioAI()?.order ?? []).findIndex((x) => x.id === p.id);
   return i < 0 ? 999 : i;
 };
-const byPrio = (a, b) =>
+const byPrio = (a: Patient, b: Patient): number =>
   rank(levelOf(a)) - rank(levelOf(b)) ||
   aiPos(a) - aiPos(b) ||
   news2(V(b)).total - news2(V(a)).total;
-const lastName = (p) =>
+const lastName = (p: Patient): string =>
   p.nom
     .replace(/^(M\.|Mme|Mlle)\s+/, '')
     .split(/\s+/)
-    .slice(-1)[0];
+    .slice(-1)[0] ?? '';
 // Tri du dashboard : par chambre ou par nom (la priorité ne s'affiche plus sur le dashboard).
 export const SORTS = {
-  chambre: { l: 'Chambre', f: (a, b) => Number(a.ch) - Number(b.ch) },
-  nom: { l: 'Nom', f: (a, b) => lastName(a).localeCompare(lastName(b), 'fr') },
+  chambre: { l: 'Chambre', f: (a: Patient, b: Patient) => Number(a.ch) - Number(b.ch) },
+  nom: { l: 'Nom', f: (a: Patient, b: Patient) => lastName(a).localeCompare(lastName(b), 'fr') },
 };
 const TR_SORTS = {
   chambre: SORTS.chambre,
@@ -73,25 +76,35 @@ const TR_SORTS = {
   prio: { l: 'Priorité' },
 };
 // Ordre par priorité (IA ou choix manuel), utilisé dans Transmissions › Tous et le document.
-export const byPriority = (patients) => [...patients].sort(byPrio);
-export const sorted = (patients, by = 'chambre') =>
-  by === 'prio' ? byPriority(patients) : [...patients].sort((SORTS[by] || SORTS.chambre).f);
-export const room = (p) => `CHAMB ${esc(p?.ch ?? '')}`;
+export const byPriority = (patients: Patient[]): Patient[] => [...patients].sort(byPrio);
+export const sorted = (patients: Patient[], by = 'chambre'): Patient[] => {
+  if (by === 'prio') return byPriority(patients);
+  const spec = by === 'nom' ? SORTS.nom : SORTS.chambre;
+  return [...patients].sort(spec.f);
+};
+export const room = (p: Patient | undefined): string => `CHAMB ${esc(p?.ch ?? '')}`;
 
 // Menu « Trier » partagé par le dashboard et Transmissions › Tous.
-function sortMenu(opts, cur, act, pop = 'right') {
+function sortMenu(
+  opts: Record<string, { l: string }>,
+  cur: string,
+  act: string,
+  pop = 'right',
+): string {
+  const buttons = Object.keys(opts)
+    .map((k) => {
+      const o = opts[k];
+      if (!o) return '';
+      return `<button type="button" data-act="${act}" data-arg="${k}" aria-pressed="${cur === k}"><span><b>${o.l}</b></span>${cur === k ? ic('check', 18) : ''}</button>`;
+    })
+    .join('');
   return `<details class="menu sort-menu"><summary class="btn sec sm" role="button">Trier : ${opts[cur]?.l || ''} ${ic('chev', 16)}</summary>
-      <div class="menu-pop ${pop}">${Object.entries(opts)
-        .map(
-          ([k, o]) =>
-            `<button type="button" data-act="${act}" data-arg="${k}" aria-pressed="${cur === k}"><span><b>${o.l}</b></span>${cur === k ? ic('check', 18) : ''}</button>`,
-        )
-        .join('')}</div></details>`;
+      <div class="menu-pop ${pop}">${buttons}</div></details>`;
 }
 
-const firstName = (s) => (s || '').split(/[·,]/)[0].trim().split(/\s+/)[0] || '';
+const firstName = (s: string): string => s.split(/[·,]/)[0]?.trim().split(/\s+/)[0] || '';
 
-export function vLogin(error, matricule) {
+export function vLogin(error: string, matricule: string): string {
   return `<div class="login">
     <img class="login-mark" src="assets/bino/presente-bust.png" width="106" height="128" alt="">
     <h1>Connexion</h1>
@@ -108,7 +121,7 @@ export function vLogin(error, matricule) {
   </div>`;
 }
 
-export function vLogged(name) {
+export function vLogged(name: string): string {
   return `<div class="login logged">
     <img class="login-mark" src="assets/bino/pouce-bust.png" width="116" height="128" alt="">
     <h1>${esc(name)}</h1>
@@ -117,11 +130,11 @@ export function vLogged(name) {
   </div>`;
 }
 
-export const micBtn = (U, target) =>
+export const micBtn = (U: Ui, target: string): string =>
   `<button type="button" class="mic ${U.listening === target ? 'on' : ''}" data-act="mic" data-arg="${target}" aria-label="${U.listening === target ? 'Arrêter la dictée' : 'Dicter le compte rendu'}">${ic(U.listening === target ? 'stop' : 'mic', 28)}</button>`;
 
 /* ---------- en-tête : logo + Bonjour + date (maquette 1), page Patients seulement ---------- */
-export function vHeader() {
+export function vHeader(): string {
   const date = new Date().toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
@@ -136,16 +149,18 @@ export function vHeader() {
 }
 
 /* ---------- onglet 1 : patients ---------- */
-// Rouge, orange, jaune. Le vert n'est plus un niveau.
-const TRAFFIC = {
+// Rouge, orange, jaune, vert. Chaque couleur est un niveau, avec son libellé.
+const TRAFFIC: Record<Level, { bg: string; fg: string; ink: string; bar: string }> = {
   critique: { bg: '#DC0000', fg: '#fff', ink: '#DC0000', bar: '#DC0000' },
   eleve: { bg: '#F57C00', fg: '#fff', ink: '#C45C00', bar: '#F57C00' },
   moyen: { bg: '#F5B700', fg: '#1A1A1A', ink: '#8A6500', bar: '#F5B700' },
+  stable: { bg: '#14804a', fg: '#fff', ink: '#14804a', bar: '#14804a' },
 };
-const trafficStyle = (lv) => `--c:${TRAFFIC[lv].bg};--f:${TRAFFIC[lv].fg};--ink:${TRAFFIC[lv].ink}`;
+const trafficStyle = (lv: Level): string =>
+  `--c:${TRAFFIC[lv].bg};--f:${TRAFFIC[lv].fg};--ink:${TRAFFIC[lv].ink}`;
 
 // Bouton « Priorité n » : un toucher déplie, dans la carte, la rangée 1 2 3 4.
-export const prioBtn = (p, open = false) => {
+export const prioBtn = (p: Patient, open = false): string => {
   const lv = levelOf(p);
   const why = Store.manualLevels()[p.id]
     ? 'choisie par un soignant'
@@ -153,13 +168,13 @@ export const prioBtn = (p, open = false) => {
   return `<button type="button" class="lvl sm ${open ? 'open' : ''}" style="${trafficStyle(lv)}" data-act="pickLevel" data-arg="${p.id}" aria-expanded="${open}" title="${esc(why)}" aria-label="${esc(p.nom)} : ${prioTag(lv)} (${esc(why)}). Changer la priorité">${prioTag(lv)} ${ic('chev', 14)}</button>`;
 };
 
-export function vPatients(S, U) {
+export function vPatients(S: Ward, U: Ui): string {
   if (Store.isLoading()) {
     return `<div class="list-head between"><h2 class="list-t">Patients</h2></div>
   <p class="note">Chargement…</p>`;
   }
   const ps = sorted(S.patients, U.sortBy);
-  return `<div class="list-head between"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2>
+  return `<div class="list-head between"><div><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2><p class="list-ward">Réanimation</p></div>
 
     ${sortMenu(SORTS, U.sortBy, 'sortBy')}</div>
   ${Store.isStale() ? '<p class="note">Les comptes rendus de l\'équipe ne sont pas encore joignables.</p>' : ''}
@@ -172,9 +187,9 @@ export function vPatients(S, U) {
     .join('')}`;
 }
 
-// Petite rangée de cercles 1 à 3, dépliée dans la carte sous le bouton Priorité.
+// Petite rangée de cercles 1 à 4, dépliée dans la carte sous le bouton Priorité.
 // Le choix de l'infirmière prime sur la proposition (IA ou NEWS2).
-function levelRow(p) {
+function levelRow(p: Patient): string {
   const cur = levelOf(p);
   return `<div class="lvl-pick">
     <div class="lvl-row" role="group" aria-label="Priorité de ${esc(p.nom)}">${LEVELS.map(
@@ -185,7 +200,7 @@ function levelRow(p) {
 }
 
 /* ---------- fiche : nouveau compte rendu ---------- */
-function vtable(v) {
+function vtable(v: Vitals): string {
   const n = news2(v);
   const rows = [
     ['Fréquence respiratoire', `${v.fr} /min`, n.p.fr],
@@ -196,21 +211,33 @@ function vtable(v) {
     ['Température', `${num(v.temp)} °C`, n.p.temp],
     ['Conscience', v.cons === 'A' ? 'Alerte' : 'Altérée', n.p.cons],
   ];
-  return `<table class="vtable"><tbody>${rows.map((r) => `<tr><td>${r[0]}</td><td class="v">${r[1]}</td><td class="p p${r[2]}">${r[2] ? `+${r[2]}` : '0'}</td></tr>`).join('')}<tr><td><b>Total NEWS2</b></td><td></td><td class="p p${n.total >= 7 ? 3 : n.total >= 5 ? 2 : n.total ? 1 : 0}">${n.total}</td></tr></tbody></table>`;
+  return `<table class="vtable"><tbody>${rows
+    .map((r) => {
+      const label = r[0] ?? '';
+      const value = r[1] ?? '';
+      const pts = r[2] ?? 0;
+      return `<tr><td>${label}</td><td class="v">${value}</td><td class="p p${pts}">${pts ? `+${pts}` : '0'}</td></tr>`;
+    })
+    .join(
+      '',
+    )}<tr><td><b>Total NEWS2</b></td><td></td><td class="p p${n.total >= 7 ? 3 : n.total >= 5 ? 2 : n.total ? 1 : 0}">${n.total}</td></tr></tbody></table>`;
 }
 
-const info = (k, v) => `<div class="info"><span>${k}</span><b>${esc(v)}</b></div>`;
+const info = (k: string, v: string): string =>
+  `<div class="info"><span>${k}</span><b>${esc(v)}</b></div>`;
 
-export function vPatientPopup(S, U, EXAMPLES) {
+export function vPatientPopup(S: Ward, U: Ui, examples: Example[]): string {
   const p = S.patients.find((x) => x.id === U.pid);
+  if (!p) return '';
   const v = V(p);
-  const ex = EXAMPLES.find(
+  const ex = examples.find(
     (e) => e.pid === p.id && !Store.crFor(p.id).some((c) => c.text === e.text),
   );
   return `<div class="pp">
   <h1 class="pp-title">Nouveau compte rendu</h1>
   <div class="pp-name">${esc(p.nom)}</div>
   <div class="pp-sub">Chambre ${esc(p.ch)} · ${p.age} ans</div>
+  <p class="pp-steps"><img class="hint-bino" src="assets/bino/clin-oeil-head.png" width="40" height="40" alt=""><span>Dicte ou écris, puis valide. Tu retrouveras ton compte-rendu soigneusement rangé dans <b>Mes CR</b>.</span></p>
 
   <div class="pp-actions">
     <button type="button" class="pill ${U.foldOpen ? 'on' : ''}" data-act="toggleDossier" aria-expanded="${U.foldOpen}">${ic('folder', 18)} Dossier médical ${ic('chev', 16)}</button>
@@ -239,20 +266,20 @@ export function vPatientPopup(S, U, EXAMPLES) {
     <textarea id="draft" class="draft cr-box" data-model="draft" placeholder="Ce que tu as vu et fait, comme à la relève.">${esc(U.draft)}</textarea>
     <div class="live" id="live" aria-live="polite"></div>
     <div class="pp-mic">${micBtn(U, 'draft')}</div>
-    ${ex ? `<div class="pp-ex"><button type="button" class="chip ex" data-act="useEx" data-arg="${EXAMPLES.indexOf(ex)}">${ic('play', 14)} Exemple : ${esc(ex.label)}</button></div>` : ''}
+    ${ex ? `<div class="pp-ex"><button type="button" class="chip ex" data-act="useEx" data-arg="${examples.indexOf(ex)}">${ic('play', 14)} Exemple : ${esc(ex.label)}</button></div>` : ''}
   </div>
   <div class="pp-foot"><button type="button" class="btn valider" data-act="saveCr" ${U.saving ? 'disabled' : ''}>${U.saving ? '<span class="spin"></span>' : ''} Valider</button></div>
   </div>`;
 }
 
-export const vDone = (title = 'Compte rendu fait') =>
-  `<div class="done-wrap" data-act="closeDone"><div class="done-card" role="dialog" aria-modal="true" aria-labelledby="done-t"><button type="button" class="icon-btn done-x" data-act="closeDone" aria-label="Fermer">${ic('x', 22)}</button><div class="done-check">${ic('check', 56)}</div><div class="done-t" id="done-t">${esc(title)}</div></div></div>`;
+export const vDone = (title = 'Compte rendu fait', status = ''): string =>
+  `<div class="done-wrap done-note"><button type="button" class="done-backdrop" data-act="closeDone" aria-label="Fermer"></button><div class="done-card" role="dialog" aria-modal="true" aria-labelledby="done-t"><button type="button" class="icon-btn done-x" data-act="closeDone" aria-label="Fermer">${ic('x', 22)}</button><img class="done-bino" id="done-bino" src="assets/bino/concentre-bust.png" width="120" height="108" alt=""><div class="done-t" id="done-t">${esc(title)}</div><p class="done-status" id="save-status">${esc(status)}</p><button type="button" class="btn sec sm done-go" data-act="seeTransmissions">Voir Mes CR</button></div></div>`;
 
-export const vShiftAsk = () =>
+export const vShiftAsk = (): string =>
   `<div class="done-wrap" data-act="cancelShift"><div class="done-card shift-ask" role="dialog" aria-modal="true" aria-labelledby="shift-t"><img class="shift-mascot" src="assets/bino/endormi-bust.png" width="142" height="128" alt=""><div class="done-t" id="shift-t">Valider la transmission ?</div><div class="shift-actions"><button type="button" class="btn sec" data-act="cancelShift">Annuler</button><button type="button" class="btn" data-act="confirmShift">Confirmer</button></div></div></div>`;
 
 /* ---------- onglet 2 : transmissions ---------- */
-function crItem(c, S) {
+function crItem(c: Cr, S: Ward): string {
   const p = S.patients.find((x) => x.id === c.pid);
   return `<div class="cr-item">
     <div class="between"><span class="cr-who">${esc(p?.nom || '')} <span class="room-chip sm">${room(p)}</span></span><span class="small muted">${esc(c.t || '')}</span></div>
@@ -260,39 +287,84 @@ function crItem(c, S) {
   </div>`;
 }
 
-function srcLine(field, crs) {
-  if (!field?.src?.length) return '';
+function srcLine(field: Point | undefined, crs: Cr[]): string {
+  if (!field?.src.length) return '';
   const byId = new Map(crs.map((c) => [c.id, c]));
+  const found: Cr[] = [];
+  for (const s of field.src) {
+    const c = byId.get(s.cr);
+    if (c) found.push(c);
+  }
+  found.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const who = [
-    ...new Set(
-      field.src
-        .map((s) => byId.get(s.cr))
-        .filter(Boolean)
-        .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
-        .map((c) => `${Store.authorOf(c).split(' ')[0]} ${c.t || ''}`.trim()),
-    ),
+    ...new Set(found.map((c) => `${Store.authorOf(c).split(' ')[0] ?? ''} ${c.t || ''}`.trim())),
   ];
   return who.length ? `<span class="pt-src">${esc(who.join(' · '))}</span>` : '';
 }
 
 // Une puce est datée par le compte rendu le plus récent qu'elle cite : la plus récente en premier.
-function chrono(points, crs) {
+function chrono(points: Point[], crs: Cr[]): Point[] {
   const at = new Map(crs.map((c) => [c.id, Date.parse(c.at)]));
-  const t = (pt) => Math.max(...(pt.src || []).map((x) => at.get(x.cr) ?? -Infinity));
+  const t = (pt: Point): number => {
+    const times = pt.src.map((x) => at.get(x.cr) ?? Number.NEGATIVE_INFINITY);
+    return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY;
+  };
   return [...points].sort((a, b) => t(b) - t(a));
 }
 
-function summaryCard(p, open) {
+function foldPoint(s: string): string {
+  return String(s)
+    .toLocaleLowerCase('fr')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[.,;:…]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// On garde la phrase la plus complète quand le même fait est répété.
+function tighten(points: Point[]): Point[] {
+  return points.filter((p, i) => {
+    const n = foldPoint(p.t);
+    if (!n) return false;
+    const label = n.split(' : ')[0] ?? '';
+    return !points.some((other, j) => {
+      if (j === i) return false;
+      const o = foldPoint(other.t);
+      const sameLabel = label.length > 3 && label === (o.split(' : ')[0] ?? '');
+      if (sameLabel) return o.length > n.length || (o.length === n.length && j < i);
+      return o.length > n.length && o.includes(n);
+    });
+  });
+}
+
+// Un patient stable tient en peu de lignes. Un patient plus lourd garde le détail.
+const EXTRA_LINES: Record<Level, number> = { critique: 4, eleve: 4, moyen: 2, stable: 1 };
+function forCard(points: Point[], lv: Level): Point[] {
+  const kept = tighten(points);
+  const lead = [];
+  const rest = [];
+  for (const p of kept) {
+    if (p.t.includes(' : ') || p.t.length > 90) lead.push(p);
+    else rest.push(p);
+  }
+  return [...lead, ...rest.slice(0, EXTRA_LINES[lv] ?? 2)];
+}
+
+function summaryCard(p: Patient, open: boolean): string {
   const crs = Store.crFor(p.id);
   const lv = levelOf(p);
   const s = Store.synthFor(p.id);
-  const fresh = s && !Store.needsSynth(s, crs);
-  let body;
+  const fresh = s && !Store.needsSynth();
+  let body: string;
   if (!crs.length) body = '<p class="small muted">Aucun compte rendu aujourd\'hui.</p>';
   else if (!fresh)
     body = '<p class="small muted"><span class="spin dark"></span> Résumé en cours…</p>';
   else
-    body = `<ul class="pts">${chrono(s.points || [], crs)
+    body = `<p class="sum-dx">${esc(p.motif)}</p><ul class="pts">${forCard(
+      chrono(s.points || [], crs),
+      lv,
+    )
       .map((pt) => `<li>${esc(pt.t)} ${srcLine(pt, crs)}</li>`)
       .join('')}</ul>`;
   return `<div class="card sum" style="--bar:${TRAFFIC[lv].bar}">
@@ -302,8 +374,8 @@ function summaryCard(p, open) {
   </div>`;
 }
 
-export function vTransmissions(S, U) {
-  const seg = (k, l) =>
+export function vTransmissions(S: Ward, U: Ui): string {
+  const seg = (k: Ui['trScope'], l: string): string =>
     `<button type="button" class="seg-b ${U.trScope === k ? 'on' : ''}" data-act="trScope" data-arg="${k}" aria-pressed="${U.trScope === k}">${l}</button>`;
   const out = `<button type="button" class="hello-out" data-act="logout">Déconnexion</button>`;
   const head =
@@ -314,11 +386,12 @@ export function vTransmissions(S, U) {
       .filter((c) => Store.isMine(c))
       .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
     return `${head}
-    ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
+    ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty bino-empty"><img src="assets/bino/salue-bust.png" width="84" height="84" alt=""><p>Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</p></div>'}`;
   }
   if (Store.isLoading()) return `${head}<p class="note">Chargement…</p>`;
   const q = (U.trQuery || '').trim();
-  const fold = (s) => String(s).toLocaleLowerCase('fr').normalize('NFD').replace(/\p{M}/gu, '');
+  const fold = (s: string): string =>
+    s.toLocaleLowerCase('fr').normalize('NFD').replace(/\p{M}/gu, '');
   const needle = fold(q);
   const ps = sorted(S.patients, U.trSort).filter((p) =>
     needle ? fold(`${p.nom} ${p.ch} ${p.motif}`).includes(needle) : true,

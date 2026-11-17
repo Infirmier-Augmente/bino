@@ -5,8 +5,13 @@
   "description": "Bino, le binôme des infirmiers : transmissions DAR dictées, relève, NEWS2 et import DPI (FHIR). Démo hackathon IA santé, données fictives.",
   "type": "module",
   "scripts": {
-    "start": "npx --yes serve -l 8080 .",
-    "test": "node --test tests/*.test.mjs"
+    "start": "BINO_SHARED_SESSION=1 node --env-file-if-exists=../../.env ../../e2e/serve-prototype.mjs . 8080 http://127.0.0.1:8787",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "tsc -p tsconfig.build.json && node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
   },
   "engines": {
     "node": ">=18"

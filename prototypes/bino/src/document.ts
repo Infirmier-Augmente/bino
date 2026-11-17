@@ -1,24 +1,22 @@
 // Document de transmission global : tous les patients, à partir des comptes rendus de toute l'équipe.
 // Même règle que partout : chaque phrase vient d'un compte rendu ; ce qui n'est pas dit reste une question.
+import type { Cible, Cr, DocInput, DocMeta, DocModel, DocRow, Level, Vitals } from './model.js';
 import { LV, news2 } from './news2.js';
+import { canonLevel } from './triage.js';
 import { esc, num } from './util.js';
 
-const PRIO = { critique: 1, eleve: 2, moyen: 3 };
+const PRIO: Record<Level, number> = { critique: 1, eleve: 2, moyen: 3, stable: 4 };
 
-const vitShort = (v) =>
+const vitShort = (v: Vitals): string =>
   `FR ${v.fr} · SpO2 ${v.spo2} %${v.o2 ? ' sous O2' : ''} · TA ${v.pas}/${v.pad} · FC ${v.fc} · T ${num(v.temp)} °C`;
 
-/**
- * @param items [{ p, v, crs, syn }] triés par priorité ; syn peut être null (aucun compte rendu)
- * @param meta { date, time, author, service, authorOf }
- */
-export function buildModel(items, meta) {
+export function buildModel(items: DocInput[], meta: DocMeta): DocModel {
   const crCount = items.reduce((a, it) => a + it.crs.length, 0);
   const nurses = [...new Set(items.flatMap((it) => it.crs.map((c) => meta.authorOf(c))))];
   // Priorité affichée : celle de l'app (IA ou choix de l'infirmière), sinon le niveau du NEWS2.
-  const rows = items.map((it) => {
-    const raw = it.level || news2(it.v).level;
-    return { ...it, n: news2(it.v), lv: raw === 'faible' ? 'moyen' : PRIO[raw] ? raw : 'moyen' };
+  const rows: DocRow[] = items.map((it) => {
+    const lv = canonLevel(it.level || news2(it.v).level) ?? 'moyen';
+    return { ...it, n: news2(it.v), lv };
   });
   return {
     ...meta,
@@ -29,8 +27,9 @@ export function buildModel(items, meta) {
   };
 }
 
-function cibleHtml(c) {
-  const line = (k, f) => (f ? `<p><span class="doc-k">${k}</span>${esc(f.t)}</p>` : '');
+function cibleHtml(c: Cible): string {
+  const line = (k: string, f: Cible['D']) =>
+    f ? `<p><span class="doc-k">${k}</span>${esc(f.t)}</p>` : '';
   const r =
     c.R || !c.A
       ? line('R', c.R)
@@ -38,7 +37,7 @@ function cibleHtml(c) {
   return `<div class="doc-c"><div class="doc-ct">${esc(c.c)}</div>${line('D', c.D)}${line('A', c.A)}${r}</div>`;
 }
 
-function patientHtml(r, authorOf) {
+function patientHtml(r: DocRow, authorOf: (c: Cr) => string): string {
   const { p, v, n, lv, crs, syn } = r;
   const flags = [
     p.allergies !== 'Aucune connue' ? `Allergie : ${esc(p.allergies)}` : '',
@@ -82,7 +81,7 @@ export const DOC_CSS = `
 .doc .doc-src,.doc .doc-none{color:#5f5f5f;font-size:12px;margin:8px 0 0}
 .doc .doc-foot{color:#5f5f5f;font-size:12px;margin-top:8px}`;
 
-export function docHtml(m) {
+export function docHtml(m: DocModel): string {
   return `<article class="doc">
   <h1>Transmission du service</h1>
   <p class="doc-sub">${esc(m.service)} · Date : ${esc(m.date)} · relève de 19h45<br>Généré par ${esc(m.author)} à ${esc(m.time)}</p>
@@ -97,7 +96,7 @@ export function docHtml(m) {
   </article>`;
 }
 
-export function docText(m) {
+export function docText(m: DocModel): string {
   const lines = [
     'TRANSMISSION DU SERVICE',
     `${m.service} · Date : ${m.date} · relève de 19h45`,
@@ -119,7 +118,7 @@ export function docText(m) {
     if (r.syn?.resume) lines.push(`À retenir : ${r.syn.resume.t}`);
     for (const c of r.syn?.cibles || []) {
       lines.push(`* ${c.c}`);
-      lines.push(`  D : ${c.D.t}`);
+      if (c.D) lines.push(`  D : ${c.D.t}`);
       if (c.A) lines.push(`  A : ${c.A.t}`);
       if (c.R) lines.push(`  R : ${c.R.t}`);
       else if (c.A) lines.push('  R : non renseigné, à réévaluer');
@@ -130,6 +129,6 @@ export function docText(m) {
   return lines.join('\n');
 }
 
-export function docFile(m) {
+export function docFile(m: DocModel): string {
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Transmission ${esc(m.date)}</title><style>body{margin:0;padding:24px;background:#f3f3f3;font-family:system-ui,sans-serif}${DOC_CSS}</style></head><body>${docHtml(m)}</body></html>`;
 }

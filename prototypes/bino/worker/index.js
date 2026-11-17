@@ -1,5 +1,7 @@
 // Bino sur Cloudflare : sert l'app et relaie /api/bino vers l'API du mini.
 // Le Worker est le seul à connaître le tunnel et à ajouter le secret.
+import { SHARED_SESSION } from '../shared-session.js';
+
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
@@ -7,17 +9,15 @@ const json = (data, status = 200) =>
   });
 const bad = (msg, status = 400) => json({ error: msg }, status);
 
-function visitorId(request) {
-  const raw = request.headers.get('cookie') ?? '';
-  const match = raw.match(/(?:^|;\s*)bino_session=([0-9a-f-]{36})/i);
-  return match?.[1] ?? crypto.randomUUID();
+function visitorId() {
+  return SHARED_SESSION;
 }
 
 async function proxyBino(request, env, url) {
   if (!env.API_ORIGIN || !env.API_EDGE_SECRET) return bad('API non reliée', 503);
   const path = url.pathname.slice('/api/bino'.length) || '/';
   const dest = new URL(path + url.search, env.API_ORIGIN);
-  const sid = visitorId(request);
+  const sid = visitorId();
   const headers = new Headers();
   const type = request.headers.get('content-type');
   if (type) headers.set('content-type', type);

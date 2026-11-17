@@ -4,6 +4,8 @@ node_modules/
 
 # build / cache
 dist/
+# JavaScript du site, produit par `pnpm --dir prototypes/bino build`
+prototypes/bino/js/
 .turbo/
 .expo/
 web-build/

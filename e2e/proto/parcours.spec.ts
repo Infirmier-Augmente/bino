@@ -58,6 +58,31 @@ test('le dossier ne invente pas de constantes', async ({ page }) => {
   await expect(page.getByText('Constantes non fournies par le service.')).toBeVisible();
 });
 
+test('Mes CR montre le compte rendu dès la validation', async ({ page }) => {
+  await enterWard(page);
+  await page.getByRole('button', { name: 'Transmissions' }).click();
+  await expect(page.getByText('Pas encore de compte rendu.')).toHaveCount(0);
+  await expect(page.locator('.cr-text').first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Patients' }).click();
+  await page.getByRole('button', { name: /M\. Durand/ }).click();
+  await page.locator('#draft').fill('Repère bino 9021, le pansement est sec.');
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/bino/transmissions', async (route) => {
+    if (route.request().method() === 'POST') await gate;
+    await route.continue();
+  });
+  await page.getByRole('button', { name: 'Valider' }).click();
+  await expect(page.getByText('Rangement en cours.')).toBeVisible();
+  await page.getByRole('button', { name: 'Transmissions' }).click();
+  await expect(page.getByText(/bino 9021/)).toBeVisible();
+  release();
+  await expect(page.getByText(/bino 9021/)).toHaveCount(1);
+});
+
 test('Valider une fois range la dictée, un second clic ne la duplique pas', async ({ page }) => {
   await enterWard(page);
   await page.getByRole('button', { name: /M\. Durand/ }).click();
@@ -129,10 +154,36 @@ test('sur ordinateur le micro envoie l’audio et écrit le texte', async ({ pag
   await expect(page.locator('#draft')).toHaveValue('Le pansement est sec.');
 });
 
+test('le conseil de dictée garde Mes CR dans la phrase', async ({ page }) => {
+  await enterWard(page);
+  await page.getByRole('button', { name: /M\. Durand/ }).click();
+  const line = page.locator('.pp-steps');
+  await expect(line).toContainText(
+    'Dicte ou écris, puis valide. Tu retrouveras ton compte-rendu soigneusement rangé dans Mes CR.',
+  );
+  const bold = line.locator('b');
+  const sentence = line.locator('span');
+  await expect(bold).toHaveText('Mes CR');
+  const boldBox = await bold.boundingBox();
+  const sentenceBox = await sentence.boundingBox();
+  expect(boldBox).toBeTruthy();
+  expect(sentenceBox).toBeTruthy();
+  if (!boldBox || !sentenceBox) return;
+  expect(boldBox.height).toBeLessThan(28);
+  expect(boldBox.x).toBeGreaterThanOrEqual(sentenceBox.x - 1);
+  expect(boldBox.x + boldBox.width).toBeLessThanOrEqual(sentenceBox.x + sentenceBox.width + 1);
+});
+
 test('la recherche et la priorité restent sur le patient choisi', async ({ page }) => {
   await enterWard(page);
   await page.getByRole('button', { name: 'Transmissions' }).click();
   await page.getByRole('button', { name: 'Tous' }).click();
+  await expect(page.getByRole('button', { name: /M\. Durand : Priorité 2/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Mme Lefèvre : Priorité 2/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Mme Bernard : Priorité 3/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /M\. Nguyen : Priorité 4/ })).toBeVisible();
+  await expect(page.getByText('Pneumopathie hypoxémique')).toBeVisible();
+  await expect(page.getByText('Hémorragie méningée sur anévrisme')).toBeVisible();
   await page.getByLabel('Rechercher un patient').fill('Bernard');
   await expect(page.getByText('Mme Bernard')).toBeVisible();
   await expect(page.getByText('M. Durand')).toHaveCount(0);

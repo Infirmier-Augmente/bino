@@ -1,8 +1,14 @@
 // Comptes de démo. Les patients viennent de l'API, jamais d'une liste locale.
-export const NURSES = ['Martine Dubois · IDE', 'Sophie Lemoine · IDE', 'Karim Haddad · IDE'];
+import type { Example, Ward } from './model.js';
+
+export const NURSES = [
+  'Martine Dubois · IDE',
+  'Sophie Lemoine · IDE',
+  'Karim Haddad · IDE',
+] as const;
 export const DEFAULT_NURSE = NURSES[0];
 
-export const EXAMPLES = [
+export const EXAMPLES: Example[] = [
   {
     label: 'M. Durand, extubation',
     text: 'Box 12, monsieur Durand. Il a été extubé vers 10h, sous lunettes à 3 litres, sécrétions sèches. Vers 16h il était agité, il a arraché sa sonde, l’interne est prévenu.',
@@ -13,6 +19,6 @@ export const EXAMPLES = [
   },
 ];
 
-export function seed() {
+export function seed(): Ward {
   return { patients: [] };
 }
