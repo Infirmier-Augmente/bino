@@ -17,7 +17,7 @@ let db = null;
 let user = null;
 let me = null;
 let mode = 'local';
-let loading = false;
+let loading = true;
 let stale = false;
 let rev = -1;
 let pollTimer = null;
@@ -122,6 +122,7 @@ function subscribe() {
 function applyRemote(st) {
   if (!st || typeof st.rev !== 'number') return;
   rev = st.rev;
+  loading = false;
   cache.cr = st.cr || [];
   cache.syn = st.syn || {};
   cache.vit = st.vit || {};
@@ -187,9 +188,15 @@ async function initRemote() {
   try {
     st = await api('/api/state');
   } catch {
+    loading = false;
+    emit();
     return; // pas de Worker (serveur statique, fichier local) : on reste sur ce navigateur
   }
-  if (!st || typeof st.rev !== 'number') return;
+  if (!st || typeof st.rev !== 'number') {
+    loading = false;
+    emit();
+    return;
+  }
   mode = 'remote';
   if (!st.seeded && !st.cr?.length) {
     try {

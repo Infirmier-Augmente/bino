@@ -154,6 +154,10 @@ export const prioBtn = (p, open = false) => {
 };
 
 export function vPatients(S, U) {
+  if (Store.isLoading()) {
+    return `<div class="list-head between"><h2 class="list-t">Patients</h2></div>
+  <p class="note">Chargement…</p>`;
+  }
   const ps = sorted(S.patients, U.sortBy);
   return `<div class="list-head between"><h2 class="list-t">Patients <span class="count">${ps.length}</span></h2>
 
@@ -312,6 +316,7 @@ export function vTransmissions(S, U) {
     return `${head}
     ${mine.length ? `<div class="card cr-list">${mine.map((c) => crItem(c, S)).join('')}</div>` : '<div class="card empty">Pas encore de compte rendu. Touche un patient dans l\'onglet Patients.</div>'}`;
   }
+  if (Store.isLoading()) return `${head}<p class="note">Chargement…</p>`;
   const q = (U.trQuery || '').trim();
   const fold = (s) => String(s).toLocaleLowerCase('fr').normalize('NFD').replace(/\p{M}/gu, '');
   const needle = fold(q);
