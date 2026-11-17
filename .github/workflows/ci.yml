@@ -1,6 +1,6 @@
 name: CI
 
-# Garde-fou de l'équipe : rien n'arrive sur main sans lint, types, tests et E2E verts.
+# Garde-fou de l'équipe : une pull request vers proto passe le lint, les tests, et les deux parcours (app et site).
 on:
   pull_request:
   push:
@@ -44,6 +44,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @infirmier/e2e exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+      - run: pnpm --filter @infirmier/e2e e2e:proto
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

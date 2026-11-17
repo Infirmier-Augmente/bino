@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "e2e": "playwright test --trace off",
+    "e2e:proto": "playwright test -c playwright.proto.config.ts --trace off",
     "e2e:headed": "playwright test --headed",
     "install-browsers": "playwright install chromium",
     "typecheck": "tsc --noEmit -p ."
