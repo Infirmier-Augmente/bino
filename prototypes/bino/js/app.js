@@ -119,7 +119,7 @@ function sheet(html, full = false) {
   const el = document.getElementById('sheet');
   if (!html) {
     el.innerHTML = '';
-    lastFocus?.focus?.();
+    lastFocus?.focus?.({ preventScroll: true });
     return;
   }
   if (!el.innerHTML) lastFocus = document.activeElement;
@@ -131,18 +131,33 @@ function sheet(html, full = false) {
   }
 }
 
+let listScroll = 0;
+let scrollToken = 0;
+function keepListPlace() {
+  const y = listScroll;
+  const token = ++scrollToken;
+  const apply = () => {
+    if (token === scrollToken) window.scrollTo(0, y);
+  };
+  apply();
+  requestAnimationFrame(apply);
+  setTimeout(apply, 350);
+}
+
 function showPatient() {
   U.sub = null;
   sheet(vPatientPopup(S, U, EXAMPLES), true);
 }
 
 function closePatient() {
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   if (U.listening) Voice.stop();
   U.listening = null;
   U.pid = null;
   U.sub = null;
   sheet('');
   render();
+  keepListPlace();
 }
 
 let doneTimer;
@@ -535,6 +550,7 @@ const A = {
     ensureSummaries();
   },
   openPatient: (a) => {
+    listScroll = window.scrollY;
     U.pid = a;
     U.draft = '';
     U.foldOpen = false;
