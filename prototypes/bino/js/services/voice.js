@@ -26,6 +26,93 @@ export async function init() {
 }
 
 export const canDictate = () => !!(cd || SR);
+
+// Safari et l'iPhone transcrivent avec Apple. Chrome sur Mac envoie l'audio à Google,
+// qui ne répond pas ici : on enregistre et le serveur transcrit.
+export function useBrowserDictation() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  return /Safari\//.test(ua) && !/Chrome|Chromium|Edg\/|OPR\/|Android/.test(ua);
+}
+
+export const canRecord = () =>
+  typeof navigator !== 'undefined' &&
+  !!navigator.mediaDevices?.getUserMedia &&
+  typeof MediaRecorder !== 'undefined';
+
+let recorder = null;
+let recStream = null;
+let recChunks = [];
+let opening = null;
+
+export function startRecording() {
+  opening = navigator.mediaDevices
+    .getUserMedia({ audio: true })
+    .then((stream) => {
+      recStream = stream;
+      recChunks = [];
+      const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((t) =>
+        MediaRecorder.isTypeSupported(t),
+      );
+      const current = mime
+        ? new MediaRecorder(stream, { mimeType: mime })
+        : new MediaRecorder(stream);
+      recorder = current;
+      current.ondataavailable = (e) => {
+        if (e.data.size) recChunks.push(e.data);
+      };
+      current.start();
+    })
+    .finally(() => {
+      opening = null;
+    });
+  return opening;
+}
+
+export async function stopRecording() {
+  if (opening) {
+    try {
+      await opening;
+    } catch {
+      return null;
+    }
+  }
+  const current = recorder;
+  if (!current) return null;
+  const blob = await new Promise((resolve) => {
+    current.onstop = () => {
+      const type = current.mimeType || 'audio/webm';
+      resolve(new Blob(recChunks, { type }));
+    };
+    if (current.state === 'inactive') {
+      resolve(null);
+      return;
+    }
+    current.stop();
+  });
+  recChunks = [];
+  for (const track of recStream?.getTracks() ?? []) track.stop();
+  recStream = null;
+  recorder = null;
+  return blob;
+}
+
+function cancelRecording() {
+  const current = recorder;
+  recorder = null;
+  recChunks = [];
+  for (const track of recStream?.getTracks() ?? []) track.stop();
+  recStream = null;
+  if (current && current.state !== 'inactive') {
+    current.onstop = null;
+    try {
+      current.stop();
+    } catch {
+      /* déjà arrêté */
+    }
+  }
+}
 export const canSpeak = () =>
   !!(ctts || (typeof window !== 'undefined' && 'speechSynthesis' in window));
 
@@ -107,6 +194,7 @@ function listen() {
 
 export function stop() {
   want = false;
+  cancelRecording();
   if (cd) return cd.stop().catch(() => {});
   if (rec) {
     try {

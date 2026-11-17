@@ -29,6 +29,7 @@ const DEFAULT_LLM_MODELS: Partial<Record<LlmProviderName, string>> = {
 };
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_OPENROUTER_MODEL = 'deepseek/deepseek-chat';
+const DEFAULT_OPENROUTER_STT_MODEL = 'openai/whisper-1';
 const DEFAULT_STT_MODELS: Partial<Record<SttProviderName, string>> = {
   openai: 'whisper-1',
   groq: 'whisper-large-v3-turbo',
@@ -144,15 +145,23 @@ export function aiConfigFromEnv(env: Record<string, string | undefined>): AiConf
       timeoutMs: e.LLM_TIMEOUT_MS,
       fallback: e.LLM_FALLBACK,
     },
-    stt: {
-      provider: e.STT_PROVIDER,
-      model:
-        e.STT_PROVIDER === 'none'
-          ? null
-          : (e.STT_MODEL ?? DEFAULT_STT_MODELS[e.STT_PROVIDER] ?? null),
-      apiKey: e.STT_API_KEY,
-      baseUrl: e.STT_BASE_URL,
-    },
+    stt:
+      openRouter && e.STT_PROVIDER === 'none'
+        ? {
+            provider: 'openai-compatible',
+            model: DEFAULT_OPENROUTER_STT_MODEL,
+            apiKey: openRouter.apiKey,
+            baseUrl: OPENROUTER_BASE_URL,
+          }
+        : {
+            provider: e.STT_PROVIDER,
+            model:
+              e.STT_PROVIDER === 'none'
+                ? null
+                : (e.STT_MODEL ?? DEFAULT_STT_MODELS[e.STT_PROVIDER] ?? null),
+            apiKey: e.STT_API_KEY,
+            baseUrl: e.STT_BASE_URL,
+          },
     classifier: {
       provider: e.CLASSIFIER_PROVIDER,
       jevApiKey: e.JEV_API_KEY,

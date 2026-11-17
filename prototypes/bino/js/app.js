@@ -2,6 +2,7 @@
 // Parcours des maquettes papier : Patients → popup patient → Valider → « Compte rendu fait » → Patients.
 // Onglet Transmissions : les comptes rendus de l'équipe, « Mes CR » ou « Tous », filtre par soignant.
 import { findStaff, staffName } from './auth.js';
+import { transcribe } from './bino-api.js';
 import { EXAMPLES, seed } from './data.js';
 import { buildModel, DOC_CSS, docFile, docHtml, docText } from './document.js';
 import { news2 } from './news2.js';
@@ -37,6 +38,7 @@ const U = {
   draft: '',
   foldOpen: false,
   listening: null,
+  capture: null,
   saving: false,
   syncing: false,
   trScope: 'mine',
@@ -153,6 +155,7 @@ function closePatient() {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   if (U.listening) Voice.stop();
   U.listening = null;
+  U.capture = null;
   U.pid = null;
   U.sub = null;
   sheet('');
@@ -392,6 +395,16 @@ async function ensureSummaries() {
 /* ---------- comptes rendus ---------- */
 async function saveCr() {
   if (U.saving) return;
+  if (U.capture === 'server' && U.listening) {
+    const target = U.listening;
+    U.listening = null;
+    U.capture = null;
+    const heard = await finishServerMic(target);
+    if (!heard) return;
+  } else if (U.listening) {
+    Voice.stop();
+    U.listening = null;
+  }
   const el = document.getElementById('draft');
   const text = (el ? el.value : U.draft).trim();
   if (!text) {
@@ -399,10 +412,6 @@ async function saveCr() {
     return;
   }
   U.saving = true;
-  if (U.listening) {
-    Voice.stop();
-    U.listening = null;
-  }
   const pid = U.pid;
   U.draft = '';
   closePatient();
@@ -427,21 +436,88 @@ async function saveCr() {
 }
 
 /* ---------- dictée ---------- */
-function startMic(target) {
-  if (!Voice.canDictate()) {
-    document.getElementById(target)?.focus();
-    toast('Dictée indisponible ici : utilise le micro du clavier.');
-    return;
+function micUnavailable() {
+  document.getElementById('draft')?.focus();
+  toast('Dictée indisponible ici : utilise le micro du clavier.');
+}
+
+async function finishServerMic(target) {
+  const live = document.getElementById('live');
+  if (live) live.textContent = 'Transcription…';
+  try {
+    const blob = await Voice.stopRecording();
+    if (!blob || blob.size < 800) {
+      toast('Rien entendu. Réessaie, ou tape le texte.');
+      return false;
+    }
+    const text = await transcribe(blob);
+    if (!text) {
+      toast('Rien entendu. Réessaie, ou tape le texte.');
+      return false;
+    }
+    const box = document.getElementById(target);
+    if (box) box.value = `${(box.value || '').trim()} ${text}`.trim();
+    if (target === 'draft') U.draft = box ? box.value : `${U.draft} ${text}`.trim();
+    return true;
+  } catch {
+    toast('La transcription a échoué. Tu peux taper le texte.');
+    return false;
+  } finally {
+    if (live) live.textContent = '';
+    refreshMic();
   }
+}
+
+function beginServerMic(target) {
+  const el = document.getElementById(target);
+  if (target === 'draft' && el) U.draft = el.value;
+  U.listening = target;
+  U.capture = 'server';
+  const live = document.getElementById('live');
+  if (live) live.textContent = 'Écoute…';
+  refreshMic();
+  Voice.startRecording().catch((e) => {
+    if (U.capture !== 'server') return;
+    U.listening = null;
+    U.capture = null;
+    refreshMic();
+    if (live) live.textContent = '';
+    const denied = e?.name === 'NotAllowedError' || e?.name === 'SecurityError';
+    toast(
+      denied
+        ? 'Micro refusé : tu peux taper le texte.'
+        : 'Aucun micro détecté. Tu peux taper le texte.',
+    );
+  });
+}
+
+function startMic(target) {
   if (U.listening) {
     const was = U.listening;
-    Voice.stop();
+    const server = U.capture === 'server';
     U.listening = null;
-    if (was === target) {
+    U.capture = null;
+    if (server) {
       refreshMic();
+      void finishServerMic(was);
       return;
     }
+    Voice.stop();
+    refreshMic();
+    if (was === target) return;
   }
+  if (Voice.canDictate() && Voice.useBrowserDictation()) {
+    beginBrowserMic(target);
+    return;
+  }
+  if (Voice.canRecord()) {
+    beginServerMic(target);
+    return;
+  }
+  micUnavailable();
+}
+
+function beginBrowserMic(target) {
   const el = document.getElementById(target);
   if (target === 'draft' && el) U.draft = el.value;
   U.listening = target;
@@ -533,6 +609,7 @@ const A = {
   logout: () => {
     if (U.listening) Voice.stop();
     U.listening = null;
+    U.capture = null;
     U.pid = null;
     U.sub = null;
     U.justIn = false;

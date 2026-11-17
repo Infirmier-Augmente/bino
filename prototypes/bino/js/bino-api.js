@@ -48,6 +48,30 @@ async function call(path, { method = 'GET', body, timeout = 8000 } = {}) {
   }
 }
 
+export async function transcribe(blob) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60000);
+  try {
+    const body = new FormData();
+    body.append('audio', blob, 'dictee');
+    const r = await fetch(`${ROOT}/transcriptions`, {
+      method: 'POST',
+      body,
+      signal: ctrl.signal,
+      cache: 'no-store',
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok) {
+      const err = new Error(j?.error?.message || `HTTP ${r.status}`);
+      err.code = j?.error?.code || 'api_error';
+      throw err;
+    }
+    return String(j?.text || '').trim();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function reachable() {
   try {
     const j = await call('/health');

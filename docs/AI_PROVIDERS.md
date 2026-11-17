@@ -40,7 +40,10 @@ Garde-fous indépendants du fournisseur : sortie validée par schéma, ancrage d
 
 ## Speech-to-text
 
-Sans STT serveur (`STT_PROVIDER=none`), l'app utilise :
+Une clé `OPENROUTER_API_KEY` active aussi la transcription (`openai/whisper-1` sur
+`/audio/transcriptions`), tant que `STT_PROVIDER` reste `none`.
+
+Sans STT serveur (`STT_PROVIDER=none` et pas de clé OpenRouter), l'app utilise :
 
 - sur navigateur (PC, Chrome Android, Safari iOS) : la reconnaissance vocale du navigateur, texte en direct ;
 - sur l'app native : le micro du clavier du téléphone.

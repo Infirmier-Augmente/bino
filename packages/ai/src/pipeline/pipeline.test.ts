@@ -35,6 +35,17 @@ describe('config', () => {
     expect(c.llm.baseUrl).toBe('https://openrouter.ai/api/v1');
     expect(c.llm.model).toBe('deepseek/deepseek-chat');
     expect(c.llm.apiKey).toBe('sk-or-test');
+    expect(c.stt.provider).toBe('openai-compatible');
+    expect(c.stt.baseUrl).toBe('https://openrouter.ai/api/v1');
+    expect(c.stt.model).toBe('openai/whisper-1');
+    expect(c.stt.apiKey).toBe('sk-or-test');
+    expect(
+      aiConfigFromEnv({
+        OPENROUTER_API_KEY: 'sk-or-test',
+        STT_PROVIDER: 'groq',
+        STT_API_KEY: 'gsk-test',
+      }).stt.model,
+    ).toBe('whisper-large-v3-turbo');
     expect(aiConfigFromEnv({ OPENROUTER_API_KEY: ' ' }).llm.provider).toBe('heuristic');
     expect(
       aiConfigFromEnv({
