@@ -8,10 +8,9 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "turbo run dev --filter=@infirmier/api --filter=@infirmier/mobile",
+    "dev": "pnpm dev:api",
     "dev:api": "pnpm --filter @infirmier/api dev",
-    "dev:app": "pnpm --filter @infirmier/mobile start",
-    "dev:web": "pnpm --filter @infirmier/mobile web",
+    "dev:web": "pnpm --dir prototypes/bino start",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
@@ -22,6 +21,7 @@
     "test:e2e": "pnpm --filter @infirmier/e2e e2e",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "sim": "pnpm --silent --filter @infirmier/api sim",
+    "live": "pnpm --silent --filter @infirmier/api live",
     "prepare": "lefthook install || true"
   },
   "devDependencies": {

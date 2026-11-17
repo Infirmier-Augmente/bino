@@ -89,18 +89,19 @@ python3 -m http.server 8080
 Pour tester sur un téléphone du même Wi-Fi : `http://<IP-de-votre-ordinateur>:8080`. La dictée vocale du navigateur demande HTTPS : utilisez plutôt le lien de démo.
 
 ```bash
-npm test                     # tests NEWS2, structuration, FHIR (Node 22+)
-npm run mock-fhir            # régénère le DPI simulé
+npm test                     # score NEWS2
 ```
 
 ---
 
 ## Place dans le monorepo
 
-Ce dossier est un **prototype autonome** : il n'est pas dans le workspace pnpm et n'importe aucun package
-(`domain`, `ai`…). Il sert à montrer vite le parcours et l'identité visuelle Bino, et à tester des idées
-(menu Constantes, import DPI FHIR, relève écoutée) avant de les porter dans `apps/mobile` en suivant
-`AGENTS.md`. Le lint de l'équipe (Biome) passe sur ce dossier.
+Ce dossier est le site déployé. Il n'est pas dans le workspace pnpm : il parle à l'API en HTTP.
+Les patients et les comptes rendus viennent de cette API. Il n'y a pas de seconde liste locale, ni de seconde IA dans le navigateur.
+
+```bash
+npm test
+```
 
 ## Architecture
 
@@ -111,34 +112,16 @@ index.html               page unique, barre d'onglets
 css/styles.css           identité visuelle Bino (Plus Jakarta Sans, Nunito, magenta, bleu ciel, bleu nuit)
 js/app.js                état, actions, feuilles (constantes, réglages)
 js/views.js              rendu : en-tête, Patients, popup patient, Transmissions
-js/store.js              comptes rendus, synthèses, constantes : base partagée (Claude) ou localStorage
-js/synthesis.js          synthèse DAR multi-soignants : prompt IA, règles locales, vérification des sources
-js/document.js           document de transmission global (vue, texte à copier, fichier HTML)
-js/triage.js             priorités 1 à 4 : prompt IA, garde-fous, repli NEWS2
+js/store.js              comptes rendus reçus de l'API
+js/document.js           document de transmission (vue, texte à copier, fichier HTML)
+js/triage.js             niveaux de priorité affichés
 js/news2.js              calcul NEWS2 (échelle SpO2 n°1)
-js/structure.js          dictée → DAR : prompt IA, règles locales de secours, extraction des constantes
-js/data.js               patients et dictées d'exemple (fictifs)
-js/services/ai.js        IA : Claude (artifact) › clé API Anthropic › désactivée
-js/services/voice.js     dictée et synthèse vocale : Claude › Web Speech API
-js/services/fhir.js      lecture des constantes (Observation vital-signs, codes LOINC)
-mock-fhir/               DPI simulé : un Bundle FHIR R4 par patient
-scripts/                 générateur du DPI simulé
-tests/                   tests Node (node --test)
+js/data.js               comptes de démo et exemples de dictée
+js/services/voice.js     dictée : Apple sur iPhone, enregistrement vers l'API sur ordinateur
+tests/                   tests Node du score NEWS2 (node --test)
 ```
 
-### Brancher un vrai DPI (pour plus tard)
-
-Le bouton « Import DPI » a été retiré de la fiche patient à la demande de l'équipe ; le module FHIR (`js/services/fhir.js`, testé) et le DPI simulé restent prêts. Pour le rebrancher, dans ⚙, remplacez `./mock-fhir` par l'URL de base d'un serveur FHIR R4. L'app appelle :
-
-```
-GET {base}/Observation?patient={id}&category=vital-signs&_sort=-date&_count=50
-```
-
-Codes LOINC lus : 9279-1 (FR), 59408-5 / 2708-6 (SpO2), 85354-9 avec 8480-6 / 8462-4 (TA), 8867-4 (FC), 8310-5 (T), 3151-8 (débit d'O2), 67775-7 (conscience ACVPU). Le serveur doit autoriser les appels du navigateur (CORS). L'identifiant FHIR de chaque patient est le champ `fhirId` de `js/data.js`.
-
-### Clé API (optionnel)
-
-La clé saisie dans ⚙ reste dans le navigateur du testeur et sert à appeler directement l'API Anthropic. Prenez une clé de test à budget limité, ne la commitez jamais, et n'utilisez que les données fictives.
+Les fiches viennent de l'API. Le navigateur ne classe pas les phrases lui-même.
 
 ---
 

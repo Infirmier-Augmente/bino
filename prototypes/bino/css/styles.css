@@ -884,6 +884,16 @@ label.l {
   max-width: 400px;
   width: calc(100% - 32px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+.toast-bino {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  object-fit: contain;
 }
 .answer {
   white-space: pre-wrap;
@@ -1964,4 +1974,142 @@ h2 .count {
 }
 .hello {
   gap: 10px;
+}
+.sum-dx {
+  margin: 8px 0 4px;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.list-ward,
+.pp-steps,
+.done-status {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--sec);
+}
+.pp-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+/* Un seul bloc de texte : un <b> posé à côté de l'image devient une colonne. */
+.pp-steps span {
+  min-width: 0;
+}
+.pp-steps b {
+  white-space: nowrap;
+}
+.hint-bino {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  object-fit: contain;
+}
+.bino-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 20px 16px;
+}
+.bino-empty img {
+  width: auto;
+  height: 84px;
+}
+.done-bino {
+  display: block;
+  height: 104px;
+  width: auto;
+  margin: 0 auto 8px;
+  /* La main levée laisse le visage à droite du fichier : on le ramène sur l'axe du titre. */
+  transform: translateX(-5%);
+}
+.done-status {
+  margin-top: 8px;
+}
+.done-note .done-go {
+  width: 100%;
+  margin-top: 16px;
+}
+.done-note {
+  background: none;
+  pointer-events: none;
+  bottom: 72px;
+}
+.done-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(0, 20, 40, 0.45);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.done-note .done-card {
+  pointer-events: auto;
+  z-index: 1;
+}
+nav.tabs button,
+.prow {
+  transition:
+    color 160ms ease-out,
+    box-shadow 160ms ease-out;
+}
+@media (prefers-reduced-motion: no-preference) {
+  #app.view-in {
+    animation: view-in 180ms ease-out;
+  }
+  .sheet-wrap.is-opening {
+    animation: fade-in 160ms ease-out;
+  }
+  .sheet-wrap.is-opening .sheet {
+    animation: sheet-in 220ms ease-out;
+  }
+  .done-wrap {
+    animation: fade-in 160ms ease-out;
+  }
+  .done-card {
+    animation: done-in 200ms ease-out;
+  }
+}
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(28px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes done-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

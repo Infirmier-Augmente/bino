@@ -36,8 +36,8 @@ commitlint, typecheck + tests au push. **Ne jamais contourner avec `--no-verify`
 | Qualité IA (prompts, eval) | `packages/ai/src/pipeline/prompts.ts`, scénarios | data / NLP |
 | Moteur local (règles) | `packages/ai/src/engine/heuristic/*`, `domain/rules/lexicon.ts` | dev back |
 | Continuité des cibles entre dictées | `apps/api/src/services/hospital-service.ts`, `packages/ai` | dev back |
-| Dictée native (STT sur l'appareil) | `apps/mobile/src/features/dictation/*` | dev mobile |
-| Vue relève / mode réunion | `apps/mobile/src/app/(app)/releve.tsx`, `features/handover` | dev front |
+| Dictée | `prototypes/bino/js/services/voice.js` et `POST /transcriptions` | navigateur + API |
+| Vue relève | `prototypes/bino/js/views.js` | site |
 | Scénarios et jeux de test terrain | `packages/simulation/src/scenarios/*` | profil soignant + dev |
 | Pitch / démo | `docs/DEMO.md`, simulateur | produit / design |
 

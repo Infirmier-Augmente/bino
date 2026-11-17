@@ -4,10 +4,10 @@ import { news2 } from '../js/news2.js';
 
 const base = { fr: 16, spo2: 97, o2: false, pas: 120, pad: 70, fc: 75, temp: 37, cons: 'A' };
 
-test('patient normal : score 0, faible', () => {
+test('patient normal : score 0, moyen', () => {
   const n = news2(base);
   assert.equal(n.total, 0);
-  assert.equal(n.level, 'faible');
+  assert.equal(n.level, 'moyen');
 });
 
 test('Mme D. (chambre 12) : NEWS2 7, critique', () => {

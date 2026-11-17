@@ -1,6 +1,7 @@
 node_modules
 .wrangler
 worker
+src
 tests
 scripts
 wrangler.jsonc
@@ -8,3 +9,6 @@ package.json
 .assetsignore
 .dev.vars
 .gitignore
+tsconfig.json
+tsconfig.build.json
+*.tsbuildinfo
