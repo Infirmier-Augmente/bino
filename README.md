@@ -1,4 +1,4 @@
->🏅 **Lauréat du prix "Organisation des Soins" au [Hackaton AI For Health](https://hackathons-artefactadoptai.agorize.com/en/challenges/hackathon-adopt-ai-for-health?lang=en). Défi porté par l'[Hôpital Foch](https://www.hopital-foch.com/), Paris.**
+>🏅 **Lauréat du prix "Organisation des Soins" au [Hackaton Adopt AI For Health](https://hackathons-artefactadoptai.agorize.com/en/challenges/hackathon-adopt-ai-for-health?lang=en), Novembre 2026. Défi porté par l'[Hôpital Foch](https://www.hopital-foch.com/), Paris.**
 
 <h1 align="center">Bino</h1>
 
