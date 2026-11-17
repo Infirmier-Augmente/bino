@@ -1,3 +1,5 @@
+>🏅 **Lauréat du prix Organisation des Soins au [Hackaton AI For Health](https://hackathons-artefactadoptai.agorize.com/en/challenges/hackathon-adopt-ai-for-health?lang=en). Projet porté par l'[Hôpital Foch](https://www.hopital-foch.com/), Paris.**
+
 <h1 align="center">Bino</h1>
 
 <p align="center">
@@ -9,8 +11,6 @@
 </p>
 
 <p align="center">Rendre à Martine, infirmière, le temps que l'administratif lui prend pour le rendre au patient.</p>
-
-<p align="center">🏅 Lauréat du prix Organisation des Soins. Projet porté par l'Hôpital Foch, Paris.</p>
 
 <p align="left">
   <a href="https://bino.noiseless-sunflower.workers.dev"><b>Essayer →</b></a>
@@ -47,3 +47,4 @@ pnpm typecheck
 ## Licence
 
 [Apache-2.0](LICENSE). Copyright 2026 Infirmier-Augmente.
+
