@@ -237,7 +237,7 @@ export function vPatientPopup(S: Ward, U: Ui, examples: Example[]): string {
   <h1 class="pp-title">Nouveau compte rendu</h1>
   <div class="pp-name">${esc(p.nom)}</div>
   <div class="pp-sub">Chambre ${esc(p.ch)} · ${p.age} ans</div>
-  <p class="pp-steps"><img class="hint-bino" src="assets/bino/clin-oeil-head.png" width="40" height="40" alt=""><span>Dicte ou écris, puis valide. Tu retrouveras ton compte-rendu soigneusement rangé dans <b>Mes CR</b>.</span></p>
+  <p class="pp-steps"><img class="hint-bino" src="assets/bino/clin-oeil-head.png" width="40" height="40" alt=""><span>Dicte ou écris, puis valide. <br>Tu retrouveras ton compte-rendu <br>soigneusement rangé dans <b>Mes CR</b>.</span></p>
 
   <div class="pp-actions">
     <button type="button" class="pill ${U.foldOpen ? 'on' : ''}" data-act="toggleDossier" aria-expanded="${U.foldOpen}">${ic('folder', 18)} Dossier médical ${ic('chev', 16)}</button>

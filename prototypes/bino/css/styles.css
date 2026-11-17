@@ -1781,7 +1781,7 @@ h2 .count {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin: 4px 0 8px;
+  margin: 4px 0 18px;
 }
 .sort-menu > summary {
   min-height: 40px;
@@ -1992,13 +1992,14 @@ h2 .count {
 }
 .pp-steps {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
 }
 /* Un seul bloc de texte : un <b> posé à côté de l'image devient une colonne. */
 .pp-steps span {
   min-width: 0;
+  line-height: 20px;
 }
 .pp-steps b {
   white-space: nowrap;
