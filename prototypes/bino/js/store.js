@@ -293,7 +293,10 @@ export const personLabel = (id) => (id && names.get(id)) || (id && id === me ? '
 export async function addCr(pid, text) {
   if (mode === 'api') {
     await Bino.addCr(pid, text, settings.matricule);
-    await refreshBino();
+    refreshBino().catch(() => {
+      stale = true;
+      emit();
+    });
     return;
   }
   const now = new Date();

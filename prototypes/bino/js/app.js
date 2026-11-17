@@ -376,32 +376,38 @@ async function ensureSummaries() {
 
 /* ---------- comptes rendus ---------- */
 async function saveCr() {
+  if (U.saving) return;
   const el = document.getElementById('draft');
   const text = (el ? el.value : U.draft).trim();
   if (!text) {
     toast("Dicte ou écris d'abord le compte rendu.");
     return;
   }
+  U.saving = true;
   if (U.listening) {
-    await Voice.stop();
+    Voice.stop();
     U.listening = null;
   }
-  U.saving = true;
+  const pid = U.pid;
+  U.draft = '';
+  closePatient();
+  showDone();
   try {
-    await Store.addCr(U.pid, text);
-    U.draft = '';
-    U.saving = false;
-    closePatient();
-    showDone();
+    await Store.addCr(pid, text);
     autoTriage();
   } catch (e) {
-    U.saving = false;
+    const done = document.getElementById('done');
+    if (done) done.innerHTML = '';
     U.draft = text;
+    U.pid = pid;
+    showPatient();
     toast(
       e?.code === 'invalid_argument'
         ? "Ton accès est en lecture seule : demande à l'équipe de te passer en Contributeur."
-        : "L'enregistrement a échoué. Réessaie dans un instant.",
+        : "L'enregistrement a échoué. Le texte est toujours là, réessaie.",
     );
+  } finally {
+    U.saving = false;
   }
 }
 
