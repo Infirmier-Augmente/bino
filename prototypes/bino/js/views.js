@@ -120,6 +120,12 @@ export function vLogged(name) {
 export const micBtn = (U, target) =>
   `<button type="button" class="mic ${U.listening === target ? 'on' : ''}" data-act="mic" data-arg="${target}" aria-label="${U.listening === target ? 'Arrêter la dictée' : 'Dicter le compte rendu'}">${ic(U.listening === target ? 'stop' : 'mic', 28)}</button>`;
 
+function onPhone() {
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPod|iPad|Android/i.test(ua)) return true;
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+}
+
 /* ---------- en-tête : logo + Bonjour + date (maquette 1), page Patients seulement ---------- */
 export function vHeader() {
   const date = new Date().toLocaleDateString('fr-FR', {
@@ -238,7 +244,7 @@ export function vPatientPopup(S, U, EXAMPLES) {
     <label class="sr" for="draft">Compte rendu</label>
     <textarea id="draft" class="draft cr-box" data-model="draft" placeholder="Ce que tu as vu et fait, comme à la relève.">${esc(U.draft)}</textarea>
     <div class="live" id="live" aria-live="polite"></div>
-    <div class="pp-mic">${micBtn(U, 'draft')}</div>
+    <div class="pp-mic">${micBtn(U, 'draft')}${onPhone() ? '' : '<p class="mic-hint">Dicte sur ton téléphone.</p>'}</div>
     ${ex ? `<div class="pp-ex"><button type="button" class="chip ex" data-act="useEx" data-arg="${EXAMPLES.indexOf(ex)}">${ic('play', 14)} Exemple : ${esc(ex.label)}</button></div>` : ''}
   </div>
   <div class="pp-foot"><button type="button" class="btn valider" data-act="saveCr" ${U.saving ? 'disabled' : ''}>${U.saving ? '<span class="spin"></span>' : ''} Valider</button></div>
