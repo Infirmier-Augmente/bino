@@ -13,6 +13,7 @@ import {
   scenarioSummary,
 } from '@infirmier/simulation';
 import { AppError, notFound } from '../http/errors';
+import { activeStore } from '../store/session';
 import type { HospitalStore } from '../store/store';
 import { anchorClock } from './clock';
 import type { HospitalService } from './hospital-service';
@@ -40,11 +41,15 @@ export class SimulationService {
   onStep: ((r: StepResult) => void) | null = null;
 
   constructor(
-    private readonly store: HospitalStore,
+    private readonly fallbackStore: HospitalStore,
     private readonly hospital: HospitalService,
     private readonly scenarios: readonly Scenario[] = SCENARIOS,
     private readonly realNow: () => Date = () => new Date(),
   ) {}
+
+  private get store(): HospitalStore {
+    return activeStore(this.fallbackStore);
+  }
 
   list(): ScenarioSummary[] {
     return this.scenarios.map(scenarioSummary);

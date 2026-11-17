@@ -5,6 +5,7 @@ import { DEFAULT_SCENARIO_ID, getScenario, initialState } from '@infirmier/simul
 import { createApp, VERSION } from './app';
 import { apiConfigFromEnv } from './config';
 import { anchorClock } from './services/clock';
+import { cleanScenarioSnapshot } from './store/clean-snapshot';
 import { HospitalStore } from './store/store';
 
 const config = apiConfigFromEnv(process.env);
@@ -25,11 +26,13 @@ if (!fresh && store.snapshot.clock.mode === 'simulated' && store.snapshot.clock.
   });
 }
 
+const visitorSeed = await cleanScenarioSnapshot(scenario);
 const { app, simulation } = createApp({
   store,
   ai,
   logRequests: true,
   edgeSecret: process.env.API_EDGE_SECRET || undefined,
+  visitorSeed,
 });
 
 const bind = process.env.API_BIND || '0.0.0.0';

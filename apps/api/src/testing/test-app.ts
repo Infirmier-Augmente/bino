@@ -12,7 +12,9 @@ export const REAL_NOW = new Date('2026-11-14T15:00:00Z');
  * App complète pour les tests d'intégration : vraie pile HTTP, store en mémoire,
  * IA heuristique (déterministe, sans réseau), horloge simulée figée.
  */
-export function createTestApp(opts: { scenarioId?: string; at?: string; ai?: AiOverrides } = {}) {
+export function createTestApp(
+  opts: { scenarioId?: string; at?: string; ai?: AiOverrides; sessions?: boolean } = {},
+) {
   const scenario = getScenario(opts.scenarioId ?? 'rea-box12');
   if (!scenario) throw new Error('scénario inconnu');
   const state = initialState(scenario);
@@ -20,7 +22,13 @@ export function createTestApp(opts: { scenarioId?: string; at?: string; ai?: AiO
   const store = HospitalStore.inMemory(state);
   const ai = createAiServices(aiConfigFromEnv({}), { logger: { warn: () => {} }, ...opts.ai });
   const realNow = () => REAL_NOW;
-  const { app, hospital, simulation } = createApp({ store, ai, ids: sequentialIds(), realNow });
+  const { app, hospital, simulation } = createApp({
+    store,
+    ai,
+    ids: sequentialIds(),
+    realNow,
+    visitorSeed: opts.sessions ? structuredClone(store.snapshot) : undefined,
+  });
   const client: ApiClient = createApiClient({
     baseUrl: 'http://api.test',
     fetch: ((input: string | URL | Request, init?: RequestInit) =>

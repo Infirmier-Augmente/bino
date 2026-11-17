@@ -39,6 +39,7 @@ import {
   type UnitBoard,
 } from '@infirmier/domain';
 import { AppError, notFound } from '../http/errors';
+import { activeStore } from '../store/session';
 import type { HospitalStore } from '../store/store';
 import { clockNow } from './clock';
 
@@ -56,8 +57,13 @@ export interface HospitalServiceDeps {
 export class HospitalService {
   constructor(private readonly deps: HospitalServiceDeps) {}
 
+  /** Le store du visiteur s'il y en a un, sinon le store du processus. */
+  private get store(): HospitalStore {
+    return activeStore(this.deps.store);
+  }
+
   private get state() {
-    return this.deps.store.snapshot;
+    return this.store.snapshot;
   }
 
   now(): Date {
@@ -171,7 +177,7 @@ export class HospitalService {
   ): PatientListItem {
     this.nurse(input.nurseId);
     const unit = this.unit(this.patient(patientId).unitId);
-    this.deps.store.update((s) => {
+    this.store.update((s) => {
       const p = s.patients.find((x) => x.id === patientId);
       if (!p) throw notFound('Patient', patientId);
       if (input.starred !== undefined) p.priority.starred = input.starred;
@@ -221,7 +227,7 @@ export class HospitalService {
       priority: { starred: false, manualLevel: null, updatedAt: null, updatedBy: null },
       status: 'present',
     };
-    this.deps.store.update((s) => {
+    this.store.update((s) => {
       s.patients.push(patient);
     });
     return patient;
@@ -280,7 +286,7 @@ export class HospitalService {
       transmissionIds,
       bundle: bundle as unknown as Record<string, unknown>,
     };
-    this.deps.store.update((s) => {
+    this.store.update((s) => {
       s.dpiExports.unshift(record);
       s.dpiExports = s.dpiExports.slice(0, 100);
     });
@@ -298,7 +304,7 @@ export class HospitalService {
     this.nurse(body.nurseId);
     const now = this.now();
     const id = this.deps.ids('tr');
-    const generation = this.deps.store.generation;
+    const generation = this.store.generation;
     const patients = this.state.patients.filter(
       (p) => p.unitId === unit.id && p.status === 'present',
     );
@@ -388,7 +394,7 @@ export class HospitalService {
       },
     };
     // L'hôpital a été réinitialisé (simulateur) pendant la structuration : on n'écrit rien.
-    if (this.deps.store.generation !== generation) {
+    if (this.store.generation !== generation) {
       throw new AppError(
         409,
         'state-reset',
@@ -409,7 +415,7 @@ export class HospitalService {
       );
     }
     const transmission = checked.data;
-    this.deps.store.update((s) => {
+    this.store.update((s) => {
       s.transmissions.push(transmission);
     });
     return transmission;
@@ -419,7 +425,7 @@ export class HospitalService {
     transmissionId: string,
     mutate: (t: Transmission, s: { patients: Patient[] }) => void,
   ): Transmission {
-    return this.deps.store.update((s) => {
+    return this.store.update((s) => {
       const t = s.transmissions.find((x) => x.id === transmissionId);
       if (!t) throw notFound('Transmission', transmissionId);
       mutate(t, s);
@@ -563,7 +569,7 @@ export class HospitalService {
         'Une transmission validée ne peut pas être supprimée.',
       );
     }
-    this.deps.store.update((s) => {
+    this.store.update((s) => {
       s.transmissions = s.transmissions.filter((x) => x.id !== transmissionId);
     });
   }

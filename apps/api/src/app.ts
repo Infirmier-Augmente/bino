@@ -1,5 +1,6 @@
 import type { AiServices, IdFactory } from '@infirmier/ai';
 import { randomIds } from '@infirmier/ai';
+import type { HospitalState } from '@infirmier/domain';
 import type { Scenario } from '@infirmier/simulation';
 import { SCENARIOS } from '@infirmier/simulation';
 import { Hono } from 'hono';
@@ -10,6 +11,7 @@ import { createHandlers } from './http/routes';
 import { registerTranscription } from './http/transcription';
 import { HospitalService } from './services/hospital-service';
 import { SimulationService } from './services/simulation-service';
+import { openVisitorSessions, requestStore, SESSION_ID } from './store/session';
 import type { HospitalStore } from './store/store';
 
 export const VERSION = '0.1.0';
@@ -23,6 +25,11 @@ export interface AppDeps {
   logRequests?: boolean;
   /** Si défini, seule une requête portant ce secret (le Worker) est acceptée. */
   edgeSecret?: string;
+  /**
+   * Copie propre servie à chaque visiteur du site public.
+   * Le header `x-bino-session` choisit sa copie. Sans header, le store du processus.
+   */
+  visitorSeed?: HospitalState;
 }
 
 export function createApp(deps: AppDeps) {
@@ -72,6 +79,15 @@ export function createApp(deps: AppDeps) {
         throw new AppError(401, 'edge-required', 'Cette API n’accepte que le site Bino.');
       }
       await next();
+    });
+  }
+
+  if (deps.visitorSeed) {
+    const sessions = openVisitorSessions(deps.visitorSeed);
+    app.use('*', async (c, next) => {
+      const sid = c.req.header('x-bino-session') ?? '';
+      if (!SESSION_ID.test(sid)) return next();
+      return requestStore.run(sessions.forId(sid), () => next());
     });
   }
 

@@ -1,13 +1,14 @@
-// Données partagées par l'équipe : comptes rendus, synthèses finales, constantes.
+// Comptes rendus de la démo.
 // Dans Claude (artifact) : base partagée en temps réel entre tous les soignants.
-// Sur Cloudflare : stockage commun du Worker (/api/state, /api/op), relu toutes les 5 s.
-// Ailleurs (fichier local, serveur statique) : ce navigateur seulement (localStorage).
+// Sur le site public : chaque navigateur a sa copie du scénario (/api/bino).
+// Sans API (fichier local, port 8080) : ce navigateur seulement (localStorage).
 import * as Bino from './bino-api.js';
 import { SEED_CR } from './data.js';
 import { settings } from './settings.js';
 import { hhmm } from './util.js';
 
-const LKEY = 'bino-shared-v3';
+/** v4 ignore les essais déjà enregistrés dans ce navigateur. */
+const LKEY = 'bino-local-v4';
 export const SYNTH_VER = 2;
 const cache = { cr: [], syn: {}, vit: {}, prio: { ai: null, manual: {} } };
 const names = new Map();

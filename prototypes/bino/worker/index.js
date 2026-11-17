@@ -1,6 +1,6 @@
 // Bino sur Cloudflare : sert l'app (assets statiques) et deux petites API.
-//   /api/state, /api/op : stockage commun de la démo (Durable Object « Ward »), pour que tous les
-//                         téléphones voient les mêmes comptes rendus, priorités et résumés ;
+//   /api/state, /api/op : ancien stockage commun. Le site public ne s'en sert plus :
+//                         chaque navigateur a sa copie du scénario, via /api/bino.
 //   /api/ai, /api/health : appel à l'IA côté serveur, avec la clé gardée en secret Cloudflare
 //                          (ANTHROPIC_API_KEY). Aucune clé dans le code ni dans le navigateur.
 // Données 100 % fictives : l'app est une démo publique, aucune donnée réelle ne doit y être saisie.
@@ -224,14 +224,22 @@ async function readJson(request) {
 }
 
 // Le navigateur appelle /api/bino/… sur ce Worker. Lui seul connaît le mini, et ajoute le secret.
+function visitorId(request) {
+  const raw = request.headers.get('cookie') ?? '';
+  const match = raw.match(/(?:^|;\s*)bino_session=([0-9a-f-]{36})/i);
+  return match?.[1] ?? crypto.randomUUID();
+}
+
 async function proxyBino(request, env, url) {
   if (!env.API_ORIGIN || !env.API_EDGE_SECRET) return bad('API non reliée', 503);
   const path = url.pathname.slice('/api/bino'.length) || '/';
   const dest = new URL(path + url.search, env.API_ORIGIN);
+  const sid = visitorId(request);
   const headers = new Headers();
   const type = request.headers.get('content-type');
   if (type) headers.set('content-type', type);
   headers.set('x-bino-edge', env.API_EDGE_SECRET);
+  headers.set('x-bino-session', sid);
   const init = { method: request.method, headers };
   if (request.method !== 'GET' && request.method !== 'HEAD')
     init.body = await request.arrayBuffer();
@@ -239,6 +247,11 @@ async function proxyBino(request, env, url) {
   const out = new Headers();
   out.set('content-type', r.headers.get('content-type') || 'application/json; charset=utf-8');
   out.set('cache-control', 'no-store');
+  const secure = url.protocol === 'https:' ? '; Secure' : '';
+  out.set(
+    'set-cookie',
+    `bino_session=${sid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`,
+  );
   return new Response(r.body, { status: r.status, headers: out });
 }
 
