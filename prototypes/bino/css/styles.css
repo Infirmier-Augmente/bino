@@ -1405,7 +1405,8 @@ body,
 }
 header.top {
   display: block;
-  padding: calc(24px + env(safe-area-inset-top)) 20px 8px;
+  padding: 4px 20px;
+  padding-top: max(4px, env(safe-area-inset-top));
   background: var(--white);
 }
 header.top[hidden] {
@@ -1420,7 +1421,7 @@ header.top[hidden] {
   font-size: 15px;
 }
 main {
-  padding: 8px 20px calc(120px + env(safe-area-inset-bottom));
+  padding: 4px 20px calc(120px + env(safe-area-inset-bottom));
 }
 h2 .count {
   display: inline-flex;
@@ -1770,7 +1771,7 @@ h2 .count {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin: 16px 0 12px;
+  margin: 4px 0 8px;
 }
 .sort-menu > summary {
   min-height: 40px;
