@@ -161,18 +161,7 @@ dictées (FR, SpO2, TA, FC, température). Le résultat est moins fin mais reste
 
 ## 9. D'où vient l'IA
 
-`js/services/ai.js` choisit, dans cet ordre :
-
-1. **Dans Claude** (artefact) : l'IA de Claude, sans clé (capacité `sample`).
-2. **Sur Cloudflare** : le Worker appelle Claude côté serveur (`/api/ai`) si le secret
-   `ANTHROPIC_API_KEY` est configuré. Limite de 400 appels par jour, prompts de taille limitée.
-3. **Ailleurs, avec une clé API Anthropic** saisie par le testeur : appel direct depuis le
-   navigateur. La clé reste dans le navigateur, n'est jamais commitée ; utiliser une clé de test à
-   budget limité.
-4. **Sinon** : pas d'IA, règles locales et NEWS2.
-
-Le métier n'importe aucun SDK de fournisseur : tout passe par `ask()` / `askJSON()`. Une réponse
-qui n'est pas du JSON valide est ignorée et l'app retombe sur les règles locales.
+Le navigateur envoie la dictée à l'API (`POST /transmissions`). L'API structure la note (OpenRouter, repli sur les règles locales) et ne garde une phrase que si l'extrait est dans la dictée. Le Worker ne contient pas de clé de modèle.
 
 ## 10. Dictée vocale
 
@@ -182,83 +171,32 @@ qui n'est pas du JSON valide est ignorée et l'app retombe sur les règles local
 - sinon, l'API Web Speech du navigateur (Chrome ordinateur ou Android, Safari iOS) ;
 - sinon, le micro du clavier du téléphone fonctionne aussi dans la zone de texte.
 
-## 11. Stockage et partage
+## 11. Stockage
 
-`js/store.js` gère trois modes :
+Chaque navigateur a sa copie du scénario, servie par l'API via `/api/bino`. Le Worker ne garde pas les notes. Si l'API ne répond pas, la liste reste vide.
 
-| Mode                     | Où                                          | Partage                                                       |
-| ------------------------ | ------------------------------------------- | ------------------------------------------------------------- |
-| **Partagé** (Claude)     | base de l'artefact                          | temps réel entre tous ceux qui ouvrent le lien (Contributeur)  |
-| **Commun** (Cloudflare)  | Durable Object du Worker (`/api/state`, `/api/op`) | tous les téléphones qui ouvrent le lien public, relu toutes les 5 s |
-| **Local** (sans Worker)  | `localStorage` (`bino-shared-v3`)           | cet appareil seulement                                        |
+## 12. Lignes rouges
 
-Sur Cloudflare, le Worker (`worker/index.js`) valide chaque écriture : identifiant de patient,
-taille des comptes rendus (2 000 caractères) et des résumés, 500 comptes rendus au plus. La remise à
-zéro (`{"op":"reset"}`) exige le code gardé en secret (`RESET_CODE`). La relecture s'arrête quand
-l'app n'est pas à l'écran.
+| Règle | Dans Bino |
+| --- | --- |
+| L'IA ne décide rien | La note reste à relire tant que l'infirmière ne confirme pas la relève |
+| Zéro information inventée | L'API écarte une phrase dont l'extrait n'est pas dans la dictée |
+| Priorité = suggestion | Le choix manuel prime |
+| Données fictives | Scénario de réanimation, quatre patients |
+| Aucune clé dans le repo | OpenRouter est sur le mini ; le Worker ne reçoit que le secret du tunnel |
 
-Collections : `cr` (comptes rendus), `syntheses` (résumés par patient), `vitals` (constantes
-modifiées), `prio` (proposition de l'IA + choix manuels).
-
-- Des **CR de démo** de Sophie, Karim et Martine sont présents au départ : chargés au premier
-  lancement en mode local ou sur Cloudflare (une seule fois pour tout le service), déjà versés
-  dans la base partagée en mode Claude.
-- Si la base partagée ne répond pas (10 s dans Claude, une relecture ratée sur Cloudflare), un
-  bandeau le signale.
-- Une mise à jour venue d'un collègue ne coupe ni une saisie en cours ni un menu ouvert.
-
-Réglages par navigateur (`js/settings.js`, clé `bino-settings`) : matricule et nom du soignant,
-clé API éventuelle, modèle, tri choisi dans chaque onglet.
-
-## 12. DPI (dossier patient informatisé)
-
-Le bouton **Import DPI** a été retiré de la fiche à la demande de l'équipe. Le module reste prêt
-pour plus tard :
-
-- `js/services/fhir.js` lit des Observations **FHIR R4** (codes LOINC des constantes vitales) ;
-- `mock-fhir/` contient un DPI simulé, un Bundle par patient, généré par
-  `scripts/generate-mock-fhir.mjs` ;
-- le DPI reste la source de vérité : un import devra montrer l'écart avant d'écraser.
-
-## 13. Lignes rouges respectées
-
-| Règle                                   | Dans Bino                                                                            |
-| --------------------------------------- | ------------------------------------------------------------------------------------ |
-| L'IA ne décide rien                     | Priorité proposée, modifiable d'un toucher ; résumés à relire avant la relève        |
-| Zéro information inventée               | Chaque puce cite un extrait exact d'un CR, sinon elle est écartée ; auteur et heure affichés |
-| Des questions, pas des verdicts         | Un R (résultat) manquant devient une question dans le document                        |
-| Priorité = suggestion explicable        | Raison factuelle calculée et gardée dans l'infobulle du bouton ; le choix manuel prime |
-| Données 100 % fictives                  | 11 patients et 3 soignants inventés                                                   |
-| Aucune clé dans le repo                 | Clé API saisie dans le navigateur seulement ; `scripts/check-secrets.mjs` avant commit |
-
-## 14. Carte des fichiers
+## 13. Carte des fichiers
 
 ```
-index.html, manifest.webmanifest   page et installation sur l'écran d'accueil
-css/styles.css                     styles (couleurs du logo, blocs v6 à v9)
-assets/bino/                       mascotte Bino (salue, pouce, présente…)
-js/app.js                          état, actions, popups, triage auto, résumés, document
-js/views.js                        écrans : connexion, patients, fiche, transmissions, rangée 1 à 4
-js/auth.js                         comptes soignants de démo
-js/data.js                         11 patients fictifs, soignants, CR de démo, exemples
-js/store.js                        stockage partagé (Claude) ou local
-js/news2.js                        score NEWS2, niveaux et couleurs
-js/triage.js                       priorités : prompt IA, garde-fous, repli NEWS2
-js/synthesis.js                    résumé par patient : prompt, vérification des extraits
-js/structure.js                    règles locales (sans IA) : thèmes, constantes dictées
-js/document.js                     document complet : HTML, texte, fichier
-js/services/ai.js, voice.js, fhir.js   IA, dictée, DPI FHIR
-worker/index.js                    Worker Cloudflare : app, stockage commun (Durable Object), IA serveur
-wrangler.jsonc, .assetsignore      configuration du déploiement Cloudflare
-js/settings.js, util.js            réglages, utilitaires (échappement, formats)
-mock-fhir/, scripts/               DPI simulé et son générateur
-tests/                             tests Node (node --test) : NEWS2, structure, FHIR, synthèse, document, triage
+index.html, css/styles.css, js/   le site
+js/store.js, js/bino-api.js       lecture et écriture vers l'API
+worker/index.js                   fichiers statiques et relais /api/bino
+tests/                            score NEWS2
 ```
 
-## 15. Vérifier
+## 14. Vérifier
 
 ```bash
 cd prototypes/bino
-node --test tests/*.test.mjs        # 34 tests
-python3 -m http.server 8099         # puis http://localhost:8099, matricule 10401 / bino
+node --test tests/*.test.mjs
 ```

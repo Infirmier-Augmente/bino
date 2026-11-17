@@ -6,12 +6,9 @@ import { transcribe } from './bino-api.js';
 import { EXAMPLES, seed } from './data.js';
 import { buildModel, DOC_CSS, docFile, docHtml, docText } from './document.js';
 import { news2 } from './news2.js';
-import * as AI from './services/ai.js';
 import * as Voice from './services/voice.js';
 import { saveSettings, settings } from './settings.js';
 import * as Store from './store.js';
-import { localSynth, normalizeSynth, remapIds, synthPrompt } from './synthesis.js';
-import { localTriage, normalizeTriage, triagePrompt } from './triage.js';
 import { esc, hhmm } from './util.js';
 import {
   byPriority,
@@ -30,7 +27,7 @@ import {
   vTransmissions,
 } from './views.js';
 
-const S = seed(); // patients fictifs ; comptes rendus et constantes dans Store
+const S = seed(); // rempli par l'API dès qu'elle répond
 const U = {
   tab: 'patients',
   pid: null, // patient ouvert dans la popup
@@ -208,39 +205,8 @@ function vprev() {
 }
 
 /* ---------- document de transmission global ---------- */
-async function synthFor(p, crs) {
-  const saved = Store.synthFor(p.id);
-  if (saved && !Store.needsSynth(saved, crs)) return saved;
-  let syn = null;
-  let engine = 'local';
-  if (AI.mode() !== 'off') {
-    try {
-      const raw = await AI.askJSON(synthPrompt(p, crs, Store.authorOf));
-      syn = normalizeSynth(remapIds(raw, crs), crs);
-      engine = 'ai';
-      if (!syn.cibles.length) syn = null;
-    } catch {
-      syn = null;
-    }
-  }
-  if (!syn) {
-    syn = localSynth(crs);
-    engine = 'local';
-  }
-  const full = {
-    ...syn,
-    engine,
-    ver: Store.SYNTH_VER,
-    crIds: crs.map((c) => c.id),
-    at: new Date().toISOString(),
-    t: hhmm(),
-  };
-  try {
-    await Store.saveSynth(p.id, full);
-  } catch {
-    /* lecture seule : on garde la synthèse pour ce document */
-  }
-  return full;
+function synthFor(p) {
+  return Store.synthFor(p.id);
 }
 
 async function genDoc() {
@@ -254,7 +220,7 @@ async function genDoc() {
   const worker = async () => {
     while (queue.length) {
       const p = queue.shift();
-      syns.set(p.id, await synthFor(p, Store.crFor(p.id)));
+      syns.set(p.id, synthFor(p));
       done++;
       U.docBusy = `Synthèse ${done}/${todo.length}`;
       const b = document.querySelector('[data-act="genDoc"]');
@@ -274,7 +240,7 @@ async function genDoc() {
       date: new Date().toLocaleDateString('fr-FR'),
       time: hhmm(),
       author: Store.myName(),
-      service: 'Chirurgie · poste de jour',
+      service: 'Réanimation',
       authorOf: Store.authorOf,
     },
   );
@@ -291,25 +257,10 @@ function showDoc() {
   );
 }
 
-let downloads = null;
 async function downloadDoc() {
   if (!docModel) return;
   const filename = `transmission-${docModel.date.replace(/\//g, '-')}.html`;
   const data = docFile(docModel);
-  if (window.claude?.use) {
-    downloads = downloads || (await window.claude.use('downloads').catch(() => null));
-    if (downloads) {
-      try {
-        await downloads.save({ filename, data });
-        toast('Document téléchargé.');
-      } catch {
-        toast('Téléchargement annulé.');
-      }
-      return;
-    }
-    toast('Téléchargement indisponible ici : utilise « Copier ».');
-    return;
-  }
   const url = URL.createObjectURL(new Blob([data], { type: 'text/html' }));
   const a = document.createElement('a');
   a.href = url;
@@ -319,77 +270,6 @@ async function downloadDoc() {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
   toast('Document téléchargé.');
-}
-
-/* ---------- organisation par sévérité : automatique (IA) ---------- */
-let triRunning = false;
-async function runTriage() {
-  if (triRunning) return;
-  triRunning = true;
-  U.triBusy = true;
-  softRender();
-  const items = S.patients.map((p) => ({ p, v: V(p), crs: Store.crFor(p.id) }));
-  let order = null;
-  let engine = 'local';
-  if (AI.mode() !== 'off') {
-    try {
-      order = normalizeTriage(await AI.askJSON(triagePrompt(items), { tier: 'default' }), items);
-      engine = 'ai';
-    } catch {
-      order = null;
-    }
-  }
-  if (!order) order = localTriage(items);
-  try {
-    await Store.savePrioAI({
-      order,
-      engine,
-      at: new Date().toISOString(),
-      t: hhmm(),
-      sig: triageSig(),
-    });
-  } catch {
-    /* lecture seule : on garde l'organisation précédente */
-  }
-  triRunning = false;
-  U.triBusy = false;
-  softRender();
-}
-// Empreinte des données qui comptent pour le classement : on réorganise quand elles changent.
-const triageSig = () =>
-  `${Store.allCr().length}|${S.patients.map((p) => news2(V(p)).total).join(',')}`;
-function autoTriage() {
-  if (Store.storeMode() === 'api') return;
-  const ai = Store.prioAI();
-  if (!ai || ai.sig !== triageSig() || (ai.engine !== 'ai' && AI.mode() !== 'off')) runTriage();
-}
-
-/* ---------- « Tous » : résumé en puces par l'IA ---------- */
-let sumRunning = false;
-async function ensureSummaries() {
-  if (sumRunning || U.tab !== 'transmissions' || U.trScope !== 'all' || Store.isLoading()) return;
-  const todo = S.patients.filter((p) => {
-    const crs = Store.crFor(p.id);
-    return crs.length && Store.needsSynth(Store.synthFor(p.id), crs);
-  });
-  if (!todo.length) return;
-  sumRunning = true;
-  let done = 0;
-  U.sumBusy = `0/${todo.length}`;
-  softRender();
-  const queue = [...todo];
-  const worker = async () => {
-    while (queue.length) {
-      const p = queue.shift();
-      await synthFor(p, Store.crFor(p.id));
-      done++;
-      U.sumBusy = `${done}/${todo.length}`;
-    }
-  };
-  await Promise.all([worker(), worker(), worker()]);
-  U.sumBusy = '';
-  sumRunning = false;
-  softRender();
 }
 
 /* ---------- comptes rendus ---------- */
@@ -418,7 +298,6 @@ async function saveCr() {
   showDone();
   try {
     await Store.addCr(pid, text);
-    autoTriage();
   } catch (e) {
     const done = document.getElementById('done');
     if (done) done.innerHTML = '';
@@ -624,7 +503,6 @@ const A = {
     U.tab = a;
     render();
     window.scrollTo(0, 0);
-    ensureSummaries();
   },
   openPatient: (a) => {
     listScroll = window.scrollY;
@@ -681,7 +559,6 @@ const A = {
   trScope: (a) => {
     U.trScope = a;
     render();
-    ensureSummaries();
   },
   sortBy: (a) => {
     U.sortBy = a;
@@ -723,7 +600,6 @@ const A = {
     showPatient();
     render();
     toast(`Constantes enregistrées · NEWS2 ${n.total}.`);
-    autoTriage();
   },
   closeSheet: () => {
     // Une feuille ouverte depuis la popup patient (constantes, profil) ramène à la popup.
@@ -796,12 +672,9 @@ Store.onChange(() => {
   const rows = Store.patientRows();
   if (rows?.length) S.patients.splice(0, S.patients.length, ...rows);
   softRender();
-  ensureSummaries();
 });
 render();
 Voice.init().then(softRender);
-Promise.all([AI.init(), Store.init()]).then(() => {
+Store.init().then(() => {
   softRender();
-  autoTriage();
-  ensureSummaries();
 });

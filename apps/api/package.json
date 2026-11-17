@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "test:integration": "vitest run",
-    "sim": "node --env-file-if-exists=../../.env --import tsx src/cli/sim.ts"
+    "sim": "node --env-file-if-exists=../../.env --import tsx src/cli/sim.ts",
+    "live": "node --env-file-if-exists=../../.env --import tsx src/cli/live.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.8",

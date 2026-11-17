@@ -36,12 +36,14 @@ pnpm dev:api
 
 L'API écoute sur le port 8787. Copie `.env.example` en `.env`. Sans clé OpenRouter, les notes passent par les règles locales.
 
-`pnpm dev:app` lance l'app mobile.
+Le site statique : `pnpm dev:web` (http://localhost:8080). Le site public relaie `/api/bino` vers le mini.
 
 ```bash
 pnpm lint
 pnpm test
 pnpm typecheck
+pnpm test:e2e
+pnpm live
 ```
 
 ## Licence

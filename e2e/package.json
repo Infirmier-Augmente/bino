@@ -2,17 +2,15 @@
   "name": "@infirmier/e2e",
   "version": "0.1.0",
   "private": true,
-  "description": "Tests de bout en bout : app web exportée + API réelle (IA heuristique, déterministe).",
+  "description": "Parcours du site déployé contre l'API locale.",
   "type": "module",
   "scripts": {
-    "e2e": "playwright test --trace off",
-    "e2e:proto": "playwright test -c playwright.proto.config.ts --trace off",
-    "e2e:headed": "playwright test --headed",
+    "e2e": "playwright test -c playwright.proto.config.ts --trace off",
+    "e2e:headed": "playwright test -c playwright.proto.config.ts --headed",
     "install-browsers": "playwright install chromium",
     "typecheck": "tsc --noEmit -p ."
   },
   "devDependencies": {
-    "@infirmier/domain": "workspace:*",
     "@playwright/test": "1.63.0",
     "@types/node": "^22.20.5",
     "typescript": "~6.0.3"

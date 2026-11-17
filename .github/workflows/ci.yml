@@ -1,10 +1,10 @@
 name: CI
 
-# Garde-fou de l'équipe : une pull request vers proto passe le lint, les tests, et les deux parcours (app et site).
+# Une pull request passe le lint, les tests locaux, le parcours du site, et un appel OpenRouter.
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, proto]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -44,10 +44,26 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @infirmier/e2e exec playwright install --with-deps chromium
       - run: pnpm test:e2e
-      - run: pnpm --filter @infirmier/e2e e2e:proto
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
           path: e2e/playwright-report
           retention-days: 7
+
+  live:
+    name: IA réelle (OpenRouter)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Structuration et transcription
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: pnpm live

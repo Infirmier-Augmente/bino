@@ -48,7 +48,7 @@ Sans STT serveur (`STT_PROVIDER=none` et pas de clé OpenRouter), l'app utilise 
 - sur navigateur (PC, Chrome Android, Safari iOS) : la reconnaissance vocale du navigateur, texte en direct ;
 - sur l'app native : le micro du clavier du téléphone.
 
-Avec un STT serveur, l'app native enregistre (`expo-audio`) et envoie à `POST /transcriptions` :
+Le site enregistre dans Chrome sur ordinateur et envoie le fichier à `POST /transcriptions`. Sur iPhone, la dictée reste celle d'Apple, dans le navigateur.
 
 ```bash
 STT_PROVIDER=groq            # ou openai

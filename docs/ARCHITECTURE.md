@@ -4,10 +4,9 @@
 
 ```mermaid
 flowchart LR
-  subgraph Mobile["apps/mobile — Expo (iOS, Android, web)"]
-    D["Dictée"] --> R["Relecture"]
-    V["Vue relève (PC)"]
-    S["Simulateur"]
+  subgraph Site["prototypes/bino — site déployé"]
+    D["Dictée"] --> R["Compte rendu"]
+    V["Transmissions"]
   end
   subgraph API["apps/api — Hono (Node)"]
     H["HTTP : contrat validé"] --> UC["Cas d'usage\nHospitalService"]
@@ -39,8 +38,8 @@ flowchart LR
 | `packages/ai` | Ports IA, adaptateurs, pipeline de structuration. **Serveur uniquement** | domain |
 | `packages/simulation` | Hôpital fictif + scénarios (données) | domain |
 | `apps/api` | Composition : services, store, HTTP, simulateur, CLI | domain, ai, simulation |
-| `apps/mobile` | UI | domain (types + client) |
-| `e2e` | Playwright | domain (client) |
+| `prototypes/bino` | Site déployé | rien (HTTP vers l'API) |
+| `e2e` | Playwright du site | — |
 
 Les paquets internes exposent leur **source TypeScript** (`main: src/index.ts`) : pas d'étape de build,
 Metro, Vitest et tsx les consomment directement.

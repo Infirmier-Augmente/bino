@@ -1,14 +1,11 @@
-// Réglages propres à chaque testeur, gardés dans son navigateur uniquement.
+// Réglages de ce navigateur : qui est connecté, et le tri des listes.
 const KEY = 'bino-settings';
-export const DEFAULT_MODEL = 'claude-sonnet-5-5';
-export const DEFAULT_FHIR = './mock-fhir';
 
 export const settings = {
-  apiKey: '',
-  model: DEFAULT_MODEL,
-  fhirBase: DEFAULT_FHIR,
   name: '',
   matricule: '',
+  sortBy: 'chambre',
+  trSort: 'prio',
 };
 
 try {

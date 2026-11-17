@@ -7,7 +7,7 @@ const MAX_BYTES = 25 * 1024 * 1024;
 
 /**
  * POST /transcriptions (multipart, champ "audio") → { text, durationSec, engine }.
- * Hors contrat JSON car c'est un envoi de fichier. Client : apps/mobile/src/lib/transcribe.ts.
+ * Client : le site poste le fichier sur /api/bino/transcriptions.
  */
 export function registerTranscription(app: Hono, stt: SttPort): void {
   app.post('/transcriptions', async (c) => {

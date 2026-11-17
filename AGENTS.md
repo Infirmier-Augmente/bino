@@ -37,12 +37,13 @@ Sources produit : `docs/PRODUCT.md` (synthèse Notion « Synthèse des échanges
 ```
 apps/
   api/        Serveur Hono (Node). Composition root : services métier, store, routes HTTP, simulateur, CLI.
-  mobile/     App Expo (iOS, Android, web). Téléphone = dictée ; PC/tablette = vue relève (même app, responsive).
+prototypes/
+  bino/       Site déployé. Téléphone et ordinateur, même pages.
 packages/
   domain/     Modèle métier : schémas zod, règles PURES, contrat d'API typé + client. Zéro dépendance hors zod.
   ai/         Ports IA (LLM, speech-to-text, classifieur) + adaptateurs + pipeline (structuration DAR…).
   simulation/ Hôpital simulé : services, soignants, patients fictifs, scénarios rejouables.
-e2e/          Tests Playwright de bout en bout (app web + API avec IA heuristique).
+e2e/          Tests Playwright du site déployé (API avec le moteur local).
 docs/         Produit, architecture, workflow, IA, scénarios, design, décisions (ADR).
 ```
 
@@ -52,21 +53,21 @@ docs/         Produit, architecture, workflow, IA, scénarios, design, décision
 - `ai` → `domain`. Jamais l'inverse. Le métier ne connaît que les interfaces (`LlmPort`, `SttPort`, `ClassifierPort`).
 - `simulation` → `domain`.
 - `api` → `domain`, `ai`, `simulation`. C'est le seul endroit qui assemble tout.
-- `mobile` → `domain` uniquement (types + client HTTP). **Jamais** `ai` ni `api` (les clés restent côté serveur).
+- Le site (`prototypes/bino`) n'importe aucun paquet : il parle à l'API en HTTP. Les clés restent sur le mini.
 
 ## 4. Commandes
 
 ```bash
 pnpm install          # une fois (installe aussi les hooks git)
 cp .env.example .env  # puis renseigne tes clés (jamais commitées)
-pnpm dev              # API (http://localhost:8787) + app Expo
+pnpm dev              # API (http://localhost:8787)
 pnpm dev:api          # API seule
-pnpm dev:web          # app en mode web (vue relève sur PC)
-pnpm dev:app          # app Expo (QR code → Expo Go sur téléphone)
+pnpm dev:web          # site statique (http://localhost:8080)
 
 pnpm check            # lint + typecheck + tests unitaires/intégration : OBLIGATOIRE avant de pousser
 pnpm lint:fix         # corrige le formatage (Biome)
-pnpm test:e2e         # Playwright (lance l'API et l'app web tout seul)
+pnpm test:e2e         # Playwright : le site contre l'API locale
+pnpm live             # un appel réel OpenRouter (structuration + transcription)
 pnpm sim list         # scénarios disponibles
 pnpm sim run rea-box12            # rejoue un scénario et affiche la fiche de relève
 pnpm sim eval                     # évalue la structuration IA sur tous les scénarios (indicateurs du kit)
@@ -97,7 +98,7 @@ pnpm sim eval                     # évalue la structuration IA sur tous les sc�
 | Ajuster la priorisation          | `PRIORITY_WEIGHTS` dans `packages/domain/src/rules/priority.ts` + tests                                                                               |
 | Enrichir le lexique soignant     | `packages/domain/src/rules/lexicon.ts` (profite au prompt, au STT et au moteur de secours)                                                            |
 | Ajouter un scénario              | `packages/simulation/src/scenarios/*.ts` + l'enregistrer dans `index.ts` (voir `docs/SCENARIOS.md`)                                                   |
-| Ajouter un écran                 | `apps/mobile/src/app/…` (Expo Router) ; composants dans `apps/mobile/src/ui` ; voir `docs/DESIGN.md`                                                  |
+| Ajouter un écran                 | `prototypes/bino` (HTML, `js/views.js`, `css/styles.css`) ; voir `docs/DESIGN.md`                                                                    |
 
 ## 7. Tests : quoi tester, où
 
@@ -106,11 +107,12 @@ pnpm sim eval                     # évalue la structuration IA sur tous les sc�
 | Unitaire    | Vitest                             | `packages/*/src/**/*.test.ts`       | Toute règle métier, tout parsing, tout adaptateur IA (avec faux `fetch`) |
 | Intégration | Vitest + `app.request()`           | `apps/api/src/**/*.test.ts`         | Tout endpoint : vraie pile HTTP + store en mémoire + IA heuristique      |
 | Scénarios   | Vitest                             | `apps/api/src/simulation/*.test.ts` | Les scénarios de démo restent rejouables et cohérents                    |
-| Composants  | Jest (jest-expo) + Testing Library | `apps/mobile/src/**/*.test.tsx`     | Composants avec logique (dictée, relecture)                              |
-| E2E         | Playwright                         | `e2e/tests/*.spec.ts`               | Parcours critiques : dicter → relire → valider → relève                  |
+| E2E         | Playwright                         | `e2e/proto/*.spec.ts`               | Parcours du site : connexion, liste, dictée, validation                  |
+| IA réelle   | `pnpm live`                        | `apps/api/src/cli/live.ts`          | Job CI : une structuration et une transcription OpenRouter               |
 
-Les tests ne doivent **jamais** appeler un vrai fournisseur d'IA (coût, flakiness). Ils utilisent le moteur
-`heuristic` (déterministe) ou des faux. Les vraies évaluations passent par `pnpm sim eval`.
+Les tests unitaires, d'intégration et de bout en bout n'appellent pas de fournisseur. Ils utilisent le moteur
+`heuristic` ou des faux. Le job « IA réelle (OpenRouter) » est le seul appel réseau, et `pnpm sim eval`
+reste l'évaluation locale des scénarios.
 
 ## 8. Conventions de code
 
@@ -121,7 +123,7 @@ Les tests ne doivent **jamais** appeler un vrai fournisseur d'IA (coût, flakine
 - Fichiers < ~300 lignes ; une fonction = une responsabilité ; pas de logique métier dans les composants React
   (elle va dans `domain` ou dans un hook).
 - Dates : ISO 8601 avec fuseau. Heure locale du service via `rules/time.ts` (jamais `new Date().getHours()`).
-- Pas de nouvelle dépendance sans justification dans la PR. Côté mobile : `npx expo install <pkg>`.
+- Pas de nouvelle dépendance sans justification dans la PR.
 
 ## 9. Design (résumé, détail dans `docs/DESIGN.md`)
 
@@ -137,5 +139,4 @@ promesses marketing (« révolutionnaire », « boostez »). Animer uniquement u
 - Avant de dire « fini » : `pnpm check` doit passer. Si tu touches l'UI : `pnpm test:e2e`.
 - Ne modifie pas les lignes rouges (§2) ni ce fichier sans demande explicite.
 - Ne touche jamais à `.env`, aux clés, ni aux dossiers `ios/` `android/` (générés).
-- Expo change vite : vérifie l'API dans la doc versionnée (`expo` v58) au lieu de te fier à ta mémoire.
 - Préfère modifier une règle pure + son test plutôt que d'ajouter de la logique dans un écran.
