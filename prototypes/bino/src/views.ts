@@ -272,8 +272,13 @@ export function vPatientPopup(S: Ward, U: Ui, examples: Example[]): string {
   </div>`;
 }
 
-export const vDone = (title = 'Compte rendu fait', status = ''): string =>
-  `<div class="done-wrap done-note"><button type="button" class="done-backdrop" data-act="closeDone" aria-label="Fermer"></button><div class="done-card" role="dialog" aria-modal="true" aria-labelledby="done-t"><button type="button" class="icon-btn done-x" data-act="closeDone" aria-label="Fermer">${ic('x', 22)}</button><img class="done-bino" id="done-bino" src="assets/bino/concentre-bust.png" width="120" height="108" alt=""><div class="done-t" id="done-t">${esc(title)}</div><p class="done-status" id="save-status">${esc(status)}</p><button type="button" class="btn sec sm done-go" data-act="seeTransmissions">Voir Mes CR</button></div></div>`;
+const waitingDots =
+  '<span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>';
+
+export const vDone = (title = 'Compte rendu fait', status = ''): string => {
+  const line = status === 'Rangement en cours.' ? `Rangement en cours${waitingDots}` : esc(status);
+  return `<div class="done-wrap done-note"><button type="button" class="done-backdrop" data-act="closeDone" aria-label="Fermer"></button><div class="done-card" role="dialog" aria-modal="true" aria-labelledby="done-t"><button type="button" class="icon-btn done-x" data-act="closeDone" aria-label="Fermer">${ic('x', 22)}</button><img class="done-bino" id="done-bino" src="assets/bino/concentre-bust.png" width="120" height="108" alt=""><div class="done-t" id="done-t">${esc(title)}</div><p class="done-status" id="save-status">${line}</p><button type="button" class="btn sec sm done-go" data-act="seeTransmissions">Voir Mes CR</button></div></div>`;
+};
 
 export const vShiftAsk = (): string =>
   `<div class="done-wrap" data-act="cancelShift"><div class="done-card shift-ask" role="dialog" aria-modal="true" aria-labelledby="shift-t"><img class="shift-mascot" src="assets/bino/endormi-bust.png" width="142" height="128" alt=""><div class="done-t" id="shift-t">Valider la transmission ?</div><div class="shift-actions"><button type="button" class="btn sec" data-act="cancelShift">Annuler</button><button type="button" class="btn" data-act="confirmShift">Confirmer</button></div></div></div>`;

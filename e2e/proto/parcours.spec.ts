@@ -76,7 +76,7 @@ test('Mes CR montre le compte rendu dès la validation', async ({ page }) => {
     await route.continue();
   });
   await page.getByRole('button', { name: 'Valider' }).click();
-  await expect(page.getByText('Rangement en cours.')).toBeVisible();
+  await expect(page.getByText('Rangement en cours')).toBeVisible();
   await page.getByRole('button', { name: 'Transmissions' }).click();
   await expect(page.getByText(/bino 9021/)).toBeVisible();
   release();
